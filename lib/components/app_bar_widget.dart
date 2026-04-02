@@ -22,7 +22,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
         return Container(
           height: 80,
           padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 40),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: ConstantsLibrary.clPearlPrimaryColor,
           ),
           child: Row(
@@ -67,7 +67,9 @@ class _AppBarWidgetState extends State<AppBarWidget> {
           backgroundColor: ConstantsLibrary.clEucalyptusSecondaryColor,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
         ),
         child: const Text(
           'FIND US THIS WEEK',
@@ -84,13 +86,15 @@ class _AppBarWidgetState extends State<AppBarWidget> {
 
   Widget _buildDropdownMenu() {
     return PopupMenuButton<Pages>(
-      icon: Icon(
+      icon: const Icon(
         Icons.menu,
         color: ConstantsLibrary.clMidnightPrimaryColor,
         size: 28,
       ),
       offset: const Offset(0, 50),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
       color: ConstantsLibrary.clPearlPrimaryColor,
       itemBuilder: (BuildContext context) => [
         _buildMenuItem('MENU', Pages.menu),
@@ -114,8 +118,8 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                   horizontal: 20,
                   vertical: 12,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
                 ),
               ),
               child: const Text(
@@ -191,20 +195,23 @@ class _AnimatedNavItem extends StatefulWidget {
 }
 
 class _AnimatedNavItemState extends State<_AnimatedNavItem> {
+  bool _isHovered = false;
+
   @override
   Widget build(BuildContext context) {
     final isSelected = widget.bloc.selectedPage == widget.page;
-    final isHovered = widget.bloc.isPageHovered(widget.page);
-    final showUnderline = isSelected || isHovered;
+    final showUnderline = isSelected || _isHovered;
 
     return MouseRegion(
       onEnter: (_) {
-        widget.bloc.onPageHovered(widget.page);
-        setState(() {});
+        setState(() {
+          _isHovered = true;
+        });
       },
       onExit: (_) {
-        widget.bloc.onPageHovered(null);
-        setState(() {});
+        setState(() {
+          _isHovered = false;
+        });
       },
       cursor: SystemMouseCursors.click,
       child: InkWell(

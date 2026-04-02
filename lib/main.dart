@@ -38,17 +38,22 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   Pages _currentPage = Pages.home;
-  AppBarBloc? _appBarBloc;
+  late final AppBarBloc _appBarBloc;
+  late final ContactBloc _contactBloc;
+  late final BottomBarBloc _bottomBarBloc;
 
-  AppBarBloc get appBarBloc {
-    _appBarBloc ??= AppBarBloc(_currentPage, onNavigate: _handleNavigation);
-    return _appBarBloc!;
+  @override
+  void initState() {
+    super.initState();
+    _appBarBloc = AppBarBloc(_currentPage, onNavigate: _handleNavigation);
+    _contactBloc = ContactBloc();
+    _bottomBarBloc = BottomBarBloc();
   }
 
   void _handleNavigation(Pages page) {
     setState(() {
       _currentPage = page;
-      appBarBloc.selectedPage = page;
+      _appBarBloc.selectedPage = page;
     });
   }
 
@@ -58,7 +63,7 @@ class _MainScreenState extends State<MainScreen> {
         return HomepageWidget(availableHeight: constraints.maxHeight);
       case Pages.contact:
         return ContactWidget(
-          bloc: ContactBloc(),
+          bloc: _contactBloc,
           availableHeight: constraints.maxHeight,
         );
       case Pages.menu:
@@ -76,7 +81,7 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: ConstantsLibrary.clPearlPrimaryColor,
       body: Column(
         children: [
-          AppBarWidget(bloc: appBarBloc),
+          AppBarWidget(bloc: _appBarBloc),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -88,7 +93,7 @@ class _MainScreenState extends State<MainScreen> {
                     child: Column(
                       children: [
                         _getPageContent(constraints),
-                        BottomBarWidget(bloc: BottomBarBloc()),
+                        BottomBarWidget(bloc: _bottomBarBloc),
                       ],
                     ),
                   ),

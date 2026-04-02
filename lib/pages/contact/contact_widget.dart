@@ -117,8 +117,8 @@ class _ContactWidgetState extends State<ContactWidget> {
                 backgroundColor: ConstantsLibrary.clEucalyptusSecondaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
                 ),
               ),
               child: Text(
@@ -153,7 +153,7 @@ class _ContactWidgetState extends State<ContactWidget> {
         filled: true,
         fillColor: ConstantsLibrary.clWhiteColor,
         border: const OutlineInputBorder(),
-        focusedBorder: OutlineInputBorder(
+        focusedBorder: const OutlineInputBorder(
           borderSide: BorderSide(
             color: ConstantsLibrary.clMidnightPrimaryColor,
             width: 2,
@@ -181,7 +181,9 @@ class _ContactWidgetState extends State<ContactWidget> {
       constraints: BoxConstraints(minHeight: minHeight),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-        decoration: BoxDecoration(color: ConstantsLibrary.clPearlPrimaryColor),
+        decoration: const BoxDecoration(
+          color: ConstantsLibrary.clPearlPrimaryColor,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = ConstantsLibrary.isMobile(constraints);

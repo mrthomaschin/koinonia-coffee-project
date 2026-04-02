@@ -7,59 +7,80 @@ class HomepageWidget extends StatelessWidget {
 
   final double availableHeight;
 
+  static const _koinoniaTextStyle = TextStyle(
+    fontFamily: ConstantsLibrary.clSecondaryFont,
+    fontSize: 24,
+    color: ConstantsLibrary.clMidnightPrimaryColor,
+    fontStyle: FontStyle.italic,
+    letterSpacing: 1,
+  );
+
+  static const _descriptionTextStyle = TextStyle(
+    fontFamily: ConstantsLibrary.clSecondaryFont,
+    fontSize: 16,
+    color: ConstantsLibrary.clMidnightPrimaryColor,
+    letterSpacing: 1,
+  );
+
   @override
   Widget build(BuildContext context) {
     final heroHeight = availableHeight - ConstantsLibrary.clBottomBarHeight;
 
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          height: heroHeight,
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/images/DSC_0532.JPEG'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = ConstantsLibrary.isMobile(constraints);
-
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        ConstantsLibrary.clLogoMark,
-                        height: isMobile ? 60 : 80,
-                        colorFilter: const ColorFilter.mode(
-                          ConstantsLibrary.clPearlPrimaryColor,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Cultivating community, one cup at a time.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: ConstantsLibrary.clPrimaryFont,
-                          fontSize: isMobile ? 28 : 50,
-                          color: ConstantsLibrary.clPearlPrimaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
+        RepaintBoundary(
+          child: Container(
+            width: double.infinity,
+            height: heroHeight,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: ResizeImage(
+                  AssetImage('assets/images/DSC_0532.JPEG'),
+                  width: 1920,
+                  height: 1080,
                 ),
-              );
-            },
+                fit: BoxFit.cover,
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = ConstantsLibrary.isMobile(constraints);
+
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          ConstantsLibrary.clLogoMark,
+                          height: isMobile ? 60 : 80,
+                          colorFilter: const ColorFilter.mode(
+                            ConstantsLibrary.clPearlPrimaryColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Cultivating community, one cup at a time.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: ConstantsLibrary.clPrimaryFont,
+                            fontSize: isMobile ? 28 : 50,
+                            color: ConstantsLibrary.clPearlPrimaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
         Container(
           padding: const EdgeInsets.all(40),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: ConstantsLibrary.clPearlPrimaryColor,
           ),
           child: Center(
@@ -68,27 +89,16 @@ class HomepageWidget extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
+                  const Text(
                     '"Koinonia" (κοινωνία) [koy-nohn-ee\'-ah]: (n.) communion, fellowship',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: ConstantsLibrary.clSecondaryFont,
-                      fontSize: 24,
-                      color: ConstantsLibrary.clMidnightPrimaryColor,
-                      fontStyle: FontStyle.italic,
-                      letterSpacing: 1,
-                    ),
+                    style: _koinoniaTextStyle,
                   ),
                   const SizedBox(height: 20),
-                  Text(
+                  const Text(
                     'Koinonia Coffee is a community-driven coffee shop that sources directly from smallholder farmers in Central America and East Africa. We believe in building sustainable relationships with our farmers and creating a space where people can come together over great coffee.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: ConstantsLibrary.clSecondaryFont,
-                      fontSize: 16,
-                      color: ConstantsLibrary.clMidnightPrimaryColor,
-                      letterSpacing: 1,
-                    ),
+                    style: _descriptionTextStyle,
                   ),
                 ],
               ),

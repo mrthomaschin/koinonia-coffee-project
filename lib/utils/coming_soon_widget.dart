@@ -15,7 +15,9 @@ class ComingSoonWidget extends StatelessWidget {
       constraints: BoxConstraints(minHeight: minHeight),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-        decoration: BoxDecoration(color: ConstantsLibrary.clPearlPrimaryColor),
+        decoration: const BoxDecoration(
+          color: ConstantsLibrary.clPearlPrimaryColor,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

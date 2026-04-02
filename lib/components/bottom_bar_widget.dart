@@ -74,7 +74,7 @@ class BottomBarWidget extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.email_outlined,
                 size: 20,
                 color: ConstantsLibrary.clMidnightPrimaryColor,
@@ -120,7 +120,7 @@ class BottomBarWidget extends StatelessWidget {
 
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: ConstantsLibrary.clPearlPrimaryColor,
               ),
               child: isMobile
@@ -156,7 +156,7 @@ class BottomBarWidget extends StatelessWidget {
         ),
         Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: ConstantsLibrary.clMidnightPrimaryColor,
           ),
           child: Center(
