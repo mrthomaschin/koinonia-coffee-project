@@ -141,42 +141,101 @@ class _AppBarWidgetState extends State<AppBarWidget> {
     final isSelected = widget.bloc.selectedPage == page;
     return PopupMenuItem<Pages>(
       value: page,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: ConstantsLibrary.clSlugFont,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: ConstantsLibrary.clMidnightPrimaryColor,
-          letterSpacing: 1,
-          decoration: isSelected
-              ? TextDecoration.underline
-              : TextDecoration.none,
-          decorationColor: ConstantsLibrary.clMidnightPrimaryColor,
-          decorationThickness: 2.5,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: ConstantsLibrary.clSlugFont,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: ConstantsLibrary.clMidnightPrimaryColor,
+              letterSpacing: 1,
+            ),
+          ),
+          if (isSelected) ...[
+            const SizedBox(height: 4),
+            Container(
+              height: 2,
+              width: 40,
+              decoration: const BoxDecoration(
+                color: ConstantsLibrary.clMidnightPrimaryColor,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
 
   Widget _buildNavItem(String label, Pages page) {
-    final isSelected = widget.bloc.selectedPage == page;
-    return InkWell(
-      onTap: () => widget.bloc.onPageSelected(page),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: ConstantsLibrary.clSlugFont,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: ConstantsLibrary.clMidnightPrimaryColor,
-          letterSpacing: 1,
-          decoration: isSelected
-              ? TextDecoration.underline
-              : TextDecoration.none,
-          decorationColor: ConstantsLibrary.clMidnightPrimaryColor,
-          decorationThickness: 2.5,
-          decorationStyle: TextDecorationStyle.solid,
+    return _AnimatedNavItem(label: label, page: page, bloc: widget.bloc);
+  }
+}
+
+class _AnimatedNavItem extends StatefulWidget {
+  const _AnimatedNavItem({
+    required this.label,
+    required this.page,
+    required this.bloc,
+  });
+
+  final String label;
+  final Pages page;
+  final AppBarBloc bloc;
+
+  @override
+  State<_AnimatedNavItem> createState() => _AnimatedNavItemState();
+}
+
+class _AnimatedNavItemState extends State<_AnimatedNavItem> {
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = widget.bloc.selectedPage == widget.page;
+    final isHovered = widget.bloc.isPageHovered(widget.page);
+    final showUnderline = isSelected || isHovered;
+
+    return MouseRegion(
+      onEnter: (_) {
+        widget.bloc.onPageHovered(widget.page);
+        setState(() {});
+      },
+      onExit: (_) {
+        widget.bloc.onPageHovered(null);
+        setState(() {});
+      },
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        onTap: () => widget.bloc.onPageSelected(widget.page),
+        hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.label,
+              style: const TextStyle(
+                fontFamily: ConstantsLibrary.clSlugFont,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: ConstantsLibrary.clMidnightPrimaryColor,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 3),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              height: 2,
+              width: showUnderline ? 40 : 0,
+              decoration: const BoxDecoration(
+                color: ConstantsLibrary.clMidnightPrimaryColor,
+              ),
+            ),
+          ],
         ),
       ),
     );
