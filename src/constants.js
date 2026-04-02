@@ -13,6 +13,7 @@ export const ASSETS = {
   primary: '/assets/logos/koinoniacp_primary-black.svg',
   secondary: '/assets/logos/koinoniacp_secondary-black.svg',
   instagramIcon: '/assets/icons/icons8-instagram-96.png',
+  emailIcon: '/assets/icons/icons8-mail-50.svg',
   heroImage: '/assets/images/DSC_0532.jpeg'
 };
 

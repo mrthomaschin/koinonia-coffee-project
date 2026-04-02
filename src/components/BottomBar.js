@@ -37,7 +37,11 @@ const BottomBar = () => {
         <div className="bottom-bar-section">
           <h3 className="section-title">CONTACT US</h3>
           <div className="section-link" onClick={openEmail}>
-            <span className="email-icon">✉</span>
+            <img
+              src={ASSETS.emailIcon}
+              alt="Email"
+              className="email-icon"
+            />
             <span className="link-text">hello@koinoniacoffeeproject.com</span>
           </div>
         </div>
