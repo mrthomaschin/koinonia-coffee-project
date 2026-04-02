@@ -13,7 +13,7 @@ class BottomBarWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'FOLLOW ALONG',
           style: TextStyle(
             fontFamily: ConstantsLibrary.clSlugFont,
@@ -36,7 +36,7 @@ class BottomBarWidget extends StatelessWidget {
                 color: ConstantsLibrary.clMidnightPrimaryColor,
               ),
               const SizedBox(width: 8),
-              Flexible(
+              const Flexible(
                 child: Text(
                   'Instagram',
                   style: TextStyle(
@@ -58,7 +58,7 @@ class BottomBarWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'CONTACT US',
           style: TextStyle(
             fontFamily: ConstantsLibrary.clSlugFont,
@@ -80,7 +80,7 @@ class BottomBarWidget extends StatelessWidget {
                 color: ConstantsLibrary.clMidnightPrimaryColor,
               ),
               const SizedBox(width: 8),
-              Flexible(
+              const Flexible(
                 child: Text(
                   'hello@koinoniacoffeeproject.com',
                   style: TextStyle(
@@ -99,12 +99,14 @@ class BottomBarWidget extends StatelessWidget {
   }
 
   Widget _buildLogo() {
-    return SvgPicture.asset(
-      ConstantsLibrary.clLogoMark,
-      height: 50,
-      colorFilter: const ColorFilter.mode(
-        ConstantsLibrary.clMarinaPrimaryColor,
-        BlendMode.srcIn,
+    return RepaintBoundary(
+      child: SvgPicture.asset(
+        ConstantsLibrary.clLogoMark,
+        height: 50,
+        colorFilter: const ColorFilter.mode(
+          ConstantsLibrary.clMarinaPrimaryColor,
+          BlendMode.srcIn,
+        ),
       ),
     );
   }
@@ -114,9 +116,10 @@ class BottomBarWidget extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = ConstantsLibrary.isMobile(constraints);
+        Builder(
+          builder: (context) {
+            final screenWidth = MediaQuery.sizeOf(context).width;
+            final isMobile = screenWidth < 768;
 
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
@@ -159,7 +162,7 @@ class BottomBarWidget extends StatelessWidget {
           decoration: const BoxDecoration(
             color: ConstantsLibrary.clMidnightPrimaryColor,
           ),
-          child: Center(
+          child: const Center(
             child: Text(
               '© 2026 KOINONIA COFFEE PROJECT | ALL RIGHTS RESERVED',
               textAlign: TextAlign.center,

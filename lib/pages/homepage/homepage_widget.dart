@@ -24,7 +24,9 @@ class HomepageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heroHeight = availableHeight - ConstantsLibrary.clBottomBarHeight;
+    final heroHeight = availableHeight;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isMobile = screenWidth < 768;
 
     return Column(
       children: [
@@ -34,47 +36,39 @@ class HomepageWidget extends StatelessWidget {
             height: heroHeight,
             decoration: BoxDecoration(
               image: DecorationImage(
-                image: ResizeImage(
-                  AssetImage('assets/images/DSC_0532.JPEG'),
-                  width: 1920,
-                  height: 1080,
-                ),
+                image: AssetImage('assets/images/DSC_0532.jpeg'),
                 fit: BoxFit.cover,
               ),
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isMobile = ConstantsLibrary.isMobile(constraints);
-
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          ConstantsLibrary.clLogoMark,
-                          height: isMobile ? 60 : 80,
-                          colorFilter: const ColorFilter.mode(
-                            ConstantsLibrary.clPearlPrimaryColor,
-                            BlendMode.srcIn,
-                          ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    RepaintBoundary(
+                      child: SvgPicture.asset(
+                        ConstantsLibrary.clLogoMark,
+                        height: isMobile ? 60 : 80,
+                        colorFilter: const ColorFilter.mode(
+                          ConstantsLibrary.clPearlPrimaryColor,
+                          BlendMode.srcIn,
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Cultivating community, one cup at a time.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: ConstantsLibrary.clPrimaryFont,
-                            fontSize: isMobile ? 28 : 50,
-                            color: ConstantsLibrary.clPearlPrimaryColor,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                    const SizedBox(height: 20),
+                    Text(
+                      'Cultivating community, one cup at a time.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: ConstantsLibrary.clPrimaryFont,
+                        fontSize: isMobile ? 28 : 50,
+                        color: ConstantsLibrary.clPearlPrimaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

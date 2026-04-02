@@ -95,7 +95,7 @@ flutter:
         - asset: assets/fonts/HedvigLettersSerif_18pt-Regular.ttf
     - family: ShipporiAntiqueB1
       fonts:
-        - asset: assets/fonts/ShipporiAntiqueB1-Regular.ttf
+        - asset: assets/fonts/ShipporiAntiqueB1-subset.ttf
     - family: Besley-Italic
       fonts:
         - asset: assets/fonts/Besley-Italic.ttf

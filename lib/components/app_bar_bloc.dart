@@ -1,22 +1,25 @@
+import 'package:flutter/foundation.dart';
+
 enum Pages { home, menu, about, blog, gallery, events, contact }
 
 class AppBarBloc {
-  AppBarBloc(this.selectedPage, {this.onNavigate});
+  AppBarBloc(Pages initialPage, {this.onNavigate})
+    : _selectedPage = ValueNotifier<Pages>(initialPage);
 
-  Pages selectedPage;
+  final ValueNotifier<Pages> _selectedPage;
   final Function(Pages)? onNavigate;
-  Pages? hoveredPage;
+
+  Pages get selectedPage => _selectedPage.value;
+  set selectedPage(Pages page) => _selectedPage.value = page;
+
+  ValueListenable<Pages> get selectedPageListenable => _selectedPage;
 
   void onPageSelected(Pages page) {
-    selectedPage = page;
+    _selectedPage.value = page;
     onNavigate?.call(page);
   }
 
-  void onPageHovered(Pages? page) {
-    hoveredPage = page;
-  }
-
-  bool isPageHovered(Pages page) {
-    return hoveredPage == page;
+  void dispose() {
+    _selectedPage.dispose();
   }
 }

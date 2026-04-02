@@ -9,7 +9,7 @@ class ComingSoonWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final minHeight = availableHeight - ConstantsLibrary.clBottomBarHeight;
+    final minHeight = availableHeight;
 
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
@@ -30,7 +30,7 @@ class ComingSoonWidget extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               'Coming Soon!',
               style: TextStyle(
                 fontFamily: ConstantsLibrary.clPrimaryFont,

@@ -15,35 +15,32 @@ class AppBarWidget extends StatefulWidget {
 class _AppBarWidgetState extends State<AppBarWidget> {
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 1024;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isMobile = screenWidth < 1024;
 
-        return Container(
-          height: 80,
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 40),
-          decoration: const BoxDecoration(
-            color: ConstantsLibrary.clPearlPrimaryColor,
-          ),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () => widget.bloc.onPageSelected(Pages.home),
-                child: SvgPicture.asset(
-                  ConstantsLibrary.clPrimary,
-                  height: isMobile ? 40 : 50,
-                  colorFilter: const ColorFilter.mode(
-                    ConstantsLibrary.clMarinaPrimaryColor,
-                    BlendMode.srcIn,
-                  ),
-                ),
+    return Container(
+      height: 80,
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 40),
+      decoration: const BoxDecoration(
+        color: ConstantsLibrary.clPearlPrimaryColor,
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => widget.bloc.onPageSelected(Pages.home),
+            child: SvgPicture.asset(
+              ConstantsLibrary.clPrimary,
+              height: isMobile ? 40 : 50,
+              colorFilter: const ColorFilter.mode(
+                ConstantsLibrary.clMarinaPrimaryColor,
+                BlendMode.srcIn,
               ),
-              const Spacer(),
-              if (isMobile) _buildDropdownMenu() else ..._buildDesktopNav(),
-            ],
+            ),
           ),
-        );
-      },
+          const Spacer(),
+          if (isMobile) _buildDropdownMenu() else ..._buildDesktopNav(),
+        ],
+      ),
     );
   }
 
@@ -85,97 +82,107 @@ class _AppBarWidgetState extends State<AppBarWidget> {
   }
 
   Widget _buildDropdownMenu() {
-    return PopupMenuButton<Pages>(
-      icon: const Icon(
-        Icons.menu,
-        color: ConstantsLibrary.clMidnightPrimaryColor,
-        size: 28,
-      ),
-      offset: const Offset(0, 50),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      color: ConstantsLibrary.clPearlPrimaryColor,
-      itemBuilder: (BuildContext context) => [
-        _buildMenuItem('MENU', Pages.menu),
-        _buildMenuItem('ABOUT', Pages.about),
-        _buildMenuItem('BLOG', Pages.blog),
-        _buildMenuItem('GALLERY', Pages.gallery),
-        _buildMenuItem('EVENTS', Pages.events),
-        _buildMenuItem('CONTACT', Pages.contact),
-        PopupMenuItem<Pages>(
-          enabled: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ConstantsLibrary.clEucalyptusSecondaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+    return RepaintBoundary(
+      child: PopupMenuButton<Pages>(
+        icon: const Icon(
+          Icons.menu,
+          color: ConstantsLibrary.clMidnightPrimaryColor,
+          size: 28,
+        ),
+        offset: const Offset(0, 50),
+        elevation: 2,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        color: ConstantsLibrary.clPearlPrimaryColor,
+        itemBuilder: (BuildContext context) => [
+          _buildMenuItem('MENU', Pages.menu),
+          _buildMenuItem('ABOUT', Pages.about),
+          _buildMenuItem('BLOG', Pages.blog),
+          _buildMenuItem('GALLERY', Pages.gallery),
+          _buildMenuItem('EVENTS', Pages.events),
+          _buildMenuItem('CONTACT', Pages.contact),
+          PopupMenuItem<Pages>(
+            enabled: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ConstantsLibrary.clEucalyptusSecondaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
                 ),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                ),
-              ),
-              child: const Text(
-                'FIND US THIS WEEK',
-                style: TextStyle(
-                  fontFamily: ConstantsLibrary.clSlugFont,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 1,
+                child: const Text(
+                  'FIND US THIS WEEK',
+                  style: TextStyle(
+                    fontFamily: ConstantsLibrary.clSlugFont,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
-      onSelected: (Pages page) {
-        widget.bloc.onPageSelected(page);
-      },
+        ],
+        onSelected: (Pages page) {
+          widget.bloc.onPageSelected(page);
+        },
+      ),
     );
   }
 
   PopupMenuItem<Pages> _buildMenuItem(String label, Pages page) {
-    final isSelected = widget.bloc.selectedPage == page;
     return PopupMenuItem<Pages>(
       value: page,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: ConstantsLibrary.clSlugFont,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: ConstantsLibrary.clMidnightPrimaryColor,
-              letterSpacing: 1,
-            ),
-          ),
-          if (isSelected) ...[
-            const SizedBox(height: 4),
-            Container(
-              height: 2,
-              width: 40,
-              decoration: const BoxDecoration(
-                color: ConstantsLibrary.clMidnightPrimaryColor,
+      child: ValueListenableBuilder<Pages>(
+        valueListenable: widget.bloc.selectedPageListenable,
+        builder: (context, selectedPage, child) {
+          final isSelected = selectedPage == page;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: ConstantsLibrary.clSlugFont,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: ConstantsLibrary.clMidnightPrimaryColor,
+                  letterSpacing: 1,
+                ),
               ),
-            ),
-          ],
-        ],
+              if (isSelected) ...[
+                const SizedBox(height: 4),
+                Container(
+                  height: 2,
+                  width: 40,
+                  decoration: const BoxDecoration(
+                    color: ConstantsLibrary.clMidnightPrimaryColor,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildNavItem(String label, Pages page) {
-    return _AnimatedNavItem(label: label, page: page, bloc: widget.bloc);
+    return RepaintBoundary(
+      child: _AnimatedNavItem(label: label, page: page, bloc: widget.bloc),
+    );
   }
 }
 
@@ -199,52 +206,61 @@ class _AnimatedNavItemState extends State<_AnimatedNavItem> {
 
   @override
   Widget build(BuildContext context) {
-    final isSelected = widget.bloc.selectedPage == widget.page;
-    final showUnderline = isSelected || _isHovered;
+    return ValueListenableBuilder<Pages>(
+      valueListenable: widget.bloc.selectedPageListenable,
+      builder: (context, selectedPage, child) {
+        final isSelected = selectedPage == widget.page;
+        final showUnderline = isSelected || _isHovered;
 
-    return MouseRegion(
-      onEnter: (_) {
-        setState(() {
-          _isHovered = true;
-        });
-      },
-      onExit: (_) {
-        setState(() {
-          _isHovered = false;
-        });
-      },
-      cursor: SystemMouseCursors.click,
-      child: InkWell(
-        onTap: () => widget.bloc.onPageSelected(widget.page),
-        hoverColor: Colors.transparent,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.label,
-              style: const TextStyle(
-                fontFamily: ConstantsLibrary.clSlugFont,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: ConstantsLibrary.clMidnightPrimaryColor,
-                letterSpacing: 1,
-              ),
+        return MouseRegion(
+          onEnter: (_) {
+            if (!_isHovered) {
+              setState(() {
+                _isHovered = true;
+              });
+            }
+          },
+          onExit: (_) {
+            if (_isHovered) {
+              setState(() {
+                _isHovered = false;
+              });
+            }
+          },
+          cursor: SystemMouseCursors.click,
+          child: InkWell(
+            onTap: () => widget.bloc.onPageSelected(widget.page),
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontFamily: ConstantsLibrary.clSlugFont,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ConstantsLibrary.clMidnightPrimaryColor,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  height: 2,
+                  width: showUnderline ? 40 : 0,
+                  decoration: const BoxDecoration(
+                    color: ConstantsLibrary.clMidnightPrimaryColor,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 3),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              height: 2,
-              width: showUnderline ? 40 : 0,
-              decoration: const BoxDecoration(
-                color: ConstantsLibrary.clMidnightPrimaryColor,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

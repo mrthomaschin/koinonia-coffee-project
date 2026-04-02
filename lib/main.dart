@@ -39,39 +39,58 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   Pages _currentPage = Pages.home;
   late final AppBarBloc _appBarBloc;
-  late final ContactBloc _contactBloc;
+  ContactBloc? _contactBloc;
   late final BottomBarBloc _bottomBarBloc;
 
   @override
   void initState() {
     super.initState();
     _appBarBloc = AppBarBloc(_currentPage, onNavigate: _handleNavigation);
-    _contactBloc = ContactBloc();
     _bottomBarBloc = BottomBarBloc();
   }
 
-  void _handleNavigation(Pages page) {
-    setState(() {
-      _currentPage = page;
-      _appBarBloc.selectedPage = page;
-    });
+  @override
+  void dispose() {
+    _appBarBloc.dispose();
+    _contactBloc?.dispose();
+    super.dispose();
   }
 
-  Widget _getPageContent(BoxConstraints constraints) {
+  ContactBloc _getOrCreateContactBloc() {
+    _contactBloc ??= ContactBloc();
+    return _contactBloc!;
+  }
+
+  void _handleNavigation(Pages page) {
+    if (_currentPage != page) {
+      setState(() {
+        _currentPage = page;
+      });
+      _appBarBloc.selectedPage = page;
+    }
+  }
+
+  Widget _getPageContent(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final availableHeight =
+        mq.size.height -
+        ConstantsLibrary.clBottomBarHeight -
+        ConstantsLibrary.clAppBarHeight;
+
     switch (_currentPage) {
       case Pages.home:
-        return HomepageWidget(availableHeight: constraints.maxHeight);
+        return HomepageWidget(availableHeight: availableHeight);
       case Pages.contact:
         return ContactWidget(
-          bloc: _contactBloc,
-          availableHeight: constraints.maxHeight,
+          bloc: _getOrCreateContactBloc(),
+          availableHeight: availableHeight,
         );
       case Pages.menu:
       case Pages.about:
       case Pages.blog:
       case Pages.gallery:
       case Pages.events:
-        return ComingSoonWidget(availableHeight: constraints.maxHeight);
+        return ComingSoonWidget(availableHeight: availableHeight);
     }
   }
 
@@ -81,24 +100,15 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: ConstantsLibrary.clPearlPrimaryColor,
       body: Column(
         children: [
-          AppBarWidget(bloc: _appBarBloc),
+          RepaintBoundary(child: AppBarWidget(bloc: _appBarBloc)),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Column(
-                      children: [
-                        _getPageContent(constraints),
-                        BottomBarWidget(bloc: _bottomBarBloc),
-                      ],
-                    ),
-                  ),
-                );
-              },
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _getPageContent(context),
+                  RepaintBoundary(child: BottomBarWidget(bloc: _bottomBarBloc)),
+                ],
+              ),
             ),
           ),
         ],

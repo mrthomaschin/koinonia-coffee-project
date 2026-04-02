@@ -22,7 +22,7 @@ class _ContactWidgetState extends State<ContactWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        Text(
+        const Text(
           'Contact us!',
           style: TextStyle(
             fontFamily: ConstantsLibrary.clPrimaryFont,
@@ -32,7 +32,7 @@ class _ContactWidgetState extends State<ContactWidget> {
           ),
         ),
         const SizedBox(height: 20),
-        Text(
+        const Text(
           'We\'d love to hear from you! Whether you have a question, feedback, or just want to say hello, feel free to reach out.',
           style: TextStyle(
             fontFamily: ConstantsLibrary.clBodyFont,
@@ -41,7 +41,7 @@ class _ContactWidgetState extends State<ContactWidget> {
           ),
         ),
         const SizedBox(height: 24),
-        Text(
+        const Text(
           'Email:',
           style: TextStyle(
             fontFamily: ConstantsLibrary.clBodyFont,
@@ -49,7 +49,7 @@ class _ContactWidgetState extends State<ContactWidget> {
             color: ConstantsLibrary.clMidnightPrimaryColor,
           ),
         ),
-        Text(
+        const Text(
           'hello@koinoniacoffeeproject.com',
           style: TextStyle(
             fontFamily: ConstantsLibrary.clBodyFont,
@@ -121,7 +121,7 @@ class _ContactWidgetState extends State<ContactWidget> {
                   borderRadius: BorderRadius.all(Radius.circular(8)),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'SEND MESSAGE',
                 style: TextStyle(
                   fontFamily: ConstantsLibrary.clSlugFont,
@@ -174,8 +174,7 @@ class _ContactWidgetState extends State<ContactWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final minHeight =
-        widget.availableHeight - ConstantsLibrary.clBottomBarHeight;
+    final minHeight = widget.availableHeight;
 
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
@@ -184,9 +183,10 @@ class _ContactWidgetState extends State<ContactWidget> {
         decoration: const BoxDecoration(
           color: ConstantsLibrary.clPearlPrimaryColor,
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = ConstantsLibrary.isMobile(constraints);
+        child: Builder(
+          builder: (context) {
+            final screenWidth = MediaQuery.sizeOf(context).width;
+            final isMobile = screenWidth < 768;
 
             return isMobile
                 ? Column(
