@@ -38,25 +38,35 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   Pages _currentPage = Pages.home;
+  AppBarBloc? _appBarBloc;
+
+  AppBarBloc get appBarBloc {
+    _appBarBloc ??= AppBarBloc(_currentPage, onNavigate: _handleNavigation);
+    return _appBarBloc!;
+  }
 
   void _handleNavigation(Pages page) {
     setState(() {
       _currentPage = page;
+      appBarBloc.selectedPage = page;
     });
   }
 
-  Widget _getPageContent() {
+  Widget _getPageContent(BoxConstraints constraints) {
     switch (_currentPage) {
       case Pages.home:
-        return const HomepageWidget();
+        return HomepageWidget(availableHeight: constraints.maxHeight);
       case Pages.contact:
-        return ContactWidget(bloc: ContactBloc());
+        return ContactWidget(
+          bloc: ContactBloc(),
+          availableHeight: constraints.maxHeight,
+        );
       case Pages.menu:
       case Pages.about:
       case Pages.blog:
       case Pages.gallery:
       case Pages.events:
-        return const ComingSoonWidget();
+        return ComingSoonWidget(availableHeight: constraints.maxHeight);
     }
   }
 
@@ -66,24 +76,24 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: ConstantsLibrary.clPearlPrimaryColor,
       body: Column(
         children: [
-          AppBarWidget(
-            bloc: AppBarBloc(_currentPage, onNavigate: _handleNavigation),
-          ),
+          AppBarWidget(bloc: appBarBloc),
           Expanded(
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight:
-                      MediaQuery.of(context).size.height -
-                      ConstantsLibrary.clAppBarHeight,
-                ),
-                child: Column(
-                  children: [
-                    _getPageContent(),
-                    BottomBarWidget(bloc: BottomBarBloc()),
-                  ],
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Column(
+                      children: [
+                        _getPageContent(constraints),
+                        BottomBarWidget(bloc: BottomBarBloc()),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

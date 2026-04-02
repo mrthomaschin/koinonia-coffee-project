@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:koinonia_coffee_project/constants_library.dart';
-import 'package:koinonia_coffee_project/utils/helpers.dart';
 
 class ComingSoonWidget extends StatelessWidget {
-  const ComingSoonWidget({super.key});
+  const ComingSoonWidget({super.key, required this.availableHeight});
+
+  final double availableHeight;
 
   @override
   Widget build(BuildContext context) {
+    final minHeight = availableHeight - ConstantsLibrary.clBottomBarHeight;
+
     return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: getAvailableHeight(context)),
+      constraints: BoxConstraints(minHeight: minHeight),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
         decoration: BoxDecoration(color: ConstantsLibrary.clPearlPrimaryColor),

@@ -34,4 +34,12 @@ class ConstantsLibrary {
   // Layout Dimensions
   static const double clAppBarHeight = 80.0;
   static const double clBottomBarHeight = 140.0;
+
+  // Responsive Breakpoints
+  static const double clMobileBreakpoint = 600.0;
+
+  // Responsive Helper Methods
+  static bool isMobile(BoxConstraints constraints) {
+    return constraints.maxWidth < clMobileBreakpoint;
+  }
 }

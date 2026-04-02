@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:koinonia_coffee_project/constants_library.dart';
 
-double getAvailableHeight(BuildContext context) {
-  return MediaQuery.of(context).size.height -
+double getAvailableHeight(BoxConstraints constraints) {
+  return constraints.maxHeight -
       ConstantsLibrary.clAppBarHeight -
       ConstantsLibrary.clBottomBarHeight;
 }

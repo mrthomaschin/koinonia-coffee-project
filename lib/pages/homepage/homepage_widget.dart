@@ -1,47 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:koinonia_coffee_project/constants_library.dart';
-import 'package:koinonia_coffee_project/utils/helpers.dart';
 
 class HomepageWidget extends StatelessWidget {
-  const HomepageWidget({super.key});
+  const HomepageWidget({super.key, required this.availableHeight});
+
+  final double availableHeight;
 
   @override
   Widget build(BuildContext context) {
+    final heroHeight = availableHeight - ConstantsLibrary.clBottomBarHeight;
+
     return Column(
       children: [
         Container(
           width: double.infinity,
-          height: getAvailableHeight(context),
+          height: heroHeight,
           decoration: BoxDecoration(
             image: DecorationImage(
               image: AssetImage('assets/images/DSC_0532.JPEG'),
               fit: BoxFit.cover,
             ),
           ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SvgPicture.asset(
-                  ConstantsLibrary.clLogoMark,
-                  height: 80,
-                  colorFilter: const ColorFilter.mode(
-                    ConstantsLibrary.clPearlPrimaryColor,
-                    BlendMode.srcIn,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = ConstantsLibrary.isMobile(constraints);
+
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        ConstantsLibrary.clLogoMark,
+                        height: isMobile ? 60 : 80,
+                        colorFilter: const ColorFilter.mode(
+                          ConstantsLibrary.clPearlPrimaryColor,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Cultivating community, one cup at a time.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: ConstantsLibrary.clPrimaryFont,
+                          fontSize: isMobile ? 28 : 50,
+                          color: ConstantsLibrary.clPearlPrimaryColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Cultivating community, one cup at a time.',
-                  style: TextStyle(
-                    fontFamily: ConstantsLibrary.clPrimaryFont,
-                    fontSize: 50,
-                    color: ConstantsLibrary.clPearlPrimaryColor,
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
         Container(
