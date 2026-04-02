@@ -79,20 +79,43 @@
 
 @media (max-width: 768px) {
   .bottom-bar-content {
-    flex-direction: row;
-    align-items: center;
+    display: grid;
+    grid-template-columns: auto 1fr;
     gap: 24px;
+    padding: 24px 20px 24px 32px;
+    align-items: start;
+  }
+
+  .bottom-bar-logo {
+    height: 40px;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
   }
 
   .bottom-bar-spacer {
     display: none;
   }
 
-  .bottom-bar-section {
-    flex: 1;
+  .bottom-bar-section:first-of-type {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .bottom-bar-section:last-of-type {
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .link-text {
-    font-size: 13px;
+    font-size: 12px;
+  }
+
+  .section-title {
+    font-size: 12px;
+  }
+
+  .copyright-text {
+    font-size: 10px;
   }
 }

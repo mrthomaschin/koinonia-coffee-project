@@ -8,6 +8,7 @@ import Homepage from './pages/Homepage';
 import Contact from './pages/Contact';
 import { PAGES, LAYOUT } from './constants';
 import './App.css';
+import Events from './pages/Events';
 
 const MainContent = () => {
   const { currentPage } = useNavigation();
@@ -35,14 +36,15 @@ const MainContent = () => {
             <Contact availableHeight={availableHeight} />
           </ContactProvider>
         );
+      case PAGES.EVENTS:
+        return <Events availableHeight={availableHeight} />;
       case PAGES.MENU:
       case PAGES.ABOUT:
       case PAGES.BLOG:
       case PAGES.GALLERY:
-      case PAGES.EVENTS:
         return <ComingSoon availableHeight={availableHeight} />;
       default:
-        return <Homepage availableHeight={availableHeight} />;
+        return <ComingSoon availableHeight={availableHeight} />;
     }
   };
 
