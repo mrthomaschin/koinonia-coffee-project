@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useContact } from '../contexts/ContactContext';
+import { useContact } from '../../contexts/ContactContext';
 import './Contact.css';
 
 const TextSection = () => (
   <div className="contact-text-section">
     <h1 className="contact-title">Contact us!</h1>
     <p className="contact-description">
-      We'd love to hear from you! Whether you have a question, feedback, or just 
+      We'd love to hear from you! Whether you have a question, feedback, or just
       want to say hello, feel free to reach out.
     </p>
     <div className="contact-email-info">
@@ -106,7 +106,7 @@ const Contact = ({ availableHeight }) => {
       {isMobile ? (
         <div className="contact-mobile">
           <TextSection />
-          <FormSection 
+          <FormSection
             formData={formData}
             errors={errors}
             updateField={updateField}
@@ -119,7 +119,7 @@ const Contact = ({ availableHeight }) => {
             <TextSection />
           </div>
           <div className="contact-right">
-            <FormSection 
+            <FormSection
               formData={formData}
               errors={errors}
               updateField={updateField}

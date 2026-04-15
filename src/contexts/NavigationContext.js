@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { PAGES } from '../constants';
+import { PAGES } from '../util/constants';
 
 const NavigationContext = createContext();
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigation } from '../contexts/NavigationContext';
-import { PAGES, ASSETS, COLORS, FONTS, LAYOUT } from '../constants';
+import { PAGES, ASSETS, COLORS, FONTS, LAYOUT } from '../util/constants';
 import './AppBar.css';
 
 const AppBar = () => {
@@ -32,9 +32,9 @@ const AppBar = () => {
           onClick={() => navigateTo(PAGES.HOME)}
           style={{ cursor: 'pointer' }}
         />
-        
+
         <div className="app-bar-spacer" />
-        
+
         <nav className="app-bar-nav-desktop">
           {navItems.map(({ label, page }) => (
             <div
@@ -45,7 +45,7 @@ const AppBar = () => {
               onClick={() => handleNavClick(page)}
             >
               <span className="nav-label">{label}</span>
-              <div 
+              <div
                 className="nav-underline"
                 style={{
                   width: (currentPage === page || hoveredItem === page) ? '40px' : '0'
@@ -53,15 +53,15 @@ const AppBar = () => {
               />
             </div>
           ))}
-          
+
           <div className="app-bar-spacer" />
-          
+
           <button className="find-us-button">
             FIND US THIS WEEK
           </button>
         </nav>
 
-        <button 
+        <button
           className="app-bar-menu-button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >

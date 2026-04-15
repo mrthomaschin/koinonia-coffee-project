@@ -1,5 +1,5 @@
 import React from 'react';
-import { ASSETS, COLORS, FONTS } from '../constants';
+import { ASSETS, COLORS, FONTS } from '../util/constants';
 import './BottomBar.css';
 
 const BottomBar = () => {
@@ -19,9 +19,9 @@ const BottomBar = () => {
           alt="Koinonia Coffee Project"
           className="bottom-bar-logo"
         />
-        
+
         <div className="bottom-bar-spacer" />
-        
+
         <div className="bottom-bar-section">
           <h3 className="section-title">FOLLOW ALONG</h3>
           <div className="section-link" onClick={openInstagram}>
@@ -33,7 +33,7 @@ const BottomBar = () => {
             <span className="link-text">Instagram</span>
           </div>
         </div>
-        
+
         <div className="bottom-bar-section">
           <h3 className="section-title">CONTACT US</h3>
           <div className="section-link" onClick={openEmail}>
@@ -46,7 +46,7 @@ const BottomBar = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="bottom-bar-footer">
         <p className="copyright-text">
           © 2026 KOINONIA COFFEE PROJECT | ALL RIGHTS RESERVED

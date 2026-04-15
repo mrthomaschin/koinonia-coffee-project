@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ASSETS, COLORS, FONTS } from '../constants';
+import { ASSETS, COLORS, FONTS } from '../../util/constants';
 import './Homepage.css';
 
 const Homepage = ({ availableHeight }) => {
@@ -15,9 +15,9 @@ const Homepage = ({ availableHeight }) => {
 
   return (
     <div className="homepage">
-      <div 
+      <div
         className="hero-section"
-        style={{ 
+        style={{
           height: availableHeight,
           backgroundImage: `url(${ASSETS.heroImage})`
         }}
@@ -29,7 +29,7 @@ const Homepage = ({ availableHeight }) => {
             className="hero-logo"
             style={{ height: isMobile ? '60px' : '80px' }}
           />
-          <h1 
+          <h1
             className="hero-title"
             style={{ fontSize: isMobile ? '28px' : '50px' }}
           >
@@ -44,9 +44,9 @@ const Homepage = ({ availableHeight }) => {
             "Koinonia" (κοινωνία) [koy-nohn-ee'-ah]: (n.) communion, fellowship
           </p>
           <p className="description-text">
-            Koinonia Coffee is a community-driven coffee shop that sources directly from 
-            smallholder farmers in Central America and East Africa. We believe in building 
-            sustainable relationships with our farmers and creating a space where people 
+            Koinonia Coffee is a community-driven coffee shop that sources directly from
+            smallholder farmers in Central America and East Africa. We believe in building
+            sustainable relationships with our farmers and creating a space where people
             can come together over great coffee.
           </p>
         </div>

@@ -4,11 +4,11 @@ import { ContactProvider } from './contexts/ContactContext';
 import AppBar from './components/AppBar';
 import BottomBar from './components/BottomBar';
 import ComingSoon from './components/ComingSoon';
-import Homepage from './pages/Homepage';
-import Contact from './pages/Contact';
-import { PAGES, LAYOUT } from './constants';
+import Homepage from './pages/homepage/Homepage';
+import Contact from './pages/contact/Contact';
+import { PAGES, LAYOUT } from './util/constants';
 import './App.css';
-import Events from './pages/Events';
+import Events from './pages/events/Events';
 
 const MainContent = () => {
   const { currentPage } = useNavigation();
@@ -37,7 +37,7 @@ const MainContent = () => {
           </ContactProvider>
         );
       case PAGES.EVENTS:
-        return <Events availableHeight={availableHeight} />;
+      // return <Events availableHeight={availableHeight} />;
       case PAGES.MENU:
       case PAGES.ABOUT:
       case PAGES.BLOG:

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ASSETS } from '../constants';
+import { ASSETS } from '../util/constants';
 import './ComingSoon.css';
 
 const ComingSoon = ({ availableHeight }) => {
