@@ -33,30 +33,95 @@
 
 .description-section {
   background-color: #F8F5EB;
-  padding: 40px;
+  padding: 80px 40px;
   display: flex;
   justify-content: center;
 }
 
 .description-content {
-  max-width: 800px;
+  max-width: 900px;
+  width: 100%;
   text-align: center;
 }
 
-.koinonia-text {
-  font-family: 'Besley-Italic', serif;
-  font-size: 24px;
-  color: #2F2B39;
-  font-style: italic;
-  letter-spacing: 1px;
-  margin: 0 0 20px 0;
+.definition-container {
+  margin-bottom: 30px;
+  padding: 0 20px;
 }
 
-.description-text {
-  font-family: 'Besley-Italic', serif;
-  font-size: 16px;
+.greek-title {
+  font-family: 'GentiumBookPlus-Regular', serif;
+  font-size: 80px;
   color: #2F2B39;
-  letter-spacing: 1px;
-  margin: 0;
+  font-weight: 400;
+  letter-spacing: 2px;
+}
+
+.pronunciation {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  font-size: 18px;
+  color: #2F2B39;
+  margin-bottom: 20px;
+  letter-spacing: 0.5px;
+}
+
+.definition-meaning {
+  font-family: 'Besley-Italic', sans-serif;
+  font-size: 28px;
+  color: #2F2B39;
+  font-style: italic;
   line-height: 1.6;
+  letter-spacing: 2px;
+}
+
+.part-of-speech {
+  font-style: italic;
+  color: #2F2B39;
+  margin-right: 8px;
+}
+
+.mission-statement {
+  padding: 0 40px;
+}
+
+.mission-text {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  font-size: 18px;
+  color: #2F2B39;
+  margin: 0;
+  line-height: 1.8;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .description-section {
+    padding: 60px 24px;
+  }
+
+  .greek-title {
+    font-size: 48px;
+    letter-spacing: 1px;
+  }
+
+  .pronunciation {
+    font-size: 16px;
+    margin-bottom: 60px;
+  }
+
+  .definition-meaning {
+    font-size: 22px;
+  }
+
+  .mission-statement {
+    padding: 0 20px;
+  }
+
+  .mission-text {
+    font-size: 18px;
+  }
+
+  .definition-container {
+    margin-bottom: 40px;
+  }
 }

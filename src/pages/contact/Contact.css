@@ -63,6 +63,19 @@
   margin: 0;
 }
 
+.instagram-embed-container {
+  margin-top: 32px;
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+}
+
+.instagram-embed-container .instagram-media {
+  min-width: 400px !important;
+  max-width: 100% !important;
+}
+
 .contact-form-container {
   background-color: #C3C8A4;
   padding: 32px;

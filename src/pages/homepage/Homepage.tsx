@@ -44,15 +44,19 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight }) => {
 
       <div className="description-section">
         <div className="description-content">
-          <p className="koinonia-text">
-            "Koinonia" (κοινωνία) [koy-nohn-ee'-ah]: (n.) communion, fellowship
-          </p>
-          <p className="description-text">
-            Koinonia Coffee is a community-driven coffee shop that sources directly from
-            smallholder farmers in Central America and East Africa. We believe in building
-            sustainable relationships with our farmers and creating a space where people
-            can come together over great coffee.
-          </p>
+          <div className="definition-container">
+            <div className="greek-title">κοινωνία</div>
+            <div className="pronunciation">[koy-nohn-ee'-ah]</div>
+            <div className="definition-meaning">
+              <span className="part-of-speech">(n.)</span> communion, fellowship
+            </div>
+          </div>
+
+          <div className="mission-statement">
+            <p className="mission-text">
+              Koinonia Coffee Project exists to create spaces for meaningful connection through the joy of good coffee.
+            </p>
+          </div>
         </div>
       </div>
     </div>

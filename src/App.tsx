@@ -9,6 +9,7 @@ import Contact from './pages/contact/Contact';
 import { PAGES, LAYOUT } from './util/constants';
 import './App.css';
 import Events from './pages/events/Events';
+import Shop from './pages/shop/Shop';
 
 const MainContent: React.FC = () => {
   const { currentPage } = useNavigation();
@@ -37,6 +38,7 @@ const MainContent: React.FC = () => {
           </ContactProvider>
         );
       case PAGES.SHOP:
+        return <Shop availableHeight={availableHeight} />;
       case PAGES.EVENTS:
       // return <Events availableHeight={availableHeight} />;
       case PAGES.MENU:

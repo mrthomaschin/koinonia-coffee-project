@@ -1,0 +1,13 @@
+.preview-category {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.preview-separator {
+  color: #ccc;
+}
+
+.preview-sizes,
+.preview-colors {
+  text-transform: capitalize;
+}
