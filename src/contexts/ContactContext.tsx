@@ -1,8 +1,31 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-const ContactContext = createContext();
+interface FormData {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  message: string;
+}
 
-export const useContact = () => {
+interface FormErrors {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  message?: string;
+}
+
+interface ContactContextType {
+  formData: FormData;
+  errors: FormErrors;
+  updateField: (field: keyof FormData, value: string) => void;
+  submitForm: () => boolean;
+}
+
+const ContactContext = createContext<ContactContextType | undefined>(undefined);
+
+export const useContact = (): ContactContextType => {
   const context = useContext(ContactContext);
   if (!context) {
     throw new Error('useContact must be used within ContactProvider');
@@ -10,8 +33,12 @@ export const useContact = () => {
   return context;
 };
 
-export const ContactProvider = ({ children }) => {
-  const [formData, setFormData] = useState({
+interface ContactProviderProps {
+  children: ReactNode;
+}
+
+export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) => {
+  const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
     phone: '',
@@ -19,17 +46,17 @@ export const ContactProvider = ({ children }) => {
     message: ''
   });
 
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const updateField = (field, value) => {
+  const updateField = (field: keyof FormData, value: string): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
 
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'Please enter your first name';
@@ -53,9 +80,8 @@ export const ContactProvider = ({ children }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const submitForm = () => {
+  const submitForm = (): boolean => {
     if (validateForm()) {
-      // TODO: Implement email sending to hello@koinoniacoffeeproject.com
       alert('Message sent successfully!');
       setFormData({
         firstName: '',

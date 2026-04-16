@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { ASSETS, COLORS, FONTS } from '../../util/constants';
+import { ASSETS } from '../../util/constants';
 import './Homepage.css';
 
-const Homepage = ({ availableHeight }) => {
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+interface HomepageProps {
+  availableHeight: number;
+}
+
+const Homepage: React.FC<HomepageProps> = ({ availableHeight }) => {
+  const [screenWidth, setScreenWidth] = useState<number>(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setScreenWidth(window.innerWidth);
+    const handleResize = (): void => setScreenWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isMobile = screenWidth < 768;
+  const isMobile: boolean = screenWidth < 768;
 
   return (
     <div className="homepage">

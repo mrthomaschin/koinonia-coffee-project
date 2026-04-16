@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useContact } from '../../contexts/ContactContext';
 import './Contact.css';
 
-const TextSection = () => (
+const TextSection: React.FC = () => (
   <div className="contact-text-section">
     <h1 className="contact-title">Contact us!</h1>
     <p className="contact-description">
@@ -16,8 +16,27 @@ const TextSection = () => (
   </div>
 );
 
-const FormSection = ({ formData, errors, updateField, submitForm }) => {
-  const handleSubmit = (e) => {
+interface FormSectionProps {
+  formData: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    message: string;
+  };
+  errors: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    email?: string;
+    message?: string;
+  };
+  updateField: (field: keyof FormSectionProps['formData'], value: string) => void;
+  submitForm: () => boolean;
+}
+
+const FormSection: React.FC<FormSectionProps> = ({ formData, errors, updateField, submitForm }) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
     submitForm();
   };
@@ -76,7 +95,7 @@ const FormSection = ({ formData, errors, updateField, submitForm }) => {
             value={formData.message}
             onChange={(e) => updateField('message', e.target.value)}
             className={errors.message ? 'error' : ''}
-            rows="5"
+            rows={5}
           />
           {errors.message && <span className="error-text">{errors.message}</span>}
         </div>
@@ -89,17 +108,21 @@ const FormSection = ({ formData, errors, updateField, submitForm }) => {
   );
 };
 
-const Contact = ({ availableHeight }) => {
+interface ContactProps {
+  availableHeight: number;
+}
+
+const Contact: React.FC<ContactProps> = ({ availableHeight }) => {
   const { formData, errors, updateField, submitForm } = useContact();
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+  const [screenWidth, setScreenWidth] = useState<number>(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setScreenWidth(window.innerWidth);
+    const handleResize = (): void => setScreenWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isMobile = screenWidth < 768;
+  const isMobile: boolean = screenWidth < 768;
 
   return (
     <div className="contact-page" style={{ minHeight: availableHeight }}>

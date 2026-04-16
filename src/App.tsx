@@ -10,12 +10,12 @@ import { PAGES, LAYOUT } from './util/constants';
 import './App.css';
 import Events from './pages/events/Events';
 
-const MainContent = () => {
+const MainContent: React.FC = () => {
   const { currentPage } = useNavigation();
-  const [availableHeight, setAvailableHeight] = useState(0);
+  const [availableHeight, setAvailableHeight] = useState<number>(0);
 
   useEffect(() => {
-    const calculateHeight = () => {
+    const calculateHeight = (): void => {
       const windowHeight = window.innerHeight;
       const calculatedHeight = windowHeight - LAYOUT.appBarHeight - LAYOUT.bottomBarHeight;
       setAvailableHeight(calculatedHeight);
@@ -26,7 +26,7 @@ const MainContent = () => {
     return () => window.removeEventListener('resize', calculateHeight);
   }, []);
 
-  const renderPage = () => {
+  const renderPage = (): React.ReactElement => {
     switch (currentPage) {
       case PAGES.HOME:
         return <Homepage availableHeight={availableHeight} />;
@@ -36,6 +36,7 @@ const MainContent = () => {
             <Contact availableHeight={availableHeight} />
           </ContactProvider>
         );
+      case PAGES.SHOP:
       case PAGES.EVENTS:
       // return <Events availableHeight={availableHeight} />;
       case PAGES.MENU:
@@ -59,7 +60,7 @@ const MainContent = () => {
   );
 };
 
-function App() {
+const App: React.FC = () => {
   return (
     <NavigationProvider>
       <MainContent />

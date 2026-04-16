@@ -1,7 +1,11 @@
 import React from 'react';
 import './Events.css';
 
-const Events = ({ availableHeight }) => {
+interface EventsProps {
+  availableHeight: number;
+}
+
+const Events: React.FC<EventsProps> = ({ availableHeight }) => {
   return (
     <div className="events-page" style={{ minHeight: availableHeight }}>
       <img

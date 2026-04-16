@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigation } from '../contexts/NavigationContext';
-import { PAGES, ASSETS, COLORS, FONTS, LAYOUT } from '../util/constants';
+import { PAGES, ASSETS, PageType } from '../util/constants';
 import './AppBar.css';
 
-const AppBar = () => {
+const AppBar: React.FC = () => {
   const { currentPage, navigateTo } = useNavigation();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState(null);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [hoveredItem, setHoveredItem] = useState<PageType | null>(null);
 
   const navItems = [
     { label: 'MENU', page: PAGES.MENU },
+    { label: 'SHOP', page: PAGES.SHOP },
     { label: 'ABOUT', page: PAGES.ABOUT },
     { label: 'BLOG', page: PAGES.BLOG },
     { label: 'GALLERY', page: PAGES.GALLERY },
@@ -17,7 +18,7 @@ const AppBar = () => {
     { label: 'CONTACT', page: PAGES.CONTACT }
   ];
 
-  const handleNavClick = (page) => {
+  const handleNavClick = (page: PageType): void => {
     navigateTo(page);
     setIsMenuOpen(false);
   };

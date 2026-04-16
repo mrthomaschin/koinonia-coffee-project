@@ -1,13 +1,13 @@
 import React from 'react';
-import { ASSETS, COLORS, FONTS } from '../util/constants';
+import { ASSETS } from '../util/constants';
 import './BottomBar.css';
 
-const BottomBar = () => {
-  const openInstagram = () => {
+const BottomBar: React.FC = () => {
+  const openInstagram = (): void => {
     window.open('https://www.instagram.com/koinoniacoffeeproject', '_blank');
   };
 
-  const openEmail = () => {
+  const openEmail = (): void => {
     window.location.href = 'mailto:hello@koinoniacoffeeproject.com';
   };
 

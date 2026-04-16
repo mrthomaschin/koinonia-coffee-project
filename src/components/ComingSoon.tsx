@@ -2,7 +2,11 @@ import React from 'react';
 import { ASSETS } from '../util/constants';
 import './ComingSoon.css';
 
-const ComingSoon = ({ availableHeight }) => {
+interface ComingSoonProps {
+  availableHeight: number;
+}
+
+const ComingSoon: React.FC<ComingSoonProps> = ({ availableHeight }) => {
   return (
     <div className="coming-soon" style={{ minHeight: availableHeight }}>
       <img
