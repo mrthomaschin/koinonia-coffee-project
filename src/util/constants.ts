@@ -17,7 +17,8 @@ export const ASSETS = {
   secondary: '/assets/logos/koinoniacp_secondary-black.svg',
   instagramIcon: '/assets/icons/icons8-instagram-96.png',
   emailIcon: '/assets/icons/icons8-mail-50.svg',
-  heroImage: '/assets/images/DSCF3464.jpg'
+  heroImage: '/assets/images/DSCF3464.jpg',
+  shopPlaceholder: '/assets/images/shop_placeholder.png'
 } as const;
 
 export const FONTS = {

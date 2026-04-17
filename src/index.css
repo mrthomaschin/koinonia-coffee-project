@@ -1,34 +1,34 @@
 @font-face {
   font-family: 'HedvigLettersSerif_18pt';
-  src: url('/assets/fonts/HedvigLettersSerif_18pt-Regular.ttf') format('truetype');
+  src: url('../public/assets/fonts/HedvigLettersSerif_18pt-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'ShipporiAntiqueB1';
-  src: url('/assets/fonts/ShipporiAntiqueB1-subset.ttf') format('truetype');
+  src: url('../public/assets/fonts/ShipporiAntiqueB1-subset.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Besley-Italic';
-  src: url('/assets/fonts/Besley-Italic.ttf') format('truetype');
+  src: url('../public/assets/fonts/Besley-Italic.ttf') format('truetype');
   font-weight: normal;
   font-style: italic;
 }
 
 @font-face {
   font-family: 'RethinkSans-Regular';
-  src: url('/assets/fonts/RethinkSans-Regular.ttf') format('truetype');
+  src: url('../public/assets/fonts/RethinkSans-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'GentiumBookPlus-Regular';
-  src: url('/assets/fonts/GentiumBookPlus-Regular.ttf') format('truetype');
+  src: url('../public/assets/fonts/GentiumBookPlus-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }

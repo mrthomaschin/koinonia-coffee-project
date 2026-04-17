@@ -7,6 +7,7 @@ import CoffeeBagDetail from './item/coffee_bag/CoffeeBagDetail';
 import MerchPreview from './item/merch/MerchPreview';
 import MerchDetail from './item/merch/MerchDetail';
 import './Shop.css';
+import { ASSETS } from '../../util/constants';
 
 interface ShopProps {
   availableHeight: number;
@@ -36,7 +37,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
       'Ethiopian Yirgacheffe',
       'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
       18.99,
-      '/assets/images/coffee-bag-1.jpg',
+      ASSETS.shopPlaceholder,
       CoffeeBagWeight._12oz,
       RoastLevel.light,
       'Ethiopia',
@@ -47,7 +48,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
       'Colombian Supremo',
       'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
       16.99,
-      '/assets/images/coffee-bag-2.jpg',
+      ASSETS.shopPlaceholder,
       CoffeeBagWeight._12oz,
       RoastLevel.medium,
       'Colombia',
@@ -58,7 +59,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
       'Sumatra Mandheling',
       'A bold and earthy dark roast with notes of cedar and dark chocolate. Perfect for those who enjoy a full-bodied cup.',
       17.99,
-      '/assets/images/coffee-bag-3.jpg',
+      ASSETS.shopPlaceholder,
       CoffeeBagWeight._12oz,
       RoastLevel.dark,
       'Indonesia',
@@ -69,7 +70,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
       'Koinonia Coffee T-Shirt',
       'Premium cotton t-shirt with our signature logo. Comfortable and stylish for everyday wear.',
       24.99,
-      '/assets/images/merch-tshirt.jpg',
+      ASSETS.shopPlaceholder,
       MerchCategory.apparel,
       [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
       ['Black', 'White', 'Brown']
@@ -79,7 +80,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
       'Ceramic Coffee Mug',
       'Handcrafted ceramic mug perfect for your morning brew. Holds 12oz of your favorite coffee.',
       16.99,
-      '/assets/images/merch-mug.jpg',
+      ASSETS.shopPlaceholder,
       MerchCategory.drinkware,
       [],
       ['White', 'Brown', 'Navy']
