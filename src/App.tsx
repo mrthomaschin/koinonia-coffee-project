@@ -7,6 +7,7 @@ import ComingSoon from './components/ComingSoon';
 import Homepage from './pages/homepage/Homepage';
 import Contact from './pages/contact/Contact';
 import { PAGES, LAYOUT } from './util/constants';
+import { isPageEnabled } from './util/devConfig';
 import './App.css';
 import Events from './pages/events/Events';
 import Shop from './pages/shop/Shop';
@@ -32,20 +33,37 @@ const MainContent: React.FC = () => {
       case PAGES.HOME:
         return <Homepage availableHeight={availableHeight} />;
       case PAGES.CONTACT:
-        return (
-          <ContactProvider>
-            <Contact availableHeight={availableHeight} />
-          </ContactProvider>
-        );
+        return isPageEnabled(PAGES.SHOP)
+          ? (
+            <ContactProvider>
+              <Contact availableHeight={availableHeight} />
+            </ContactProvider>
+          )
+          : <ComingSoon availableHeight={availableHeight} />;
       case PAGES.SHOP:
-        return <Shop availableHeight={availableHeight} />;
+        return isPageEnabled(PAGES.SHOP)
+          ? <Shop availableHeight={availableHeight} />
+          : <ComingSoon availableHeight={availableHeight} />;
       case PAGES.EVENTS:
-      // return <Events availableHeight={availableHeight} />;
+        return isPageEnabled(PAGES.EVENTS)
+          ? <Events availableHeight={availableHeight} />
+          : <ComingSoon availableHeight={availableHeight} />;
       case PAGES.MENU:
+        return isPageEnabled(PAGES.MENU)
+          ? <ComingSoon availableHeight={availableHeight} />
+          : <ComingSoon availableHeight={availableHeight} />;
       case PAGES.ABOUT:
+        return isPageEnabled(PAGES.ABOUT)
+          ? <ComingSoon availableHeight={availableHeight} />
+          : <ComingSoon availableHeight={availableHeight} />;
       case PAGES.BLOG:
+        return isPageEnabled(PAGES.BLOG)
+          ? <ComingSoon availableHeight={availableHeight} />
+          : <ComingSoon availableHeight={availableHeight} />;
       case PAGES.GALLERY:
-        return <ComingSoon availableHeight={availableHeight} />;
+        return isPageEnabled(PAGES.GALLERY)
+          ? <ComingSoon availableHeight={availableHeight} />
+          : <ComingSoon availableHeight={availableHeight} />;
       default:
         return <ComingSoon availableHeight={availableHeight} />;
     }
