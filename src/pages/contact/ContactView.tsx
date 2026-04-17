@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useContact } from './ContactViewModel';
+import ContactViewModel from './ContactViewModel';
 import InstagramEmbed from '../../components/InstagramEmbed';
 import './ContactView.css';
-import { ContactModel } from './ContactModel';
+import { FormData, FormErrors } from './ContactModel';
 
 interface ContactProps {
   availableHeight: number;
@@ -22,7 +22,23 @@ const TextSection: React.FC = () => (
   </div>
 );
 
-const FormSection: React.FC<ContactModel> = ({ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }) => {
+interface FormSectionProps {
+  formData: FormData;
+  errors: FormErrors;
+  updateField: (field: keyof FormData, value: string) => void;
+  submitForm: () => Promise<boolean>;
+  isSubmitting: boolean;
+  submitSuccess: boolean;
+}
+
+const FormSection: React.FC<FormSectionProps> = ({
+  formData,
+  errors,
+  updateField,
+  submitForm,
+  isSubmitting,
+  submitSuccess
+}) => {
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     await submitForm();
@@ -100,8 +116,15 @@ const FormSection: React.FC<ContactModel> = ({ formData, errors, updateField, su
 };
 
 const Contact: React.FC<ContactProps> = ({ availableHeight }) => {
-  const { formData, errors, updateField, submitForm, isSubmitting, submitSuccess } = useContact();
+  const [viewModel] = useState(() => new ContactViewModel());
+  const [, forceUpdate] = useState({});
   const [screenWidth, setScreenWidth] = useState<number>(window.innerWidth);
+
+  useEffect(() => {
+    viewModel.setOnStateChange(() => {
+      forceUpdate({});
+    });
+  }, [viewModel]);
 
   useEffect(() => {
     const handleResize = (): void => setScreenWidth(window.innerWidth);
@@ -118,12 +141,12 @@ const Contact: React.FC<ContactProps> = ({ availableHeight }) => {
           <div className="contact-mobile">
             <TextSection />
             <FormSection
-              formData={formData}
-              errors={errors}
-              updateField={updateField}
-              submitForm={submitForm}
-              isSubmitting={isSubmitting}
-              submitSuccess={submitSuccess}
+              formData={viewModel.formData}
+              errors={viewModel.errors}
+              updateField={(field, value) => viewModel.updateField(field, value)}
+              submitForm={() => viewModel.submitForm()}
+              isSubmitting={viewModel.isSubmitting}
+              submitSuccess={viewModel.submitSuccess}
             />
           </div>
           <div className="instagram-row">
@@ -138,12 +161,12 @@ const Contact: React.FC<ContactProps> = ({ availableHeight }) => {
             </div>
             <div className="contact-right">
               <FormSection
-                formData={formData}
-                errors={errors}
-                updateField={updateField}
-                submitForm={submitForm}
-                isSubmitting={isSubmitting}
-                submitSuccess={submitSuccess}
+                formData={viewModel.formData}
+                errors={viewModel.errors}
+                updateField={(field, value) => viewModel.updateField(field, value)}
+                submitForm={() => viewModel.submitForm()}
+                isSubmitting={viewModel.isSubmitting}
+                submitSuccess={viewModel.submitSuccess}
               />
             </div>
           </div>

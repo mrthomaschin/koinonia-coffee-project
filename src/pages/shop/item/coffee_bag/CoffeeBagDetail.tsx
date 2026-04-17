@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './CoffeeBagItem';
-import ItemDetail from '../ItemDetail';
+import { ItemDetailBase } from '../ItemDetailBase';
 import './CoffeeBagDetail.css';
 
 interface CoffeeBagDetailProps {
   item: CoffeeBagItem;
-  onClose: () => void;
+  onBack: () => void;
 }
 
-const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onClose }) => {
+const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const [selectedWeight, setSelectedWeight] = useState<CoffeeBagWeight>(item.weight);
   const [quantity, setQuantity] = useState<number>(1);
 
@@ -28,20 +28,19 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onClose }) => {
 
   const renderMetadata = (coffeeItem: CoffeeBagItem) => (
     <>
-      <span className="detail-origin">{coffeeItem.origin}</span>
-      <span className="detail-separator">•</span>
-      <span className="detail-roast">{RoastLevel[coffeeItem.roastLevel]} roast</span>
+      <span className="roast-badge">{RoastLevel[coffeeItem.roastLevel]} roast</span>
+      <span className="origin-text">{coffeeItem.origin}</span>
     </>
   );
 
   const renderExtraInfo = (coffeeItem: CoffeeBagItem) => (
     <>
       {coffeeItem.tastingNotes && coffeeItem.tastingNotes.length > 0 && (
-        <div className="detail-tasting-section">
-          <h3 className="detail-section-title">Tasting Notes</h3>
-          <div className="detail-tasting-notes">
+        <div className="flavor-notes">
+          <h3>Tasting Notes</h3>
+          <div className="flavor-tags">
             {coffeeItem.tastingNotes.map((note, index) => (
-              <span key={index} className="detail-tasting-note">{note}</span>
+              <span key={index} className="flavor-tag">{note}</span>
             ))}
           </div>
         </div>
@@ -51,13 +50,13 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onClose }) => {
 
   const renderOptions = () => (
     <>
-      <div className="detail-option-group">
-        <label className="detail-option-label">Weight</label>
-        <div className="weight-selector">
+      <div className="option-group">
+        <label className="option-label">Weight</label>
+        <div className="weight-options">
           {Object.values(CoffeeBagWeight).filter(v => typeof v === 'number').map((weight) => (
             <button
               key={weight}
-              className={`weight-option ${selectedWeight === weight ? 'active' : ''}`}
+              className={`weight-button ${selectedWeight === weight ? 'selected' : ''}`}
               onClick={() => setSelectedWeight(weight as CoffeeBagWeight)}
             >
               {weight}oz
@@ -66,8 +65,8 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onClose }) => {
         </div>
       </div>
 
-      <div className="detail-option-group">
-        <label className="detail-option-label">Quantity</label>
+      <div className="option-group">
+        <label className="option-label">Quantity</label>
         <div className="quantity-selector">
           <button
             className="quantity-button"
@@ -100,9 +99,9 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onClose }) => {
   );
 
   return (
-    <ItemDetail
+    <ItemDetailBase
       item={item}
-      onClose={onClose}
+      onBack={onBack}
       renderMetadata={() => renderMetadata(item)}
       renderExtraInfo={() => renderExtraInfo(item)}
       renderOptions={renderOptions}

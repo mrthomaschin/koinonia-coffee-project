@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
-import { ContactProvider } from './pages/contact/ContactViewModel';
 import AppBar from './components/AppBar';
 import BottomBar from './components/BottomBar';
 import ComingSoon from './components/ComingSoon';
@@ -10,10 +10,10 @@ import { PAGES, LAYOUT } from './util/constants';
 import { isPageEnabled } from './util/devConfig';
 import './App.css';
 import Events from './pages/events/Events';
-import Shop from './pages/shop/Shop';
+import Shop from './pages/shop/ShopView';
+import { ItemDetail } from './pages/shop/item/ItemDetail';
 
 const MainContent: React.FC = () => {
-  const { currentPage } = useNavigation();
   const [availableHeight, setAvailableHeight] = useState<number>(0);
 
   useEffect(() => {
@@ -28,52 +28,94 @@ const MainContent: React.FC = () => {
     return () => window.removeEventListener('resize', calculateHeight);
   }, []);
 
-  const renderPage = (): React.ReactElement => {
-    switch (currentPage) {
-      case PAGES.HOME:
-        return <Homepage availableHeight={availableHeight} />;
-      case PAGES.CONTACT:
-        return isPageEnabled(PAGES.CONTACT)
-          ? (
-            <ContactProvider>
-              <Contact availableHeight={availableHeight} />
-            </ContactProvider>
-          )
-          : <ComingSoon availableHeight={availableHeight} />;
-      case PAGES.SHOP:
-        return isPageEnabled(PAGES.SHOP)
-          ? <Shop availableHeight={availableHeight} />
-          : <ComingSoon availableHeight={availableHeight} />;
-      case PAGES.EVENTS:
-        return isPageEnabled(PAGES.EVENTS)
-          ? <Events availableHeight={availableHeight} />
-          : <ComingSoon availableHeight={availableHeight} />;
-      case PAGES.MENU:
-        return isPageEnabled(PAGES.MENU)
-          ? <ComingSoon availableHeight={availableHeight} />
-          : <ComingSoon availableHeight={availableHeight} />;
-      case PAGES.ABOUT:
-        return isPageEnabled(PAGES.ABOUT)
-          ? <ComingSoon availableHeight={availableHeight} />
-          : <ComingSoon availableHeight={availableHeight} />;
-      case PAGES.BLOG:
-        return isPageEnabled(PAGES.BLOG)
-          ? <ComingSoon availableHeight={availableHeight} />
-          : <ComingSoon availableHeight={availableHeight} />;
-      case PAGES.GALLERY:
-        return isPageEnabled(PAGES.GALLERY)
-          ? <ComingSoon availableHeight={availableHeight} />
-          : <ComingSoon availableHeight={availableHeight} />;
-      default:
-        return <ComingSoon availableHeight={availableHeight} />;
-    }
-  };
-
   return (
     <div className="app">
       <AppBar />
       <div className="main-content">
-        {renderPage()}
+        <Routes>
+          <Route path="/" element={<Homepage availableHeight={availableHeight} />} />
+          <Route
+            path="/contact"
+            element={
+              isPageEnabled(PAGES.CONTACT) ? (
+                <Contact availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/shop"
+            element={
+              isPageEnabled(PAGES.SHOP) ? (
+                <Shop availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/shop/:slug"
+            element={
+              isPageEnabled(PAGES.SHOP) ? (
+                <ItemDetail availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/events"
+            element={
+              isPageEnabled(PAGES.EVENTS) ? (
+                <Events availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/menu"
+            element={
+              isPageEnabled(PAGES.MENU) ? (
+                <ComingSoon availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              isPageEnabled(PAGES.ABOUT) ? (
+                <ComingSoon availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/blog"
+            element={
+              isPageEnabled(PAGES.BLOG) ? (
+                <ComingSoon availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route
+            path="/gallery"
+            element={
+              isPageEnabled(PAGES.GALLERY) ? (
+                <ComingSoon availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
         <BottomBar />
       </div>
     </div>
@@ -82,9 +124,11 @@ const MainContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <NavigationProvider>
-      <MainContent />
-    </NavigationProvider>
+    <BrowserRouter>
+      <NavigationProvider>
+        <MainContent />
+      </NavigationProvider>
+    </BrowserRouter>
   );
 }
 

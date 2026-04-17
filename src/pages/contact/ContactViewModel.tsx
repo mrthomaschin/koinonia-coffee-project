@@ -1,98 +1,147 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { submitContactForm } from '../../services/emailService';
-import { FormData, FormErrors, ContactViewModelType } from './ContactModel';
+import { FormData, FormErrors } from './ContactModel';
 
-const ContactViewModel = createContext<ContactViewModelType | undefined>(undefined);
+export class ContactViewModel {
+  private _formData: FormData;
+  private _errors: FormErrors;
+  private _isSubmitting: boolean;
+  private _submitSuccess: boolean;
+  private _onStateChange?: () => void;
 
-export const useContact = (): ContactViewModelType => {
-  const context = useContext(ContactViewModel);
-  if (!context) {
-    throw new Error('useContact must be used within ContactProvider');
+  constructor() {
+    this._formData = {
+      firstName: '',
+      lastName: '',
+      phone: '',
+      email: '',
+      message: ''
+    };
+    this._errors = {};
+    this._isSubmitting = false;
+    this._submitSuccess = false;
   }
-  return context;
-};
 
-interface ContactProviderProps {
-  children: ReactNode;
-}
+  get formData(): FormData {
+    return this._formData;
+  }
 
-export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) => {
-  const [formData, setFormData] = useState<FormData>({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    message: ''
-  });
+  get errors(): FormErrors {
+    return this._errors;
+  }
 
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [submitSuccess, setSubmitSuccess] = useState<boolean>(false);
+  get isSubmitting(): boolean {
+    return this._isSubmitting;
+  }
 
-  const updateField = (field: keyof FormData, value: string): void => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+  get submitSuccess(): boolean {
+    return this._submitSuccess;
+  }
+
+  get isFormValid(): boolean {
+    return Object.keys(this._errors).length === 0 &&
+      this._formData.firstName.trim() !== '' &&
+      this._formData.lastName.trim() !== '' &&
+      this._formData.phone.trim() !== '' &&
+      this._formData.email.trim() !== '' &&
+      this._formData.message.trim() !== '';
+  }
+
+  setOnStateChange(callback: () => void): void {
+    this._onStateChange = callback;
+  }
+
+  private notifyStateChange(): void {
+    if (this._onStateChange) {
+      this._onStateChange();
     }
-  };
+  }
 
-  const validateForm = (): boolean => {
+  updateField(field: keyof FormData, value: string): void {
+    this._formData = { ...this._formData, [field]: value };
+
+    if (this._errors[field]) {
+      this._errors = { ...this._errors, [field]: undefined };
+    }
+
+    this.notifyStateChange();
+  }
+
+  private validateForm(): boolean {
     const newErrors: FormErrors = {};
 
-    if (!formData.firstName.trim()) {
+    if (!this._formData.firstName.trim()) {
       newErrors.firstName = 'Please enter your first name';
     }
-    if (!formData.lastName.trim()) {
+    if (!this._formData.lastName.trim()) {
       newErrors.lastName = 'Please enter your last name';
     }
-    if (!formData.phone.trim()) {
+    if (!this._formData.phone.trim()) {
       newErrors.phone = 'Please enter your phone number';
     }
-    if (!formData.email.trim()) {
+    if (!this._formData.email.trim()) {
       newErrors.email = 'Please enter your email';
-    } else if (!formData.email.includes('@')) {
+    } else if (!this._formData.email.includes('@')) {
       newErrors.email = 'Please enter a valid email';
     }
-    if (!formData.message.trim()) {
+    if (!this._formData.message.trim()) {
       newErrors.message = 'Please enter your message';
     }
 
-    setErrors(newErrors);
+    this._errors = newErrors;
+    this.notifyStateChange();
     return Object.keys(newErrors).length === 0;
-  };
+  }
 
-  const submitForm = async (): Promise<boolean> => {
-    if (!validateForm()) {
+  async submitForm(): Promise<boolean> {
+    if (!this.validateForm()) {
       return false;
     }
 
-    setIsSubmitting(true);
+    this._isSubmitting = true;
+    this.notifyStateChange();
+
     try {
-      await submitContactForm(formData);
-      setFormData({
+      await submitContactForm(this._formData);
+
+      this._formData = {
         firstName: '',
         lastName: '',
         phone: '',
         email: '',
         message: ''
-      });
-      setSubmitSuccess(true);
+      };
+      this._submitSuccess = true;
+      this.notifyStateChange();
+
       setTimeout(() => {
-        setSubmitSuccess(false);
+        this._submitSuccess = false;
+        this.notifyStateChange();
       }, 4000);
+
       return true;
     } catch (error) {
       console.error('Failed to submit form:', error);
       alert('Failed to send message. Please try again.');
       return false;
     } finally {
-      setIsSubmitting(false);
+      this._isSubmitting = false;
+      this.notifyStateChange();
     }
-  };
+  }
 
-  return (
-    <ContactViewModel.Provider value={{ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }}>
-      {children}
-    </ContactViewModel.Provider>
-  );
-};
+  resetForm(): void {
+    this._formData = {
+      firstName: '',
+      lastName: '',
+      phone: '',
+      email: '',
+      message: ''
+    };
+    this._errors = {};
+    this._isSubmitting = false;
+    this._submitSuccess = false;
+    this.notifyStateChange();
+  }
+}
+
+export default ContactViewModel;

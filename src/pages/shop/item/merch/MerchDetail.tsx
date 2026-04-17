@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { MerchItem, MerchSize, MerchCategory } from './MerchItem';
-import ItemDetail from '../ItemDetail';
+import { ItemDetailBase } from '../ItemDetailBase';
 import './MerchDetail.css';
 
 interface MerchDetailProps {
   item: MerchItem;
-  onClose: () => void;
+  onBack: () => void;
 }
 
-const MerchDetail: React.FC<MerchDetailProps> = ({ item, onClose }) => {
+const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
   const [selectedSize, setSelectedSize] = useState<MerchSize | null>(
     item.availableSizes.length > 0 ? item.availableSizes[0] : null
   );
@@ -32,20 +32,20 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onClose }) => {
 
   const renderMetadata = (merchItem: MerchItem) => (
     <>
-      <span className="detail-category">{MerchCategory[merchItem.category]}</span>
+      <span className="category-badge">{MerchCategory[merchItem.category]}</span>
     </>
   );
 
   const renderOptions = () => (
     <>
       {item.availableSizes.length > 0 && (
-        <div className="detail-option-group">
-          <label className="detail-option-label">Size</label>
-          <div className="size-selector">
+        <div className="option-group">
+          <label className="option-label">Size</label>
+          <div className="size-options">
             {item.availableSizes.map((size) => (
               <button
                 key={size}
-                className={`size-option ${selectedSize === size ? 'active' : ''}`}
+                className={`size-button ${selectedSize === size ? 'selected' : ''}`}
                 onClick={() => setSelectedSize(size)}
               >
                 {size}
@@ -56,13 +56,13 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onClose }) => {
       )}
 
       {item.colors.length > 0 && (
-        <div className="detail-option-group">
-          <label className="detail-option-label">Color</label>
-          <div className="color-selector">
+        <div className="option-group">
+          <label className="option-label">Color</label>
+          <div className="color-options">
             {item.colors.map((color) => (
               <button
                 key={color}
-                className={`color-option ${selectedColor === color ? 'active' : ''}`}
+                className={`color-button ${selectedColor === color ? 'selected' : ''}`}
                 onClick={() => setSelectedColor(color)}
               >
                 {color}
@@ -72,8 +72,8 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onClose }) => {
         </div>
       )}
 
-      <div className="detail-option-group">
-        <label className="detail-option-label">Quantity</label>
+      <div className="option-group">
+        <label className="option-label">Quantity</label>
         <div className="quantity-selector">
           <button
             className="quantity-button"
@@ -106,9 +106,9 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onClose }) => {
   );
 
   return (
-    <ItemDetail
+    <ItemDetailBase
       item={item}
-      onClose={onClose}
+      onBack={onBack}
       renderMetadata={() => renderMetadata(item)}
       renderOptions={renderOptions}
       renderPurchaseSection={renderPurchaseSection}
