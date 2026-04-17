@@ -13,7 +13,7 @@ export const DEV_FLAGS = {
   ENABLE_ABOUT: false,
   ENABLE_BLOG: false,
   ENABLE_GALLERY: false,
-  ENABLE_CONTACT: false,
+  ENABLE_CONTACT: true,
 } as const;
 
 export const isPageEnabled = (page: string): boolean => {

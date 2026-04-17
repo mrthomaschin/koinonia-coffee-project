@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { submitContactForm } from '../services/emailService';
 
 interface FormData {
   firstName: string;
@@ -20,7 +21,9 @@ interface ContactContextType {
   formData: FormData;
   errors: FormErrors;
   updateField: (field: keyof FormData, value: string) => void;
-  submitForm: () => boolean;
+  submitForm: () => Promise<boolean>;
+  isSubmitting: boolean;
+  submitSuccess: boolean;
 }
 
 const ContactContext = createContext<ContactContextType | undefined>(undefined);
@@ -47,6 +50,8 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitSuccess, setSubmitSuccess] = useState<boolean>(false);
 
   const updateField = (field: keyof FormData, value: string): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -80,9 +85,14 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
     return Object.keys(newErrors).length === 0;
   };
 
-  const submitForm = (): boolean => {
-    if (validateForm()) {
-      alert('Message sent successfully!');
+  const submitForm = async (): Promise<boolean> => {
+    if (!validateForm()) {
+      return false;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await submitContactForm(formData);
       setFormData({
         firstName: '',
         lastName: '',
@@ -90,13 +100,22 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
         email: '',
         message: ''
       });
+      setSubmitSuccess(true);
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 4000);
       return true;
+    } catch (error) {
+      console.error('Failed to submit form:', error);
+      alert('Failed to send message. Please try again.');
+      return false;
+    } finally {
+      setIsSubmitting(false);
     }
-    return false;
   };
 
   return (
-    <ContactContext.Provider value={{ formData, errors, updateField, submitForm }}>
+    <ContactContext.Provider value={{ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }}>
       {children}
     </ContactContext.Provider>
   );

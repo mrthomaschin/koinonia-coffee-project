@@ -1,0 +1,18 @@
+.instagram-embed-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+.instagram-embed-container .instagram-media {
+  min-width: 326px !important;
+  max-width: 800px !important;
+  width: 50% !important;
+}
+
+@media (max-width: 768px) {
+  .instagram-embed-container .instagram-media {
+    width: 100% !important;
+  }
+}

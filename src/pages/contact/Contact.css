@@ -63,17 +63,11 @@
   margin: 0;
 }
 
-.instagram-embed-container {
-  margin-top: 32px;
+.instagram-row {
+  margin-top: 40px;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   width: 100%;
-  max-width: 100%;
-}
-
-.instagram-embed-container .instagram-media {
-  min-width: 400px !important;
-  max-width: 100% !important;
 }
 
 .contact-form-container {
@@ -181,6 +175,31 @@
 .submit-button:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(132, 130, 94, 0.3);
+}
+
+.submit-button:disabled {
+  background-color: #a8a695;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(132, 130, 94, 0.2);
+}
+
+.submit-button.success {
+  background-color: #5a8f5a;
+  cursor: default;
+  animation: successPulse 0.5s ease;
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 768px) {
