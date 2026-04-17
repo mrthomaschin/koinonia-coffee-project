@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useContact } from '../../contexts/ContactContext';
+import { useContact } from './ContactViewModel';
 import InstagramEmbed from '../../components/InstagramEmbed';
-import './Contact.css';
+import './ContactView.css';
+import { ContactModel } from './ContactModel';
+
+interface ContactProps {
+  availableHeight: number;
+}
 
 const TextSection: React.FC = () => (
   <div className="contact-text-section">
@@ -17,28 +22,7 @@ const TextSection: React.FC = () => (
   </div>
 );
 
-interface FormSectionProps {
-  formData: {
-    firstName: string;
-    lastName: string;
-    phone: string;
-    email: string;
-    message: string;
-  };
-  errors: {
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    email?: string;
-    message?: string;
-  };
-  updateField: (field: keyof FormSectionProps['formData'], value: string) => void;
-  submitForm: () => Promise<boolean>;
-  isSubmitting: boolean;
-  submitSuccess: boolean;
-}
-
-const FormSection: React.FC<FormSectionProps> = ({ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }) => {
+const FormSection: React.FC<ContactModel> = ({ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }) => {
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     await submitForm();
@@ -114,10 +98,6 @@ const FormSection: React.FC<FormSectionProps> = ({ formData, errors, updateField
     </div>
   );
 };
-
-interface ContactProps {
-  availableHeight: number;
-}
 
 const Contact: React.FC<ContactProps> = ({ availableHeight }) => {
   const { formData, errors, updateField, submitForm, isSubmitting, submitSuccess } = useContact();

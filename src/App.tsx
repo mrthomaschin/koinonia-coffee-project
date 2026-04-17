@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
-import { ContactProvider } from './contexts/ContactContext';
+import { ContactProvider } from './pages/contact/ContactViewModel';
 import AppBar from './components/AppBar';
 import BottomBar from './components/BottomBar';
 import ComingSoon from './components/ComingSoon';
 import Homepage from './pages/homepage/Homepage';
-import Contact from './pages/contact/Contact';
+import Contact from './pages/contact/ContactView';
 import { PAGES, LAYOUT } from './util/constants';
 import { isPageEnabled } from './util/devConfig';
 import './App.css';

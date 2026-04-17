@@ -1,35 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { submitContactForm } from '../services/emailService';
+import { submitContactForm } from '../../services/emailService';
+import { FormData, FormErrors, ContactViewModelType } from './ContactModel';
 
-interface FormData {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email: string;
-  message: string;
-}
+const ContactViewModel = createContext<ContactViewModelType | undefined>(undefined);
 
-interface FormErrors {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  email?: string;
-  message?: string;
-}
-
-interface ContactContextType {
-  formData: FormData;
-  errors: FormErrors;
-  updateField: (field: keyof FormData, value: string) => void;
-  submitForm: () => Promise<boolean>;
-  isSubmitting: boolean;
-  submitSuccess: boolean;
-}
-
-const ContactContext = createContext<ContactContextType | undefined>(undefined);
-
-export const useContact = (): ContactContextType => {
-  const context = useContext(ContactContext);
+export const useContact = (): ContactViewModelType => {
+  const context = useContext(ContactViewModel);
   if (!context) {
     throw new Error('useContact must be used within ContactProvider');
   }
@@ -115,8 +91,8 @@ export const ContactProvider: React.FC<ContactProviderProps> = ({ children }) =>
   };
 
   return (
-    <ContactContext.Provider value={{ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }}>
+    <ContactViewModel.Provider value={{ formData, errors, updateField, submitForm, isSubmitting, submitSuccess }}>
       {children}
-    </ContactContext.Provider>
+    </ContactViewModel.Provider>
   );
 };
