@@ -33,7 +33,7 @@ const MainContent: React.FC = () => {
       case PAGES.HOME:
         return <Homepage availableHeight={availableHeight} />;
       case PAGES.CONTACT:
-        return isPageEnabled(PAGES.SHOP)
+        return isPageEnabled(PAGES.CONTACT)
           ? (
             <ContactProvider>
               <Contact availableHeight={availableHeight} />
