@@ -1,5 +1,6 @@
 import React from 'react';
 import './Events.css';
+import { FlashquotesEmbed } from '../../components/FlashquotesEmbed';
 
 interface EventsProps {
   availableHeight: number;
@@ -7,12 +8,8 @@ interface EventsProps {
 
 const Events: React.FC<EventsProps> = ({ availableHeight }) => {
   return (
-    <div className="events-page" style={{ minHeight: availableHeight }}>
-      <img
-        src="/assets/images/DSCF3464.jpg"
-        alt="Koinonia Coffee Project Events"
-        className="events-image"
-      />
+    <div className="events-container" style={{ height: availableHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <FlashquotesEmbed />
     </div>
   );
 };
