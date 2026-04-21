@@ -1,17 +1,123 @@
-.events-page {
+/* ===== CONTAINER & LAYOUT ===== */
+.events-container {
   background-color: #F8F5EB;
-  padding: 40px;
+  padding: 40px 20px;
+  overflow-y: auto;
+}
+
+.events-content {
+  max-width: 1400px;
+  margin: 0 auto;
   display: flex;
-  align-items: center;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.events-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.events-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   justify-content: center;
 }
 
-.events-image {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(47, 43, 57, 0.15);
+.events-text-section {
+  padding: 20px;
+  color: #2F2B39;
+}
+
+/* ===== TYPOGRAPHY ===== */
+.events-title {
+  font-family: 'HedvigLettersSerif_18pt', serif;
+  font-size: 40px;
+  color: #2F2B39;
+  margin: 0 0 20px 0;
+  letter-spacing: 0;
+  font-feature-settings: "liga" 0, "clig" 0;
+  font-variant-ligatures: none;
+}
+
+.events-subtitle {
+  font-family: 'ShipporiAntiqueB1', serif;
+  font-size: 20px;
+  color: #2F2B39;
+  margin: 24px 0 12px 0;
+  line-height: 1.6;
+  letter-spacing: 1.5px;
+}
+
+.events-description {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  font-size: 18px;
+  color: #2F2B39;
+  margin: 0 0 16px 0;
+  line-height: 1.6;
+}
+
+.events-description ul {
+  list-style-type: none;
+  padding-left: 40px;
+  margin: 0 0 16px 0;
+}
+
+.events-description li {
+  margin-bottom: 8px;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Tablet and below */
+@media (max-width: 1024px) {
+  .events-content {
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .events-left,
+  .events-right {
+    width: 100%;
+  }
+
+  .events-title {
+    font-size: 32px;
+  }
+
+  .events-subtitle {
+    font-size: 16px;
+  }
+
+  .events-description {
+    font-size: 16px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .events-container {
+    padding: 20px 15px;
+  }
+
+  .events-content {
+    gap: 20px;
+  }
+
+  .events-text-section {
+    padding: 10px;
+  }
+
+  .events-title {
+    font-size: 28px;
+  }
+
+  .events-subtitle {
+    font-size: 15px;
+  }
+
+  .events-description {
+    font-size: 15px;
+  }
 }
