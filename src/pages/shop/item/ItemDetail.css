@@ -80,6 +80,7 @@
 }
 
 .detail-name {
+  font-family: 'Besley-Italic', sans-serif;
   font-size: 32px;
   font-weight: 700;
   margin: 0 0 12px 0;
@@ -140,7 +141,8 @@
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 18px;
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease;
@@ -159,9 +161,12 @@
 }
 
 .detail-back-button {
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
   background: none;
   border: none;
-  font-size: 16px;
   color: #666;
   cursor: pointer;
   padding: 8px 0;
@@ -178,10 +183,11 @@
 
 .flavor-notes h3,
 .option-group label {
+  font-family: 'ShipporiAntiqueB1', sans-serif;
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #666;
   margin-bottom: 12px;
 }
@@ -328,4 +334,67 @@
   .item-detail-page-wrapper {
     padding: 20px 16px;
   }
+}
+
+.item-detail-dropdown {
+  margin-top: 40px;
+  border-top: 2px solid #f0f0f0;
+  padding-top: 24px;
+}
+
+.dropdown-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.dropdown-toggle:hover {
+  opacity: 0.8;
+}
+
+.dropdown-toggle h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c2c2c;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.dropdown-arrow {
+  font-size: 16px;
+  color: #8b4513;
+  transition: transform 0.3s ease;
+  display: inline-block;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.dropdown-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.dropdown-content.open {
+  max-height: 500px;
+  opacity: 1;
+  margin-top: 16px;
+}
+
+.dropdown-content p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #555;
 }

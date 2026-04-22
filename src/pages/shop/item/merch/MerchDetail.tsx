@@ -93,25 +93,12 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
     </>
   );
 
-  const renderPurchaseSection = () => (
-    <div className="detail-purchase">
-      <div className="detail-price-section">
-        <span className="detail-price-label">Total</span>
-        <span className="detail-price">${calculatePrice()}</span>
-      </div>
-      <button className="detail-add-to-cart" onClick={handleAddToCart}>
-        Add to Cart
-      </button>
-    </div>
-  );
-
   return (
     <ItemDetailBase
       item={item}
       onBack={onBack}
       renderMetadata={() => renderMetadata(item)}
       renderOptions={renderOptions}
-      renderPurchaseSection={renderPurchaseSection}
     />
   );
 };

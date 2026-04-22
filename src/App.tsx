@@ -95,16 +95,6 @@ const MainContent: React.FC = () => {
             }
           />
           <Route
-            path="/blog"
-            element={
-              isPageEnabled(PAGES.BLOG) ? (
-                <ComingSoon availableHeight={availableHeight} />
-              ) : (
-                <ComingSoon availableHeight={availableHeight} />
-              )
-            }
-          />
-          <Route
             path="/gallery"
             element={
               isPageEnabled(PAGES.GALLERY) ? (

@@ -13,56 +13,82 @@ export const generateSlug = (name: string): string => {
 export const sampleItems: Item[] = [
   new CoffeeBagItem(
     '1',
-    'Ethiopian Yirgacheffe',
+    'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
     18.99,
     ASSETS.shopPlaceholder,
-    CoffeeBagWeight._12oz,
+    new Date(),
+    [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.light,
     'Ethiopia',
     ['Bergamot', 'Jasmine', 'Citrus']
   ),
   new CoffeeBagItem(
     '2',
-    'Colombian Supremo',
+    'Koin Blend',
     'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
     16.99,
     ASSETS.shopPlaceholder,
-    CoffeeBagWeight._12oz,
-    RoastLevel.medium,
-    'Colombia',
+    new Date(),
+    [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
+    RoastLevel.mediumLight,
+    'Ethiopia, Colombia',
     ['Chocolate', 'Caramel', 'Nutty']
-  ),
-  new CoffeeBagItem(
-    '3',
-    'Sumatra Mandheling',
-    'A bold and earthy dark roast with notes of cedar and dark chocolate. Perfect for those who enjoy a full-bodied cup.',
-    17.99,
-    ASSETS.shopPlaceholder,
-    CoffeeBagWeight._12oz,
-    RoastLevel.dark,
-    'Indonesia',
-    ['Cedar', 'Dark Chocolate', 'Earthy']
   ),
   new MerchItem(
     '4',
-    'Koinonia Coffee T-Shirt',
-    'Premium cotton t-shirt with our signature logo. Comfortable and stylish for everyday wear.',
+    'Koinonia Signature Tee',
+    'Premium Cotton Tee with our signature logos on the front and back. Comfortable and stylish for everyday wear.',
     24.99,
     ASSETS.shopPlaceholder,
     MerchCategory.apparel,
+    new Date(),
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
-    ['Black', 'White', 'Brown']
+    ['Beige']
   ),
   new MerchItem(
     '5',
-    'Ceramic Coffee Mug',
-    'Handcrafted ceramic mug perfect for your morning brew. Holds 12oz of your favorite coffee.',
+    'Koinonia Circle Sticker',
+    '',
     16.99,
     ASSETS.shopPlaceholder,
-    MerchCategory.drinkware,
+    MerchCategory.stickers,
+    new Date(),
     [],
-    ['White', 'Brown', 'Navy']
+    ['Navy']
+  ),
+  new MerchItem(
+    '6',
+    'Logo Sticker',
+    '',
+    16.99,
+    ASSETS.shopPlaceholder,
+    MerchCategory.stickers,
+    new Date(),
+    [],
+    ['Navy']
+  ),
+  new MerchItem(
+    '7',
+    'Koinonia Letters Sticker',
+    '',
+    16.99,
+    ASSETS.shopPlaceholder,
+    MerchCategory.stickers,
+    new Date(),
+    [],
+    ['White']
+  ),
+  new MerchItem(
+    '8',
+    'Sticker Pack',
+    'Can\'t decide on a sticker? Why not get all of them!',
+    16.99,
+    ASSETS.shopPlaceholder,
+    MerchCategory.stickers,
+    new Date(),
+    [],
+    ['White']
   ),
 ];
 

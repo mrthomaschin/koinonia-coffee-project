@@ -9,7 +9,7 @@ interface CoffeeBagDetailProps {
 }
 
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
-  const [selectedWeight, setSelectedWeight] = useState<CoffeeBagWeight>(item.weight);
+  const [selectedWeight, setSelectedWeight] = useState<CoffeeBagWeight>(item.weight[0]);
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddToCart = () => {
@@ -22,7 +22,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
 
   const calculatePrice = () => {
     const basePrice = item.price;
-    const weightMultiplier = selectedWeight / item.weight;
+    const weightMultiplier = selectedWeight / item.weight[0];
     return (basePrice * weightMultiplier * quantity).toFixed(2);
   };
 
@@ -53,13 +53,28 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       <div className="option-group">
         <label className="option-label">Weight</label>
         <div className="weight-options">
-          {Object.values(CoffeeBagWeight).filter(v => typeof v === 'number').map((weight) => (
+          {Object.values(CoffeeBagWeight).filter(v => typeof v === 'number' && item.weight.includes(v)).map((weight) => (
             <button
               key={weight}
               className={`weight-button ${selectedWeight === weight ? 'selected' : ''}`}
               onClick={() => setSelectedWeight(weight as CoffeeBagWeight)}
             >
-              {weight}oz
+              {weight}{(() => {
+                switch (weight) {
+                  case CoffeeBagWeight._12oz:
+                    return 'oz';
+                  case CoffeeBagWeight._16oz:
+                    return 'oz';
+                  case CoffeeBagWeight._24oz:
+                    return 'oz';
+                  case CoffeeBagWeight._200g:
+                    return 'g';
+                  case CoffeeBagWeight._5lb:
+                    return 'lb';
+                  default:
+                    return '';
+                }
+              })()}
             </button>
           ))}
         </div>
@@ -86,17 +101,13 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     </>
   );
 
-  const renderPurchaseSection = () => (
-    <div className="detail-purchase">
-      <div className="detail-price-section">
-        <span className="detail-price-label">Total</span>
-        <span className="detail-price">${calculatePrice()}</span>
+  const renderBrewingMethod = () => {
+    return (
+      <div className="brewing-method">
+        <h3>Brewing Method</h3>
       </div>
-      <button className="detail-add-to-cart" onClick={handleAddToCart}>
-        Add to Cart
-      </button>
-    </div>
-  );
+    );
+  };
 
   return (
     <ItemDetailBase
@@ -105,7 +116,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       renderMetadata={() => renderMetadata(item)}
       renderExtraInfo={() => renderExtraInfo(item)}
       renderOptions={renderOptions}
-      renderPurchaseSection={renderPurchaseSection}
+      renderBrewingMethod={renderBrewingMethod}
     />
   );
 };

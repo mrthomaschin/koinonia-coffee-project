@@ -12,7 +12,6 @@ const AppBar: React.FC = () => {
     { label: 'MENU', page: PAGES.MENU },
     { label: 'SHOP', page: PAGES.SHOP },
     { label: 'ABOUT', page: PAGES.ABOUT },
-    { label: 'BLOG', page: PAGES.BLOG },
     { label: 'GALLERY', page: PAGES.GALLERY },
     { label: 'EVENTS', page: PAGES.EVENTS },
     { label: 'CONTACT', page: PAGES.CONTACT }

@@ -2,6 +2,8 @@ import { Item, ItemType } from './item/Item';
 import { sampleItems } from './shopData';
 
 export enum SortBy {
+    DEFAULT = 'default',
+    NEWEST = 'newest',
     NAME_A_TO_Z = 'name_a_to_z',
     NAME_Z_TO_A = 'name_z_to_a',
     PRICE_LOW_TO_HIGH = 'price_low_to_high',
@@ -21,7 +23,7 @@ export class ShopViewModel {
 
     constructor() {
         this._items = sampleItems;
-        this._sortBy = SortBy.NAME_A_TO_Z;
+        this._sortBy = SortBy.DEFAULT;
         this._filterBy = FilterBy.ALL;
     }
 
@@ -57,6 +59,8 @@ export class ShopViewModel {
     private sortItems(items: Item[], sortType: SortBy): Item[] {
         const sortedItems = [...items];
         switch (sortType) {
+            case SortBy.NEWEST:
+                return sortedItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
             case SortBy.NAME_A_TO_Z:
                 return sortedItems.sort((a, b) => a.name.localeCompare(b.name));
             case SortBy.NAME_Z_TO_A:

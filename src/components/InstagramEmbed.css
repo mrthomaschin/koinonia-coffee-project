@@ -3,16 +3,97 @@
   justify-content: center;
   width: 100%;
   max-width: 100%;
+  min-height: 400px;
+  position: relative;
 }
 
 .instagram-embed-container .instagram-media {
   min-width: 326px !important;
   max-width: 800px !important;
   width: 50% !important;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.instagram-loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  width: 100%;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e9ecef;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.instagram-loading-placeholder p {
+  margin: 0;
+  color: #6c757d;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.instagram-error-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  width: 100%;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+}
+
+.instagram-error-placeholder p {
+  margin: 0 0 16px 0;
+  color: #721c24;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+}
+
+.instagram-fallback-link {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.instagram-fallback-link:hover {
+  background: #0056b3;
+  text-decoration: none;
+  color: white;
 }
 
 @media (max-width: 768px) {
   .instagram-embed-container .instagram-media {
     width: 100% !important;
+  }
+  
+  .instagram-loading-placeholder,
+  .instagram-error-placeholder {
+    min-height: 300px;
   }
 }

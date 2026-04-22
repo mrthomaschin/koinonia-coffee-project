@@ -10,4 +10,5 @@ export interface Item {
     price: number;
     image: string;
     itemType: ItemType;
+    createdAt: Date;
 }

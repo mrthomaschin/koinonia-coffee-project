@@ -12,8 +12,6 @@ const CoffeeBagPreview: React.FC<CoffeeBagPreviewProps> = ({ item, onClick }) =>
   const renderExtraDetails = (coffeeItem: CoffeeBagItem) => (
     <>
       <span className="preview-roast">{RoastLevel[coffeeItem.roastLevel]} roast</span>
-      <span className="preview-separator">•</span>
-      <span className="preview-weight">{coffeeItem.weight}oz</span>
     </>
   );
 

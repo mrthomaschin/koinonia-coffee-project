@@ -254,25 +254,6 @@
   color: #8b4513;
 }
 
-.detail-add-to-cart {
-  width: 100%;
-  padding: 16px;
-  background: #8b4513;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 18px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.detail-add-to-cart:hover {
-  background: #6b3410;
-}
-
 @media (max-width: 768px) {
   .detail-container {
     grid-template-columns: 1fr;

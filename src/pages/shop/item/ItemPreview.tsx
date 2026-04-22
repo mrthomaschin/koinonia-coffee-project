@@ -24,7 +24,7 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
           className="preview-image"
         />
         <div className="preview-overlay">
-          <span className="preview-view-details">View Details</span>
+          <span className="preview-view-details">VIEW DETAILS</span>
         </div>
       </div>
 

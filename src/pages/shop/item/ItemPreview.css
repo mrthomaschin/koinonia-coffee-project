@@ -48,8 +48,9 @@
 }
 
 .preview-view-details {
-  color: white;
-  font-size: 16px;
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  color: #CBC5B9;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -60,6 +61,8 @@
 }
 
 .preview-header {
+  font-family: 'Besley-Italic', sans-serif;
+  font-size: 12px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -67,16 +70,17 @@
 }
 
 .preview-name {
-  font-size: 20px;
   font-weight: 600;
+  letter-spacing: 1px;
   margin: 0;
   color: #2c2c2c;
   flex: 1;
 }
 
 .preview-price {
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
   color: #8b4513;
   margin-left: 12px;
 }
@@ -91,8 +95,9 @@
 }
 
 .preview-description {
+  font-family: 'RethinkSans-Regular', sans-serif;
   font-size: 14px;
-  color: #555;
+  color: #84825E;
   line-height: 1.5;
   margin: 0 0 12px 0;
   display: -webkit-box;
@@ -114,7 +119,7 @@
   }
 
   .preview-name {
-    font-size: 18px;
+    font-size: 12px;
   }
 
   .preview-price {

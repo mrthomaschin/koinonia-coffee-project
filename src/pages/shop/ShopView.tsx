@@ -48,36 +48,38 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
       <div className="shop-controls">
         <div className="control-group">
-          <label htmlFor="filter-select" className="control-label">Filter:</label>
+          <label htmlFor="filter-select" className="control-label">FILTER:</label>
           <select
             id="filter-select"
             className="control-dropdown"
             value={filterBy}
             onChange={(e) => handleFilterChange(e.target.value as FilterBy)}
           >
-            <option value={FilterBy.ALL}>All Products</option>
-            <option value={FilterBy.BEANS}>Coffee Beans</option>
-            <option value={FilterBy.MERCH}>Merchandise</option>
+            <option value={FilterBy.ALL}>ALL PRODUCTS</option>
+            <option value={FilterBy.BEANS}>COFFEE BEANS</option>
+            <option value={FilterBy.MERCH}>MERCH</option>
           </select>
         </div>
 
         <div className="control-group">
-          <label htmlFor="sort-select" className="control-label">Sort by:</label>
+          <label htmlFor="sort-select" className="control-label">SORT BY:</label>
           <select
             id="sort-select"
             className="control-dropdown"
             value={sortBy}
             onChange={(e) => handleSortChange(e.target.value as SortBy)}
           >
-            <option value={SortBy.NAME_A_TO_Z}>Name (A-Z)</option>
-            <option value={SortBy.NAME_Z_TO_A}>Name (Z-A)</option>
-            <option value={SortBy.PRICE_LOW_TO_HIGH}>Price (Low to High)</option>
-            <option value={SortBy.PRICE_HIGH_TO_LOW}>Price (High to Low)</option>
+            <option value={SortBy.DEFAULT}>DEFAULT</option>
+            <option value={SortBy.NAME_A_TO_Z}>NAME (A-Z)</option>
+            <option value={SortBy.NEWEST}>NEWEST</option>
+            <option value={SortBy.NAME_Z_TO_A}>NAME (Z-A)</option>
+            <option value={SortBy.PRICE_LOW_TO_HIGH}>PRICE (LOW TO HIGH)</option>
+            <option value={SortBy.PRICE_HIGH_TO_LOW}>PRICE (HIGH TO LOW)</option>
           </select>
         </div>
 
         <div className="products-total">
-          <span className="products-count">{sortedItems.length} products</span>
+          <span className="products-count">{sortedItems.length} PRODUCTS</span>
         </div>
       </div>
 

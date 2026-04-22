@@ -3,7 +3,6 @@ export const PAGES = {
   MENU: 'menu',
   SHOP: 'shop',
   ABOUT: 'about',
-  BLOG: 'blog',
   GALLERY: 'gallery',
   EVENTS: 'events',
   CONTACT: 'contact'
