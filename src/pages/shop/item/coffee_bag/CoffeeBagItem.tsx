@@ -17,7 +17,7 @@ export enum RoastLevel {
 }
 
 export class CoffeeBagItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, image: string, createdAt: Date, weight: CoffeeBagWeight[], roastLevel: RoastLevel, origin: string, tastingNotes: string[]) {
+    constructor(id: string, name: string, description: string, price: number, image: string, createdAt: Date, weight: CoffeeBagWeight[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -29,6 +29,7 @@ export class CoffeeBagItem implements Item {
         this.roastLevel = roastLevel;
         this.origin = origin;
         this.tastingNotes = tastingNotes;
+        this.quantity = quantity;
     }
 
     id: string;
@@ -43,4 +44,5 @@ export class CoffeeBagItem implements Item {
     roastLevel: RoastLevel;
     origin: string;
     tastingNotes: string[];
+    quantity: number;
 }

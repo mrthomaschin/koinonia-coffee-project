@@ -17,7 +17,7 @@ export enum MerchCategory {
 }
 
 export class MerchItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, image: string, category: MerchCategory, createdAt: Date, availableSizes: MerchSize[], colors: string[]) {
+    constructor(id: string, name: string, description: string, price: number, image: string, category: MerchCategory, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -28,6 +28,7 @@ export class MerchItem implements Item {
         this.category = category;
         this.availableSizes = availableSizes;
         this.colors = colors;
+        this.quantity = quantity;
     }
 
     id: string;
@@ -41,4 +42,5 @@ export class MerchItem implements Item {
     category: MerchCategory;
     availableSizes: MerchSize[];
     colors: string[];
+    quantity: number;
 }

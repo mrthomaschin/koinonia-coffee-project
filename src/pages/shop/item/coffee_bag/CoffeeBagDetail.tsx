@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './CoffeeBagItem';
-import { ItemDetailBase } from '../ItemDetailBase';
+import { ItemDetailBase } from '../ItemDetail';
 import './CoffeeBagDetail.css';
 
 interface CoffeeBagDetailProps {
@@ -117,6 +117,8 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       renderExtraInfo={() => renderExtraInfo(item)}
       renderOptions={renderOptions}
       renderBrewingMethod={renderBrewingMethod}
+      calculatePrice={calculatePrice}
+      handleAddToCart={handleAddToCart}
     />
   );
 };

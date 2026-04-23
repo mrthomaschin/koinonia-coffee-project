@@ -11,4 +11,5 @@ export interface Item {
     image: string;
     itemType: ItemType;
     createdAt: Date;
+    quantity: number;
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MerchItem, MerchSize, MerchCategory } from './MerchItem';
-import { ItemDetailBase } from '../ItemDetailBase';
+import { ItemDetailBase } from '../ItemDetail';
 import './MerchDetail.css';
 
 interface MerchDetailProps {
@@ -99,6 +99,8 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
       onBack={onBack}
       renderMetadata={() => renderMetadata(item)}
       renderOptions={renderOptions}
+      calculatePrice={calculatePrice}
+      handleAddToCart={handleAddToCart}
     />
   );
 };

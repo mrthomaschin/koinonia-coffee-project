@@ -15,80 +15,87 @@ export const sampleItems: Item[] = [
     '1',
     'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
-    18.99,
+    0.00,
     ASSETS.shopPlaceholder,
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.light,
     'Ethiopia',
-    ['Bergamot', 'Jasmine', 'Citrus']
+    ['Bergamot', 'Jasmine', 'Citrus'],
+    0,
   ),
   new CoffeeBagItem(
     '2',
     'Koin Blend',
     'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
-    16.99,
+    0.00,
     ASSETS.shopPlaceholder,
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.mediumLight,
     'Ethiopia, Colombia',
-    ['Chocolate', 'Caramel', 'Nutty']
+    ['Chocolate', 'Caramel', 'Nutty'],
+    0
   ),
   new MerchItem(
     '4',
     'Koinonia Signature Tee',
     'Premium Cotton Tee with our signature logos on the front and back. Comfortable and stylish for everyday wear.',
-    24.99,
+    0.00,
     ASSETS.shopPlaceholder,
     MerchCategory.apparel,
     new Date(),
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
-    ['Beige']
+    ['Beige'],
+    0
   ),
   new MerchItem(
     '5',
     'Koinonia Circle Sticker',
     '',
-    16.99,
+    0.00,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
-    ['Navy']
+    ['Navy'],
+    0
   ),
   new MerchItem(
     '6',
     'Logo Sticker',
     '',
-    16.99,
+    0.00,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
-    ['Navy']
+    ['Navy'],
+    0
   ),
   new MerchItem(
     '7',
     'Koinonia Letters Sticker',
     '',
-    16.99,
+    0.00,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
-    ['White']
+    ['White'],
+    0
   ),
   new MerchItem(
     '8',
     'Sticker Pack',
     'Can\'t decide on a sticker? Why not get all of them!',
-    16.99,
+    0.00,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
-    ['White']
+    ['White'],
+    0
   ),
 ];
 
