@@ -12,6 +12,7 @@ import './App.css';
 import Events from './pages/events/Events';
 import Shop from './pages/shop/ShopView';
 import { ItemDetail } from './pages/shop/item/ItemDetail';
+import About from './pages/about/About';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -88,7 +89,7 @@ const MainContent: React.FC = () => {
             path="/about"
             element={
               isPageEnabled(PAGES.ABOUT) ? (
-                <ComingSoon availableHeight={availableHeight} />
+                <About availableHeight={availableHeight} />
               ) : (
                 <ComingSoon availableHeight={availableHeight} />
               )

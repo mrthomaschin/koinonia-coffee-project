@@ -52,7 +52,7 @@
   transition: width 200ms ease-in-out;
 }
 
-.find-us-button {
+.contact-us-button {
   background-color: #84825E;
   color: white;
   border: none;
@@ -66,7 +66,7 @@
   transition: background-color 200ms;
 }
 
-.find-us-button:hover {
+.contact-us-button:hover {
   background-color: #6d6a4d;
 }
 
@@ -138,7 +138,7 @@
   padding: 8px 24px;
 }
 
-.find-us-button-mobile {
+.contact-us-button-mobile {
   width: 100%;
   background-color: #84825E;
   color: white;

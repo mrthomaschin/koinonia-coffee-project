@@ -1,0 +1,355 @@
+/* ===== About Page ===== */
+
+.about-page {
+  width: 100%;
+  background-color: #F8F5EB;
+}
+
+/* ===== Hero ===== */
+
+.about-hero {
+  position: relative;
+  width: 100%;
+  background-color: #CBC5B9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.about-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(47, 43, 57, 0.15) 0%,
+    rgba(47, 43, 57, 0.45) 100%
+  );
+  z-index: 1;
+}
+
+.about-hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 40px;
+}
+
+.about-hero-label {
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: #F8F5EB;
+  display: block;
+  margin-bottom: 20px;
+}
+
+.about-hero-title {
+  font-family: 'HedvigLettersSerif_18pt', serif;
+  font-size: 48px;
+  font-weight: 400;
+  color: #F8F5EB;
+  line-height: 1.3;
+  margin: 0;
+  max-width: 700px;
+}
+
+/* ===== Intro Quote ===== */
+
+.about-intro {
+  background-color: #F8F5EB;
+  padding: 140px 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.about-intro-inner {
+  max-width: 720px;
+  text-align: center;
+}
+
+.about-intro-quote {
+  font-family: 'Besley-Italic', serif;
+  font-style: italic;
+  font-size: 24px;
+  color: #2F2B39;
+  line-height: 1.7;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+/* ===== Story Blocks (alternating image + text) ===== */
+
+.about-story-block {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background-color: #F8F5EB;
+  margin-bottom: 40px;
+}
+
+.about-story-block:last-of-type {
+  margin-bottom: 0;
+}
+
+.about-story-block.about-story-reverse {
+  flex-direction: row-reverse;
+}
+
+.about-story-image {
+  flex: 1;
+  min-height: 500px;
+}
+
+.about-story-text {
+  flex: 1;
+  padding: 100px 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.about-section-heading {
+  font-family: 'HedvigLettersSerif_18pt', serif;
+  font-size: 36px;
+  font-weight: 600;
+  color: #2F2B39;
+  margin: 0 0 28px 0;
+  line-height: 1.2;
+}
+
+.about-body-text {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  font-size: 17px;
+  color: #2F2B39;
+  line-height: 1.8;
+  margin: 0 0 20px 0;
+}
+
+.about-body-text:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Image Placeholders ===== */
+
+.about-image-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  background-color: #CBC5B9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-image-placeholder-wide {
+  min-height: 420px;
+}
+
+.about-placeholder-text {
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: rgba(47, 43, 57, 0.35);
+  text-transform: uppercase;
+}
+
+/* ===== Values Section ===== */
+
+.about-values {
+  background-color: #2F2B39;
+  padding: 120px 60px;
+  text-align: center;
+}
+
+.about-values-title {
+  font-family: 'HedvigLettersSerif_18pt', serif;
+  font-size: 36px;
+  font-weight: 400;
+  color: #F8F5EB;
+  margin: 0 0 72px 0;
+}
+
+.about-values-grid {
+  display: flex;
+  gap: 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.about-value-card {
+  flex: 1;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.about-value-heading {
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #C3C8A4;
+  margin: 0 0 20px 0;
+}
+
+.about-value-text {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  font-size: 16px;
+  color: #C2CAD3;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* ===== Full-Width Image ===== */
+
+.about-fullwidth-image {
+  width: 100%;
+}
+
+/* ===== CTA Section ===== */
+
+.about-cta {
+  background-color: #F8F5EB;
+  padding: 140px 40px;
+  text-align: center;
+}
+
+.about-cta-title {
+  font-family: 'HedvigLettersSerif_18pt', serif;
+  font-size: 36px;
+  font-weight: 400;
+  color: #2F2B39;
+  margin: 0 0 20px 0;
+}
+
+.about-cta-text {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  font-size: 17px;
+  color: #2F2B39;
+  line-height: 1.8;
+  margin: 0 auto 40px auto;
+  max-width: 520px;
+}
+
+.about-cta-button {
+  display: inline-block;
+  background-color: #84825E;
+  color: #FFFFFF;
+  border: none;
+  padding: 16px 36px;
+  border-radius: 8px;
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(132, 130, 94, 0.3);
+}
+
+.about-cta-button:hover {
+  background-color: #6d6a4d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(132, 130, 94, 0.4);
+}
+
+.about-cta-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(132, 130, 94, 0.3);
+}
+
+.about-cta-verse {
+  font-family: 'Besley-Italic', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: rgba(47, 43, 57, 0.5);
+  line-height: 1.8;
+  margin: 60px auto 0 auto;
+  max-width: 560px;
+}
+
+/* ===== Mobile ===== */
+
+.about-story-mobile {
+  flex-direction: column !important;
+}
+
+.about-story-mobile .about-story-image {
+  width: 100%;
+  min-height: 300px;
+}
+
+.about-story-mobile .about-story-text {
+  padding: 60px 24px;
+}
+
+.about-values-mobile {
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .about-hero-title {
+    font-size: 32px;
+  }
+
+  .about-hero-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .about-hero-content {
+    padding: 0 24px;
+  }
+
+  .about-intro {
+    padding: 80px 24px;
+  }
+
+  .about-intro-quote {
+    font-size: 20px;
+  }
+
+  .about-section-heading {
+    font-size: 28px;
+  }
+
+  .about-body-text {
+    font-size: 16px;
+  }
+
+  .about-values {
+    padding: 80px 24px;
+  }
+
+  .about-values-title {
+    font-size: 28px;
+    margin-bottom: 40px;
+  }
+
+  .about-value-card {
+    padding: 24px 16px;
+  }
+
+  .about-image-placeholder {
+    min-height: 300px;
+  }
+
+  .about-image-placeholder-wide {
+    min-height: 260px;
+  }
+
+  .about-cta {
+    padding: 80px 24px;
+  }
+
+  .about-cta-title {
+    font-size: 28px;
+  }
+
+  .about-cta-text {
+    font-size: 16px;
+  }
+}

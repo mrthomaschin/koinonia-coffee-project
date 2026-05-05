@@ -11,10 +11,9 @@ const AppBar: React.FC = () => {
   const navItems = [
     { label: 'MENU', page: PAGES.MENU },
     { label: 'SHOP', page: PAGES.SHOP },
-    { label: 'ABOUT', page: PAGES.ABOUT },
+    { label: 'OUR STORY', page: PAGES.ABOUT },
     { label: 'GALLERY', page: PAGES.GALLERY },
-    { label: 'EVENTS', page: PAGES.EVENTS },
-    { label: 'CONTACT', page: PAGES.CONTACT }
+    { label: 'EVENTS', page: PAGES.EVENTS }
   ];
 
   const handleNavClick = (page: PageType): void => {
@@ -56,8 +55,8 @@ const AppBar: React.FC = () => {
 
           <div className="app-bar-spacer" />
 
-          <button className="find-us-button">
-            FIND US THIS WEEK
+          <button className="contact-us-button" onClick={() => handleNavClick(PAGES.CONTACT)}>
+            CONTACT US
           </button>
         </nav>
 
@@ -82,8 +81,8 @@ const AppBar: React.FC = () => {
             </div>
           ))}
           <div className="dropdown-button-container">
-            <button className="find-us-button-mobile">
-              FIND US THIS WEEK
+            <button className="contact-us-button-mobile" onClick={() => handleNavClick(PAGES.CONTACT)}>
+              CONTACT US
             </button>
           </div>
         </div>
