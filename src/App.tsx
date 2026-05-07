@@ -13,6 +13,7 @@ import Events from './pages/events/Events';
 import Shop from './pages/shop/ShopView';
 import { ItemDetail } from './pages/shop/item/ItemDetail';
 import About from './pages/about/About';
+import Menu from './pages/menu/Menu';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -79,7 +80,7 @@ const MainContent: React.FC = () => {
             path="/menu"
             element={
               isPageEnabled(PAGES.MENU) ? (
-                <ComingSoon availableHeight={availableHeight} />
+                <Menu availableHeight={availableHeight} />
               ) : (
                 <ComingSoon availableHeight={availableHeight} />
               )
