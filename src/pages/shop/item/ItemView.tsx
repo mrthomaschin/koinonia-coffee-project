@@ -1,54 +1,17 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getItemBySlug } from '../shopData';
-import { Item, ItemType } from './Item';
+import React from 'react';
+import { Item, ItemType } from './ItemModel';
+import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
 import { MerchItem } from './merch/MerchItem';
 import CoffeeBagDetail from './coffee_bag/CoffeeBagDetail';
 import MerchDetail from './merch/MerchDetail';
-import './ItemDetail.css';
+import './ItemView.css';
+import { useCart } from '../../../contexts/CartContext';
 
-interface ItemDetailProps {
-  availableHeight: number;
-}
-
-export const ItemDetail: React.FC<ItemDetailProps> = ({ availableHeight }) => {
-  const { slug } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
-  const item = slug ? getItemBySlug(slug) : undefined;
-
-  const handleBack = () => {
-    navigate('/shop');
-  };
-
-  if (!item) {
-    return (
-      <div className="shop-page" style={{ minHeight: availableHeight }}>
-        <div className="shop-header">
-          <h1 className="shop-title">Item Not Found</h1>
-          <button onClick={handleBack} className="back-button">
-            Back to Shop
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="shop-item-page" style={{ minHeight: availableHeight }}>
-      {item.itemType === ItemType.beans && (
-        <CoffeeBagDetail item={item as CoffeeBagItem} onBack={handleBack} />
-      )}
-      {item.itemType === ItemType.merch && (
-        <MerchDetail item={item as MerchItem} onBack={handleBack} />
-      )}
-    </div>
-  );
-};
-
-interface ItemDetailBaseProps {
-  item: Item;
-  onBack: () => void;
+interface ItemViewProps {
+  availableHeight?: number;
+  item?: Item;
+  onBack?: () => void;
   renderMetadata?: (item: Item) => React.ReactNode;
   renderExtraInfo?: (item: Item) => React.ReactNode;
   renderOptions?: (item: Item) => React.ReactNode;
@@ -58,9 +21,10 @@ interface ItemDetailBaseProps {
   handleAddToCart?: () => void;
 }
 
-export const ItemDetailBase: React.FC<ItemDetailBaseProps> = ({
-  item,
-  onBack,
+export const ItemView: React.FC<ItemViewProps> = ({
+  availableHeight,
+  item: itemProp,
+  onBack: onBackProp,
   renderMetadata,
   renderExtraInfo,
   renderOptions,
@@ -69,16 +33,46 @@ export const ItemDetailBase: React.FC<ItemDetailBaseProps> = ({
   calculatePrice,
   handleAddToCart,
 }) => {
-  const [isDetailsDropdownOpen, setIsDetailsDropdownOpen] = useState(false);
-  const [isBrewingMethodDropdownOpen, setIsBrewingMethodDropdownOpen] = useState(false);
+  const { cart } = useCart();
+  const {
+    item: viewModelItem,
+    handleBack: viewModelHandleBack,
+    isDetailsDropdownOpen,
+    isBrewingMethodDropdownOpen,
+    toggleDetailsDropdown,
+    toggleBrewingMethodDropdown,
+    defaultCalculatePrice,
+    defaultHandleAddToCart,
+  } = useItemDetailViewModel(itemProp, cart);
 
-  const defaultCalculatePrice = (): string => {
-    return item.price.toFixed(2);
-  };
+  const item = itemProp || viewModelItem;
+  const onBack = onBackProp || viewModelHandleBack;
 
-  const defaultHandleAddToCart = (): void => {
-    console.log('Adding to cart:', item.name);
-  };
+  if (!item) {
+    return (
+      <div className="shop-page" style={{ minHeight: availableHeight }}>
+        <div className="shop-header">
+          <h1 className="shop-title">Item Not Found</h1>
+          <button onClick={onBack} className="back-button">
+            Back to Shop
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!itemProp && availableHeight !== undefined) {
+    return (
+      <div className="shop-item-page" style={{ minHeight: availableHeight }}>
+        {item.itemType === ItemType.beans && (
+          <CoffeeBagDetail item={item as CoffeeBagItem} onBack={onBack} />
+        )}
+        {item.itemType === ItemType.merch && (
+          <MerchDetail item={item as MerchItem} onBack={onBack} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="item-detail-page-wrapper">
@@ -132,7 +126,7 @@ export const ItemDetailBase: React.FC<ItemDetailBaseProps> = ({
       <div className="item-detail-dropdown">
         <button
           className="dropdown-toggle"
-          onClick={() => setIsDetailsDropdownOpen(!isDetailsDropdownOpen)}
+          onClick={toggleDetailsDropdown}
         >
           <h2>DETAILS</h2>
           <span className={`dropdown-arrow ${isDetailsDropdownOpen ? 'open' : ''}`}>▼</span>
@@ -144,7 +138,7 @@ export const ItemDetailBase: React.FC<ItemDetailBaseProps> = ({
       {renderBrewingMethod && <div className="item-detail-dropdown">
         <button
           className="dropdown-toggle"
-          onClick={() => setIsBrewingMethodDropdownOpen(!isBrewingMethodDropdownOpen)}
+          onClick={toggleBrewingMethodDropdown}
         >
           <h2>BREWING METHOD</h2>
           <span className={`dropdown-arrow ${isBrewingMethodDropdownOpen ? 'open' : ''}`}>▼</span>
@@ -157,4 +151,4 @@ export const ItemDetailBase: React.FC<ItemDetailBaseProps> = ({
   );
 };
 
-export default ItemDetail;
+export default ItemView;

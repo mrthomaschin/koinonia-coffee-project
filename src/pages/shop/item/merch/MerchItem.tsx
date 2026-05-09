@@ -1,4 +1,4 @@
-import { Item, ItemType } from "../Item";
+import { Item, ItemType } from "../ItemModel";
 
 export enum MerchSize {
     XS = "XS",
@@ -17,7 +17,7 @@ export enum MerchCategory {
 }
 
 export class MerchItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, image: string, category: MerchCategory, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number) {
+    constructor(id: string, name: string, description: string, price: number, image: string, category: MerchCategory, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, shopifyVariantId?: string) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -29,6 +29,7 @@ export class MerchItem implements Item {
         this.availableSizes = availableSizes;
         this.colors = colors;
         this.quantity = quantity;
+        this.shopifyVariantId = shopifyVariantId;
     }
 
     id: string;
@@ -43,4 +44,5 @@ export class MerchItem implements Item {
     availableSizes: MerchSize[];
     colors: string[];
     quantity: number;
+    shopifyVariantId?: string;
 }

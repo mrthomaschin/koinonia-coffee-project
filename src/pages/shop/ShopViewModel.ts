@@ -1,4 +1,4 @@
-import { Item, ItemType } from './item/Item';
+import { Item, ItemType } from './item/ItemModel';
 import { sampleItems } from './shopData';
 
 export enum SortBy {

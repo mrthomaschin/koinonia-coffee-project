@@ -12,4 +12,5 @@ export interface Item {
     itemType: ItemType;
     createdAt: Date;
     quantity: number;
+    shopifyVariantId?: string;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Item, ItemType } from './item/Item';
+import { Item, ItemType } from './item/ItemModel';
 import { CoffeeBagItem } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem } from './item/merch/MerchItem';
 import CoffeeBagPreview from './item/coffee_bag/CoffeeBagPreview';

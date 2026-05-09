@@ -1,5 +1,5 @@
 import React from 'react';
-import { Item } from './Item';
+import { Item } from './ItemModel';
 import './ItemPreview.css';
 
 interface ItemPreviewProps {

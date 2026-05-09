@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MerchItem, MerchSize, MerchCategory } from './MerchItem';
-import { ItemDetailBase } from '../ItemDetail';
+import { ItemView } from '../ItemView';
+import { useCart } from '../../../../contexts/CartContext';
 import './MerchDetail.css';
 
 interface MerchDetailProps {
@@ -9,6 +10,7 @@ interface MerchDetailProps {
 }
 
 const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
+  const { cart, forceUpdate, showToast } = useCart();
   const [selectedSize, setSelectedSize] = useState<MerchSize | null>(
     item.availableSizes.length > 0 ? item.availableSizes[0] : null
   );
@@ -18,12 +20,15 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddToCart = () => {
-    console.log('Adding to cart:', {
-      item: item.name,
-      size: selectedSize,
-      color: selectedColor,
-      quantity
-    });
+    const size = selectedSize ? MerchSize[selectedSize] : undefined;
+    const result = cart.addItem(item, quantity, { size });
+    forceUpdate();
+
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
   };
 
   const calculatePrice = () => {
@@ -94,7 +99,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
   );
 
   return (
-    <ItemDetailBase
+    <ItemView
       item={item}
       onBack={onBack}
       renderMetadata={() => renderMetadata(item)}

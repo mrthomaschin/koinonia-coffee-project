@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
+import { CartProvider, useCart } from './contexts/CartContext';
+import { ToastContainer } from './components/Toast';
 import AppBar from './components/AppBar';
 import BottomBar from './components/BottomBar';
 import ComingSoon from './components/ComingSoon';
@@ -11,9 +13,10 @@ import { isPageEnabled } from './util/devConfig';
 import './App.css';
 import Events from './pages/events/Events';
 import Shop from './pages/shop/ShopView';
-import { ItemDetail } from './pages/shop/item/ItemDetail';
+import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
 import Menu from './pages/menu/Menu';
+import CartView from './pages/cart/CartView';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -30,8 +33,11 @@ const MainContent: React.FC = () => {
     return () => window.removeEventListener('resize', calculateHeight);
   }, []);
 
+  const { toasts, removeToast } = useCart();
+
   return (
     <div className="app">
+      <ToastContainer toasts={toasts} onClose={removeToast} />
       <AppBar />
       <div className="main-content">
         <Routes>
@@ -60,7 +66,7 @@ const MainContent: React.FC = () => {
             path="/shop/:slug"
             element={
               isPageEnabled(PAGES.SHOP) ? (
-                <ItemDetail availableHeight={availableHeight} />
+                <ItemView availableHeight={availableHeight} />
               ) : (
                 <ComingSoon availableHeight={availableHeight} />
               )
@@ -106,6 +112,16 @@ const MainContent: React.FC = () => {
               )
             }
           />
+          <Route
+            path="/cart"
+            element={
+              isPageEnabled(PAGES.CART) ? (
+                <CartView availableHeight={availableHeight} />
+              ) : (
+                <ComingSoon availableHeight={availableHeight} />
+              )
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <BottomBar />
@@ -117,9 +133,11 @@ const MainContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <NavigationProvider>
-        <MainContent />
-      </NavigationProvider>
+      <CartProvider>
+        <NavigationProvider>
+          <MainContent />
+        </NavigationProvider>
+      </CartProvider>
     </BrowserRouter>
   );
 }

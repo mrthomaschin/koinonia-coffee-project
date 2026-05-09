@@ -1,4 +1,4 @@
-import { Item, ItemType } from "../Item";
+import { Item, ItemType } from "../ItemModel";
 
 export enum CoffeeBagWeight {
     _12oz = 12,
@@ -17,7 +17,7 @@ export enum RoastLevel {
 }
 
 export class CoffeeBagItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, image: string, createdAt: Date, weight: CoffeeBagWeight[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number) {
+    constructor(id: string, name: string, description: string, price: number, image: string, createdAt: Date, weight: CoffeeBagWeight[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number, shopifyVariantId?: string) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -30,6 +30,7 @@ export class CoffeeBagItem implements Item {
         this.origin = origin;
         this.tastingNotes = tastingNotes;
         this.quantity = quantity;
+        this.shopifyVariantId = shopifyVariantId;
     }
 
     id: string;
@@ -45,4 +46,5 @@ export class CoffeeBagItem implements Item {
     origin: string;
     tastingNotes: string[];
     quantity: number;
+    shopifyVariantId?: string;
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './CoffeeBagItem';
-import { ItemDetailBase } from '../ItemDetail';
+import { ItemView } from '../ItemView';
+import { useCart } from '../../../../contexts/CartContext';
 import './CoffeeBagDetail.css';
 
 interface CoffeeBagDetailProps {
@@ -9,15 +10,19 @@ interface CoffeeBagDetailProps {
 }
 
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
+  const { cart, forceUpdate, showToast } = useCart();
   const [selectedWeight, setSelectedWeight] = useState<CoffeeBagWeight>(item.weight[0]);
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddToCart = () => {
-    console.log('Adding to cart:', {
-      item: item.name,
-      weight: selectedWeight,
-      quantity
-    });
+    const result = cart.addItem(item, quantity, { weight: selectedWeight });
+    forceUpdate();
+
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
   };
 
   const calculatePrice = () => {
@@ -110,7 +115,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   };
 
   return (
-    <ItemDetailBase
+    <ItemView
       item={item}
       onBack={onBack}
       renderMetadata={() => renderMetadata(item)}

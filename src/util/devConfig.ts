@@ -13,6 +13,7 @@ export const DEV_FLAGS = {
   ENABLE_ABOUT: true,
   ENABLE_GALLERY: false,
   ENABLE_CONTACT: true,
+  ENABLE_CART: true,
 } as const;
 
 export const isPageEnabled = (page: string): boolean => {
@@ -26,7 +27,8 @@ export const isPageEnabled = (page: string): boolean => {
     menu: DEV_FLAGS.ENABLE_MENU,
     about: DEV_FLAGS.ENABLE_ABOUT,
     gallery: DEV_FLAGS.ENABLE_GALLERY,
-    contact: DEV_FLAGS.ENABLE_CONTACT
+    contact: DEV_FLAGS.ENABLE_CONTACT,
+    cart: DEV_FLAGS.ENABLE_CART
   };
 
   return flagMap[page] ?? true;

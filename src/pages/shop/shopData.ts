@@ -1,6 +1,6 @@
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize, MerchCategory } from './item/merch/MerchItem';
-import { Item } from './item/Item';
+import { Item } from './item/ItemModel';
 import { ASSETS } from '../../util/constants';
 
 export const generateSlug = (name: string): string => {
@@ -23,6 +23,7 @@ export const sampleItems: Item[] = [
     'Ethiopia',
     ['Bergamot', 'Jasmine', 'Citrus'],
     0,
+    undefined
   ),
   new CoffeeBagItem(
     '2',
@@ -35,67 +36,73 @@ export const sampleItems: Item[] = [
     RoastLevel.mediumLight,
     'Ethiopia, Colombia',
     ['Chocolate', 'Caramel', 'Nutty'],
-    0
+    0,
+    undefined
   ),
   new MerchItem(
     '4',
     'Koinonia Signature Tee',
     'Premium Cotton Tee with our signature logos on the front and back. Comfortable and stylish for everyday wear.',
-    0.00,
+    32.00,
     ASSETS.shopPlaceholder,
     MerchCategory.apparel,
     new Date(),
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
     ['Beige'],
-    0
+    10,
+    'gid://shopify/ProductVariant/8042073751670'
   ),
   new MerchItem(
     '5',
     'Koinonia Circle Sticker',
     '',
-    0.00,
+    2.50,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
     ['Navy'],
-    0
+    5,
+    undefined
   ),
   new MerchItem(
     '6',
     'Logo Sticker',
     '',
-    0.00,
+    2.50,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
     ['Navy'],
-    0
+    5,
+    undefined
   ),
   new MerchItem(
     '7',
     'Koinonia Letters Sticker',
     '',
-    0.00,
+    3.00,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
     ['White'],
-    0
+    5,
+    undefined
   ),
   new MerchItem(
     '8',
     'Sticker Pack',
     'Can\'t decide on a sticker? Why not get all of them!',
-    0.00,
+    7.00,
     ASSETS.shopPlaceholder,
     MerchCategory.stickers,
     new Date(),
     [],
     ['White'],
-    0
+    5,
+    undefined
   ),
 ];
 
