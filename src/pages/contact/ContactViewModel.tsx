@@ -1,5 +1,6 @@
 import { submitContactForm } from '../../services/emailService';
 import { FormData, FormErrors } from './ContactModel';
+import trackingService from '../../services/trackingService';
 
 export class ContactViewModel {
   private _formData: FormData;
@@ -102,6 +103,8 @@ export class ContactViewModel {
 
     try {
       await submitContactForm(this._formData);
+
+      trackingService.trackFormSubmit('contact_form');
 
       this._formData = {
         firstName: '',

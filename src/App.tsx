@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { ToastContainer } from './components/Toast';
@@ -17,9 +17,11 @@ import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
 import Menu from './pages/menu/Menu';
 import CartView from './pages/cart/CartView';
+import trackingService from './services/trackingService';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
+  const location = useLocation();
 
   useEffect(() => {
     const calculateHeight = (): void => {
@@ -32,6 +34,10 @@ const MainContent: React.FC = () => {
     window.addEventListener('resize', calculateHeight);
     return () => window.removeEventListener('resize', calculateHeight);
   }, []);
+
+  useEffect(() => {
+    trackingService.trackPageView(location.pathname + location.search);
+  }, [location]);
 
   const { toasts, removeToast } = useCart();
 
@@ -131,6 +137,10 @@ const MainContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    trackingService.initialize();
+  }, []);
+
   return (
     <BrowserRouter>
       <CartProvider>

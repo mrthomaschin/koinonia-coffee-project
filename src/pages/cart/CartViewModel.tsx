@@ -1,5 +1,6 @@
 import { Item, ItemType } from "../shop/item/ItemModel";
 import { CoffeeBagWeight } from "../shop/item/coffee_bag/CoffeeBagItem";
+import trackingService from "../../services/trackingService";
 
 export interface CartItemSelection {
     weight?: CoffeeBagWeight;
@@ -60,6 +61,13 @@ export class CartViewModel {
             }
 
             this.cartItems[existingIndex].quantity = newQuantity;
+            const cartItem = { item, quantity, selections };
+            trackingService.trackAddToCart(
+                item.id,
+                item.name,
+                this.getItemPrice(cartItem),
+                quantity
+            );
             return { success: true, message: 'Quantity updated in cart' };
         } else {
             if (quantity > item.quantity) {
@@ -67,11 +75,27 @@ export class CartViewModel {
             }
 
             this.cartItems.push({ item, quantity, selections });
+            const cartItem = { item, quantity, selections };
+            trackingService.trackAddToCart(
+                item.id,
+                item.name,
+                this.getItemPrice(cartItem),
+                quantity
+            );
             return { success: true, message: 'Item added to cart' };
         }
     }
 
     removeItem(index: number): void {
+        const cartItem = this.cartItems[index];
+        if (cartItem) {
+            trackingService.trackRemoveFromCart(
+                cartItem.item.id,
+                cartItem.item.name,
+                this.getItemPrice(cartItem),
+                cartItem.quantity
+            );
+        }
         this.cartItems.splice(index, 1);
     }
 
