@@ -19,7 +19,7 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
     <div className="item-preview" onClick={() => onClick(item)}>
       <div className="preview-image-container">
         <img
-          src={item.image}
+          src={item.images[0]}
           alt={item.name}
           className="preview-image"
         />

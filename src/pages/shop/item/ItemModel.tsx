@@ -8,7 +8,7 @@ export interface Item {
     name: string;
     description: string;
     price: number;
-    image: string;
+    images: string[];
     itemType: ItemType;
     createdAt: Date;
     quantity: number;

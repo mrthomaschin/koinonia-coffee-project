@@ -1,7 +1,7 @@
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize, MerchCategory } from './item/merch/MerchItem';
 import { Item } from './item/ItemModel';
-import { ASSETS } from '../../util/constants';
+import { ASSETS, IMAGES } from '../../util/constants';
 
 export const generateSlug = (name: string): string => {
   return name
@@ -16,7 +16,7 @@ export const sampleItems: Item[] = [
     'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
     0.00,
-    ASSETS.shopPlaceholder,
+    [IMAGES.ethiopiaOne, IMAGES.coffeeBags],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.light,
@@ -30,7 +30,7 @@ export const sampleItems: Item[] = [
     'Koin Blend',
     'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
     0.00,
-    ASSETS.shopPlaceholder,
+    [IMAGES.koinoniaBlendOne, IMAGES.koinoniaBlendTwo, IMAGES.coffeeBags],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.mediumLight,
@@ -43,8 +43,8 @@ export const sampleItems: Item[] = [
     '4',
     'Koinonia Signature Tee',
     'Premium Cotton Tee with our signature logos on the front and back. Comfortable and stylish for everyday wear.',
-    32.00,
-    ASSETS.shopPlaceholder,
+    30.00,
+    [IMAGES.koinoniaSigTeeOne, IMAGES.koinoniaSigTeeTwo],
     MerchCategory.apparel,
     new Date(),
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
@@ -57,7 +57,7 @@ export const sampleItems: Item[] = [
     'Koinonia Circle Sticker',
     '',
     2.50,
-    ASSETS.shopPlaceholder,
+    [IMAGES.circleSticker1],
     MerchCategory.stickers,
     new Date(),
     [],
@@ -70,7 +70,7 @@ export const sampleItems: Item[] = [
     'Logo Sticker',
     '',
     2.50,
-    ASSETS.shopPlaceholder,
+    [IMAGES.logoSticker1],
     MerchCategory.stickers,
     new Date(),
     [],
@@ -80,10 +80,10 @@ export const sampleItems: Item[] = [
   ),
   new MerchItem(
     '7',
-    'Koinonia Letters Sticker',
+    'Koinonia Letter Sticker',
     '',
     3.00,
-    ASSETS.shopPlaceholder,
+    [IMAGES.letterSticker1],
     MerchCategory.stickers,
     new Date(),
     [],
@@ -93,10 +93,23 @@ export const sampleItems: Item[] = [
   ),
   new MerchItem(
     '8',
+    'Koinonia Letter Sticker 2',
+    '',
+    3.00,
+    [IMAGES.letterSticker2],
+    MerchCategory.stickers,
+    new Date(),
+    [],
+    ['White'],
+    5,
+    undefined
+  ),
+  new MerchItem(
+    '9',
     'Sticker Pack',
     'Can\'t decide on a sticker? Why not get all of them!',
     7.00,
-    ASSETS.shopPlaceholder,
+    [IMAGES.stickerGroup1],
     MerchCategory.stickers,
     new Date(),
     [],

@@ -21,6 +21,20 @@ export const ASSETS = {
   shopPlaceholder: '/assets/images/shop_placeholder.png'
 } as const;
 
+export const IMAGES = {
+  koinoniaSigTeeOne: '/assets/images/DSCF6417.JPG',
+  koinoniaSigTeeTwo: '/assets/images/DSCF6368.JPG',
+  koinoniaBlendOne: '/assets/images/cgpt_koin_blend_1.png',
+  koinoniaBlendTwo: '/assets/images/espresso_shot.png',
+  ethiopiaOne: '/assets/images/cgpt_ethiopia_1.png',
+  coffeeBags: '/assets/images/cgpt_bags_2.png',
+  circleSticker1: '/assets/images/cgpt_circle_sticker.png',
+  logoSticker1: '/assets/images/cgpt_logo_sticker.png',
+  letterSticker1: '/assets/images/cgpt_letter_sticker2.png',
+  letterSticker2: '/assets/images/cgpt_letter_sticker_2.png',
+  stickerGroup1: '/assets/images/cgpt_render_2.png'
+} as const;
+
 export const FONTS = {
   primary: 'HedvigLettersSerif_18pt',
   slug: 'ShipporiAntiqueB1',
