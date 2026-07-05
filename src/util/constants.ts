@@ -27,7 +27,7 @@ export const IMAGES = {
   koinoniaBlendOne: '/assets/images/cgpt_koin_blend_1.png',
   koinoniaBlendTwo: '/assets/images/espresso_shot.png',
   ethiopiaOne: '/assets/images/cgpt_ethiopia_1.png',
-  coffeeBags: '/assets/images/cgpt_bags_2.png',
+  coffeeBags: '/assets/images/cgpt_bags_3.png',
   circleSticker1: '/assets/images/cgpt_circle_sticker.png',
   logoSticker1: '/assets/images/cgpt_logo_sticker.png',
   letterSticker1: '/assets/images/cgpt_letter_sticker2.png',
