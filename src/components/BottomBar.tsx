@@ -1,5 +1,5 @@
 import React from 'react';
-import { ASSETS } from '../util/constants';
+import { ICONS } from '../util/constants';
 import './BottomBar.css';
 
 const BottomBar: React.FC = () => {
@@ -15,7 +15,7 @@ const BottomBar: React.FC = () => {
     <div className="bottom-bar">
       <div className="bottom-bar-content">
         <img
-          src={ASSETS.logoMark}
+          src={ICONS.logoMark}
           alt="Koinonia Coffee Project"
           className="bottom-bar-logo"
         />
@@ -26,7 +26,7 @@ const BottomBar: React.FC = () => {
           <h3 className="section-title">FOLLOW ALONG</h3>
           <div className="section-link" onClick={openInstagram}>
             <img
-              src={ASSETS.instagramIcon}
+              src={ICONS.instagramIcon}
               alt="Instagram"
               className="social-icon"
             />
@@ -38,7 +38,7 @@ const BottomBar: React.FC = () => {
           <h3 className="section-title">CONTACT US</h3>
           <div className="section-link" onClick={openEmail}>
             <img
-              src={ASSETS.emailIcon}
+              src={ICONS.emailIcon}
               alt="Email"
               className="email-icon"
             />

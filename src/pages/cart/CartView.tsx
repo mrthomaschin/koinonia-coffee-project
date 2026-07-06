@@ -141,13 +141,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         return (
             <div key={index} className="cart-item">
                 <div className="cart-item-image">
-                    <img src={cartItem.item.image} alt={cartItem.item.name} />
+                    <img src={cartItem.item.images[0]} alt={cartItem.item.name} />
                 </div>
 
                 <div className="cart-item-details">
                     <h3 className="cart-item-name">{cartItem.item.name}</h3>
 
-                    {cartItem.item.itemType === ItemType.beans && cartItem.selections.weight && (
+                    {cartItem.item.itemType === ItemType.coffee && cartItem.selections.weight && (
                         <p className="cart-item-selection">
                             Weight: {formatWeight(cartItem.selections.weight)}
                         </p>

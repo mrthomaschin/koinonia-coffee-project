@@ -85,7 +85,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
       <div className="shop-grid">
         {sortedItems.map((item) => {
-          if (item.itemType === ItemType.beans) {
+          if (item.itemType === ItemType.coffee) {
             return (
               <CoffeeBagPreview
                 key={item.id}
@@ -93,16 +93,14 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
                 onClick={handleItemClick}
               />
             );
-          } else if (item.itemType === ItemType.merch) {
-            return (
-              <MerchPreview
-                key={item.id}
-                item={item as MerchItem}
-                onClick={handleItemClick}
-              />
-            );
           }
-          return null;
+          return (
+            <MerchPreview
+              key={item.id}
+              item={item as MerchItem}
+              onClick={handleItemClick}
+            />
+          );
         })}
       </div>
     </div>

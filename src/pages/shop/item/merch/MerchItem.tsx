@@ -9,23 +9,15 @@ export enum MerchSize {
     XXL = "XXL",
 }
 
-export enum MerchCategory {
-    apparel,
-    drinkware,
-    accessories,
-    stickers,
-}
-
 export class MerchItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, images: string[], category: MerchCategory, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, shopifyVariantId?: string) {
+    constructor(id: string, name: string, description: string, price: number, images: string[], itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, shopifyVariantId?: string) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.price = price;
         this.images = images;
-        this.itemType = ItemType.merch;
+        this.itemType = itemType;
         this.createdAt = createdAt;
-        this.category = category;
         this.availableSizes = availableSizes;
         this.colors = colors;
         this.quantity = quantity;
@@ -39,8 +31,6 @@ export class MerchItem implements Item {
     images: string[];
     itemType: ItemType;
     createdAt: Date;
-
-    category: MerchCategory;
     availableSizes: MerchSize[];
     colors: string[];
     quantity: number;

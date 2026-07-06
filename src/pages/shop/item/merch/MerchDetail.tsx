@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { MerchItem, MerchSize, MerchCategory } from './MerchItem';
+import { MerchItem, MerchSize } from './MerchItem';
 import { ItemView } from '../ItemView';
 import { useCart } from '../../../../contexts/CartContext';
 import './MerchDetail.css';
+import { ItemType } from '../ItemModel';
 
 interface MerchDetailProps {
   item: MerchItem;
@@ -37,7 +38,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
 
   const renderMetadata = (merchItem: MerchItem) => (
     <>
-      <span className="category-badge">{MerchCategory[merchItem.category]}</span>
+      <span className="category-badge">{ItemType[merchItem.itemType]}</span>
     </>
   );
 

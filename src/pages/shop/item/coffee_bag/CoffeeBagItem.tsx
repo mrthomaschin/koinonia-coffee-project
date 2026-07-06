@@ -9,11 +9,11 @@ export enum CoffeeBagWeight {
 }
 
 export enum RoastLevel {
-    light,
-    mediumLight,
-    medium,
-    mediumDark,
-    dark,
+    light = "Light",
+    mediumLight = "Medium-Light",
+    medium = "Medium",
+    mediumDark = "Medium-Dark",
+    dark = "Dark",
 }
 
 export class CoffeeBagItem implements Item {
@@ -23,7 +23,7 @@ export class CoffeeBagItem implements Item {
         this.description = description;
         this.price = price;
         this.images = images;
-        this.itemType = ItemType.beans;
+        this.itemType = ItemType.coffee;
         this.createdAt = createdAt;
         this.weight = weight;
         this.roastLevel = roastLevel;

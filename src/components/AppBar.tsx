@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useCart } from '../contexts/CartContext';
-import { PAGES, ASSETS, PageType } from '../util/constants';
+import { PAGES, ICONS, PageType } from '../util/constants';
 import './AppBar.css';
 
 const AppBar: React.FC = () => {
@@ -29,7 +29,7 @@ const AppBar: React.FC = () => {
     <div className="app-bar">
       <div className="app-bar-content">
         <img
-          src={ASSETS.primary}
+          src={ICONS.primary}
           alt="Koinonia Coffee Project"
           className="app-bar-logo"
           onClick={() => navigateTo(PAGES.HOME)}

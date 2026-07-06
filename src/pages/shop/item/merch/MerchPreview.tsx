@@ -1,7 +1,8 @@
 import React from 'react';
-import { MerchItem, MerchCategory } from './MerchItem';
+import { MerchItem } from './MerchItem';
 import ItemPreview from '../ItemPreview';
 import './MerchPreview.css';
+import { ItemType } from '../ItemModel';
 
 interface MerchPreviewProps {
   item: MerchItem;
@@ -11,7 +12,7 @@ interface MerchPreviewProps {
 const MerchPreview: React.FC<MerchPreviewProps> = ({ item, onClick }) => {
   const renderExtraDetails = (merchItem: MerchItem) => (
     <>
-      <span className="preview-category">{MerchCategory[merchItem.category]}</span>
+      <span className="preview-category">{ItemType[merchItem.itemType]}</span>
       {merchItem.availableSizes.length > 0 && (
         <>
           <span className="preview-separator">•</span>

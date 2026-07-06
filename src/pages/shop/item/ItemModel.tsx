@@ -1,6 +1,9 @@
 export enum ItemType {
-    beans,
-    merch,
+    apparel,
+    drinkware,
+    accessories,
+    stickers,
+    coffee,
 }
 
 export interface Item {

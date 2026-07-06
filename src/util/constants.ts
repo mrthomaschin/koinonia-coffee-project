@@ -11,19 +11,22 @@ export const PAGES = {
 
 export type PageType = typeof PAGES[keyof typeof PAGES];
 
-export const ASSETS = {
+export const ICONS = {
   logoMark: '/assets/logos/koinoniacp_logomark-black.svg',
   primary: '/assets/logos/koinoniacp_primary-black.svg',
   secondary: '/assets/logos/koinoniacp_secondary-black.svg',
   instagramIcon: '/assets/icons/icons8-instagram-96.png',
   emailIcon: '/assets/icons/icons8-mail-50.svg',
   heroImage: '/assets/images/DSCF3464.jpg',
-  shopPlaceholder: '/assets/images/shop_placeholder.png'
+  shopPlaceholder: '/assets/images/shop_placeholder.png',
+  v60: '/assets/icons/v60.png',
+  chemex: '/assets/icons/chemex.png',
+  espresso: '/assets/icons/espresso.png'
 } as const;
 
-export const IMAGES = {
-  koinoniaSigTeeOne: '/assets/images/DSCF6417.JPG',
-  koinoniaSigTeeTwo: '/assets/images/DSCF6368.JPG',
+export const ASSETS = {
+  koinoniaSigTeeOne: '/assets/images/DSCF6417.jpg',
+  koinoniaSigTeeTwo: '/assets/images/DSCF6368.jpg',
   koinoniaBlendOne: '/assets/images/cgpt_koin_blend_1.png',
   koinoniaBlendTwo: '/assets/images/espresso_shot.png',
   ethiopiaOne: '/assets/images/cgpt_ethiopia_1.png',

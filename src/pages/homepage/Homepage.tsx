@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ASSETS } from '../../util/constants';
+import { ICONS } from '../../util/constants';
 import './Homepage.css';
 
 interface HomepageProps {
@@ -23,12 +23,12 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight }) => {
         className="hero-section"
         style={{
           height: availableHeight,
-          backgroundImage: `url(${ASSETS.heroImage})`
+          backgroundImage: `url(${ICONS.heroImage})`
         }}
       >
         <div className="hero-content">
           <img
-            src={ASSETS.logoMark}
+            src={ICONS.logoMark}
             alt="Koinonia Coffee Project"
             className="hero-logo"
             style={{ height: isMobile ? '60px' : '80px' }}

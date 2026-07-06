@@ -1,5 +1,5 @@
 import React from 'react';
-import { ASSETS } from '../util/constants';
+import { ICONS } from '../util/constants';
 import './ComingSoon.css';
 
 interface ComingSoonProps {
@@ -10,7 +10,7 @@ const ComingSoon: React.FC<ComingSoonProps> = ({ availableHeight }) => {
   return (
     <div className="coming-soon" style={{ minHeight: availableHeight }}>
       <img
-        src={ASSETS.logoMark}
+        src={ICONS.logoMark}
         alt="Koinonia Coffee Project"
         className="coming-soon-logo"
       />

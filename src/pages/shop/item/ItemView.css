@@ -383,7 +383,6 @@
   color: #2F2B39;
 }
 
-.roast-badge,
 .category-badge {
   background: #84825E;
   color: white;
@@ -437,6 +436,10 @@
   padding-top: 24px;
 }
 
+.item-detail-dropdown:last-child .dropdown-content.open {
+  padding-bottom: 100px;
+}
+
 .dropdown-toggle {
   width: 100%;
   background: none;
@@ -477,12 +480,12 @@
 .dropdown-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease, opacity 0.3s ease;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
   opacity: 0;
 }
 
 .dropdown-content.open {
-  max-height: 500px;
+  max-height: 2000px;
   opacity: 1;
   margin-top: 16px;
 }
