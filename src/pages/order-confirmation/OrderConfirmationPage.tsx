@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
+import { sendPurchaseNotification } from '../../services/emailService';
 import './OrderConfirmationPage.css';
 
 interface OrderConfirmationPageProps {
@@ -24,6 +25,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const emailSentRef = React.useRef(false);
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
@@ -40,6 +42,46 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
         setSessionData(data);
 
         if (data.payment_status === 'paid') {
+          // Send purchase notification email before clearing cart (only once)
+          if (!emailSentRef.current) {
+            emailSentRef.current = true;
+            try {
+              console.log('💳 Payment confirmed, preparing email notification...');
+              console.log('📦 Cart items:', cart.cartItems);
+
+              const purchaseItems = cart.cartItems.map(cartItem => {
+                const variations: string[] = [];
+                if (cartItem.selections.weight) {
+                  variations.push(`${cartItem.selections.weight}oz`);
+                }
+                if (cartItem.selections.size) {
+                  variations.push(cartItem.selections.size);
+                }
+
+                return {
+                  name: cartItem.item.name,
+                  sku: cartItem.item.id,
+                  quantity: cartItem.quantity,
+                  price: cartItem.item.price,
+                  variations: variations.length > 0 ? variations.join(', ') : undefined
+                };
+              });
+
+              console.log('📧 Sending purchase notification email...');
+              await sendPurchaseNotification({
+                customerEmail: data.customer_email || 'N/A',
+                customerName: data.customer_name,
+                items: purchaseItems,
+                totalAmount: data.amount_total / 100,
+                orderDate: new Date().toLocaleString(),
+                sessionId: sessionId
+              });
+              console.log('✅ Email notification sent successfully!');
+            } catch (emailError) {
+              console.error('❌ Failed to send purchase notification:', emailError);
+            }
+          }
+
           cart.cartItems = [];
           localStorage.removeItem('koinonia_cart');
         }

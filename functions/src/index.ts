@@ -4,6 +4,11 @@ import * as logger from "firebase-functions/logger";
 import Stripe from "stripe";
 import express, { Request, Response } from "express";
 import cors from "cors";
+import * as dotenv from "dotenv";
+
+// Load .env.local for development (emulator only)
+// Production uses Firebase secrets, not .env files
+dotenv.config({ path: ".env.local" });
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -174,10 +179,16 @@ app.post(
   }
 );
 
-export const api = onRequest(
-  {
-    cors: true,
-    secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
-  },
-  app
-);
+// Configure function options based on environment
+// In production: use Firebase secrets
+// In emulator: use .env file (secrets config causes emulator to fetch from Firebase)
+const functionOptions: any = {
+  cors: true,
+};
+
+// Only add secrets in production (not in emulator)
+if (process.env.FUNCTIONS_EMULATOR !== "true") {
+  functionOptions.secrets = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"];
+}
+
+export const api = onRequest(functionOptions, app);

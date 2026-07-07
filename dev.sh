@@ -54,11 +54,17 @@ EOF
     print_warning "Please update .env.local with your Stripe test key!"
 fi
 
-# Check for functions/.env file
-if [ ! -f "functions/.env" ]; then
-    print_warning "functions/.env file not found!"
-    print_info "Please copy functions/.env.example to functions/.env and add your Stripe keys"
-    print_info "Run: cp functions/.env.example functions/.env"
+# Check for functions/.env.local file (used by emulator)
+if [ ! -f "functions/.env.local" ]; then
+    print_warning "functions/.env.local file not found!"
+    if [ -f "functions/.env.example" ]; then
+        print_info "Copying functions/.env.example to functions/.env.local..."
+        cp functions/.env.example functions/.env.local
+        print_info "✓ Created functions/.env.local with test Stripe keys"
+    else
+        print_error "functions/.env.example not found!"
+        exit 1
+    fi
 fi
 
 # Determine what to run

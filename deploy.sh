@@ -195,9 +195,19 @@ deploy_all() {
     # Verify secrets before deployment
     verify_secrets
     
-    # Build frontend
+    # Temporarily move .env.local (it overrides .env.production)
+    if [ -f ".env.local" ]; then
+        mv .env.local .env.local.tmp
+    fi
+    
+    # Build frontend (uses .env.production)
     print_info "Building React app for production..."
     npm run build
+    
+    # Restore .env.local
+    if [ -f ".env.local.tmp" ]; then
+        mv .env.local.tmp .env.local
+    fi
     
     print_info ""
     print_section "Deploying to Firebase"
