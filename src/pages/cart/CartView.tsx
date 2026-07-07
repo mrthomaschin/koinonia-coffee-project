@@ -4,7 +4,6 @@ import { CartItem } from './CartViewModel';
 import { ItemType } from '../shop/item/ItemModel';
 import { CoffeeBagWeight } from '../shop/item/coffee_bag/CoffeeBagItem';
 import { useCart } from '../../contexts/CartContext';
-import { shopifyService } from '../../services/shopifyService';
 import './Cart.css';
 
 interface CartViewProps {
@@ -16,7 +15,6 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const { cart: viewModel, forceUpdate, showToast } = useCart();
     const [pendingQuantities, setPendingQuantities] = useState<{ [key: number]: number }>({});
     const [updateTrigger, setUpdateTrigger] = useState(0);
-    const [isCheckingOut, setIsCheckingOut] = useState(false);
 
     const subtotal = useMemo(() => viewModel.getSubtotal(), [viewModel.cartItems, updateTrigger]);
     const isEmpty = useMemo(() => viewModel.cartItems.length === 0, [viewModel.cartItems, updateTrigger]);
@@ -88,33 +86,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         navigate('/shop');
     }, [navigate]);
 
-    const handleCheckout = useCallback(async () => {
-        setIsCheckingOut(true);
-        try {
-            const lineItems = viewModel.getShopifyLineItems();
-
-            if (lineItems.length === 0) {
-                showToast('No items with Shopify variant IDs found. Please configure your products.', 'error');
-                setIsCheckingOut(false);
-                return;
-            }
-
-            if (lineItems.length < viewModel.cartItems.length) {
-                showToast('Some items are missing Shopify configuration and will be skipped.', 'error');
-            }
-
-            const checkoutUrl = await shopifyService.createCheckout(lineItems);
-            window.location.href = checkoutUrl;
-        } catch (error) {
-            console.error('Checkout error:', error);
-            if (error instanceof Error) {
-                showToast(error.message, 'error');
-            } else {
-                showToast('Failed to create checkout. Please try again.', 'error');
-            }
-            setIsCheckingOut(false);
+    const handleCheckout = useCallback(() => {
+        if (hasAnyChanges) {
+            showToast('Please update your cart before proceeding to checkout', 'error');
+            return;
         }
-    }, [viewModel, showToast]);
+        navigate('/checkout');
+    }, [navigate, hasAnyChanges, showToast]);
 
     const formatWeight = (weight: CoffeeBagWeight): string => {
         switch (weight) {
@@ -238,9 +216,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         <button
                             className="checkout-btn"
                             onClick={handleCheckout}
-                            disabled={isCheckingOut}
                         >
-                            {isCheckingOut ? 'Redirecting...' : 'Checkout'}
+                            Checkout
                         </button>
                     </div>
                 </div>

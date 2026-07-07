@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './CoffeeBagItem';
+import { CoffeeBagItem, CoffeeBagWeight } from './CoffeeBagItem';
 import { ItemView } from '../ItemView';
 import { useCart } from '../../../../contexts/CartContext';
 import { getCoffeeDataById } from './CoffeeData';

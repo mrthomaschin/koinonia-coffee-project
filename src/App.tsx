@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
+import { NavigationProvider } from './contexts/NavigationContext';
 import { CartProvider, useCart } from './contexts/CartContext';
 import { ToastContainer } from './components/Toast';
 import AppBar from './components/AppBar';
@@ -17,6 +17,8 @@ import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
 import Menu from './pages/menu/Menu';
 import CartView from './pages/cart/CartView';
+import CheckoutPage from './pages/checkout/CheckoutPage';
+import OrderConfirmationPage from './pages/order-confirmation/OrderConfirmationPage';
 import trackingService from './services/trackingService';
 
 const MainContent: React.FC = () => {
@@ -127,6 +129,14 @@ const MainContent: React.FC = () => {
                 <ComingSoon availableHeight={availableHeight} />
               )
             }
+          />
+          <Route
+            path="/checkout"
+            element={<CheckoutPage availableHeight={availableHeight} />}
+          />
+          <Route
+            path="/order-confirmation"
+            element={<OrderConfirmationPage availableHeight={availableHeight} />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

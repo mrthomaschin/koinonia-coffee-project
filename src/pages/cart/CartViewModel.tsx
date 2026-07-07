@@ -25,14 +25,7 @@ export class CartViewModel {
     }
 
     getItemPrice(cartItem: CartItem): number {
-        const basePrice = cartItem.item.price;
-
-        if (cartItem.item.itemType === ItemType.beans && cartItem.selections.weight) {
-            const weightMultiplier = cartItem.selections.weight / 12;
-            return basePrice * weightMultiplier;
-        }
-
-        return basePrice;
+        return cartItem.item.price;
     }
 
     updateQuantity(index: number, newQuantity: number): void {

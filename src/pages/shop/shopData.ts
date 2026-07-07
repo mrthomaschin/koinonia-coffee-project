@@ -1,8 +1,7 @@
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize } from './item/merch/MerchItem';
 import { Item, ItemType } from './item/ItemModel';
-import { ICONS, ASSETS } from '../../util/constants';
-import { Coffee, Ethiopia, KoinBlend, SingleDripper, BatchDripper, Espresso } from './item/coffee_bag/CoffeeData';
+import { ASSETS } from '../../util/constants';
 
 export const generateSlug = (name: string): string => {
   return name
@@ -16,14 +15,14 @@ export const sampleItems: Item[] = [
     '1',
     'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
-    0.00,
+    10.00,
     [ASSETS.ethiopiaOne, ASSETS.coffeeBags],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.light,
     'Ethiopia',
     ['Bergamot', 'Jasmine', 'Citrus'],
-    0,
+    1,
     undefined
   ),
   new CoffeeBagItem(

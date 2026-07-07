@@ -18,7 +18,7 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
-    
+
     if (!sessionId) {
       setError('No session ID found');
       setIsVerifying(false);
@@ -27,11 +27,13 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
 
     const verifySession = async () => {
       try {
-        const data = await stripeService.verifySession(sessionId);
+        const data = await stripeService.retrieveSession(sessionId);
         setSessionData(data);
-        
-        cart.cartItems = [];
-        forceUpdate();
+
+        if (data.payment_status === 'paid') {
+          cart.cartItems = [];
+          forceUpdate();
+        }
       } catch (err) {
         console.error('Session verification error:', err);
         setError('Failed to verify payment');
@@ -85,17 +87,17 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
           <p className="success-message">
             Thank you for your purchase. Your order has been successfully processed.
           </p>
-          
-          {sessionData?.customerEmail && (
+
+          {sessionData?.customer_email && (
             <p className="confirmation-email">
-              A confirmation email has been sent to <strong>{sessionData.customerEmail}</strong>
+              A confirmation email has been sent to <strong>{sessionData.customer_email}</strong>
             </p>
           )}
 
-          {sessionData?.amountTotal && (
+          {sessionData?.amount_total && (
             <div className="order-total">
               <span>Total Paid:</span>
-              <span className="amount">${(sessionData.amountTotal / 100).toFixed(2)}</span>
+              <span className="amount">${(sessionData.amount_total / 100).toFixed(2)}</span>
             </div>
           )}
 

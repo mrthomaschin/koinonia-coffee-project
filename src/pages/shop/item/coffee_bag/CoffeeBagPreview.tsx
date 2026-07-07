@@ -1,5 +1,5 @@
 import React from 'react';
-import { CoffeeBagItem, RoastLevel } from './CoffeeBagItem';
+import { CoffeeBagItem } from './CoffeeBagItem';
 import ItemPreview from '../ItemPreview';
 import './CoffeeBagPreview.css';
 import { ItemType } from '../ItemModel';
