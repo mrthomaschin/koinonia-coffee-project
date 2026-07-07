@@ -14,6 +14,7 @@ interface PurchaseItem {
   quantity: number;
   price: number;
   variations?: string;
+  image?: string;
 }
 
 interface PurchaseNotificationData {
@@ -23,6 +24,18 @@ interface PurchaseNotificationData {
   totalAmount: number;
   orderDate: string;
   sessionId: string;
+}
+
+interface CustomerConfirmationData {
+  customerEmail: string;
+  customerName: string;
+  items: PurchaseItem[];
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  totalAmount: number;
+  orderDate: string;
+  orderId: string;
 }
 
 export const submitContactForm = async (formData: ContactFormData): Promise<void> => {
@@ -108,6 +121,76 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
     console.log('EmailJS response:', response);
   } catch (error) {
     console.error('Error sending purchase notification email:', error);
+    throw error;
+  }
+};
+
+export const sendCustomerConfirmation = async (confirmationData: CustomerConfirmationData): Promise<void> => {
+  const serviceId = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+  const customerTemplateId = process.env.REACT_APP_EMAILJS_CUSTOMER_TEMPLATE_ID;
+  const publicKey = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
+
+  console.log('EmailJS Customer Confirmation Config Check:', {
+    serviceId: serviceId ? '✓ Set' : '✗ Missing',
+    customerTemplateId: customerTemplateId ? '✓ Set' : '✗ Missing',
+    publicKey: publicKey ? '✓ Set' : '✗ Missing'
+  });
+
+  if (!serviceId || !customerTemplateId || !publicKey) {
+    console.error('EmailJS customer confirmation configuration is missing.');
+    throw new Error('EmailJS customer confirmation configuration is missing. Please check your environment variables.');
+  }
+
+  try {
+    console.log('Preparing customer confirmation email:', confirmationData);
+
+    // Format items as HTML with inline images
+    const itemsHtml = confirmationData.items
+      .map((item, index) => {
+        const itemName = item.variations ? `${item.name} (${item.variations})` : item.name;
+        const lineTotal = item.price * item.quantity;
+
+        // Convert relative URLs to absolute URLs
+        let imageUrl = item.image || '';
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          imageUrl = `https://koinoniacoffeeproject.com${imageUrl}`;
+        }
+        if (!imageUrl) {
+          imageUrl = 'https://koinoniacoffeeproject.com/assets/logos/logo_circle.png';
+        }
+
+        return `
+          <div style="display: table; width: 100%; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+            <div style="display: table-cell; width: 80px; vertical-align: top;">
+              <img src="${imageUrl}" alt="${item.name}" style="width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e5e5;">
+            </div>
+            <div style="display: table-cell; vertical-align: top; padding-left: 16px;">
+              <div style="font-size: 14px; font-weight: 500; color: #000000; margin-bottom: 4px;">${itemName}</div>
+              <div style="font-size: 13px; color: #666666; margin-bottom: 8px;">Qty: ${item.quantity}</div>
+              <div style="font-size: 14px; font-weight: 500; color: #000000;">$${lineTotal.toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    const templateParams = {
+      to_email: confirmationData.customerEmail,
+      customer_name: confirmationData.customerName,
+      order_id: confirmationData.orderId,
+      order_date: confirmationData.orderDate,
+      items_html: itemsHtml,
+      subtotal: `$${confirmationData.subtotal.toFixed(2)}`,
+      shipping: `$${confirmationData.shipping.toFixed(2)}`,
+      tax: `$${confirmationData.tax.toFixed(2)}`,
+      total: `$${confirmationData.totalAmount.toFixed(2)}`,
+    };
+
+    console.log('Sending customer confirmation via EmailJS...');
+    const response = await emailjs.send(serviceId, customerTemplateId, templateParams, publicKey);
+    console.log('Customer confirmation EmailJS response:', response);
+  } catch (error) {
+    console.error('Error sending customer confirmation email:', error);
     throw error;
   }
 };

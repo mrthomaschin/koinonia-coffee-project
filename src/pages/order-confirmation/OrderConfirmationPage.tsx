@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
-import { sendPurchaseNotification } from '../../services/emailService';
+import { sendPurchaseNotification, sendCustomerConfirmation } from '../../services/emailService';
 import './OrderConfirmationPage.css';
 
 interface OrderConfirmationPageProps {
@@ -58,14 +58,21 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   variations.push(cartItem.selections.size);
                 }
 
+                const imageUrl = cartItem.item.images && cartItem.item.images.length > 0 ? cartItem.item.images[0] : undefined;
+                console.log(`📸 Item "${cartItem.item.name}" image:`, imageUrl);
+
                 return {
                   name: cartItem.item.name,
                   sku: cartItem.item.id,
                   quantity: cartItem.quantity,
                   price: cartItem.item.price,
-                  variations: variations.length > 0 ? variations.join(', ') : undefined
+                  variations: variations.length > 0 ? variations.join(', ') : undefined,
+                  image: imageUrl
                 };
               });
+
+              const orderId = sessionId.slice(-8).toUpperCase();
+              const subtotal = purchaseItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
               console.log('📧 Sending purchase notification email...');
               await sendPurchaseNotification({
@@ -76,9 +83,24 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 orderDate: new Date().toLocaleString(),
                 sessionId: sessionId
               });
-              console.log('✅ Email notification sent successfully!');
+              console.log('✅ Purchase notification sent successfully!');
+
+              // Send customer confirmation email
+              console.log('📧 Sending customer confirmation email...');
+              await sendCustomerConfirmation({
+                customerEmail: data.customer_email,
+                customerName: data.customer_name || 'Valued Customer',
+                items: purchaseItems,
+                subtotal: subtotal,
+                shipping: 8.99, // TODO: Get actual shipping from session
+                tax: (data.amount_total / 100) - subtotal - 8.99,
+                totalAmount: data.amount_total / 100,
+                orderDate: new Date().toLocaleString(),
+                orderId: orderId
+              });
+              console.log('✅ Customer confirmation sent successfully!');
             } catch (emailError) {
-              console.error('❌ Failed to send purchase notification:', emailError);
+              console.error('❌ Failed to send emails:', emailError);
             }
           }
 
@@ -132,6 +154,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
 
   const isPaid = sessionData.payment_status === 'paid';
   const formattedAmount = (sessionData.amount_total / 100).toFixed(2);
+  const orderId = sessionData.id.slice(-8).toUpperCase();
 
   return (
     <div className="order-confirmation-page" style={{ minHeight: availableHeight }}>
@@ -149,7 +172,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 <h2>Order Details</h2>
                 <div className="detail-row">
                   <span className="detail-label">Order ID:</span>
-                  <span className="detail-value">{sessionData.id}</span>
+                  <span className="detail-value">{orderId}</span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Customer Name:</span>
