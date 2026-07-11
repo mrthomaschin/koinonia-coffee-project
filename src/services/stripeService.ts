@@ -84,6 +84,32 @@ class StripeService {
     }
   }
 
+  async createPaymentIntent(amount: number, metadata?: Record<string, string>): Promise<{ clientSecret: string; paymentIntentId: string }> {
+    try {
+      const response = await fetch(`${this.backendUrl}/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'usd',
+          metadata,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating payment intent:', error);
+      throw error;
+    }
+  }
+
   async retrieveSession(sessionId: string): Promise<any> {
     try {
       const response = await fetch(`${this.backendUrl}/checkout-session/${sessionId}`, {
@@ -102,6 +128,10 @@ class StripeService {
       console.error('Error retrieving session:', error);
       throw error;
     }
+  }
+
+  getStripe(): Promise<Stripe | null> {
+    return this.stripePromise;
   }
 
   private calculateItemPrice(cartItem: CartItem): number {

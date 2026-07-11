@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
 import { sendPurchaseNotification, sendCustomerConfirmation } from '../../services/emailService';
@@ -18,16 +18,41 @@ interface SessionData {
   currency: string;
 }
 
+interface EmbeddedOrderData {
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    image?: string;
+    selections?: any;
+  }>;
+  total: number;
+  timestamp: string;
+}
+
 const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ availableHeight }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { cart } = useCart();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [embeddedOrderData, setEmbeddedOrderData] = useState<EmbeddedOrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const emailSentRef = React.useRef(false);
 
   useEffect(() => {
+    // Check if this is from embedded checkout
+    const state = location.state as { orderData?: EmbeddedOrderData; fromEmbeddedCheckout?: boolean };
+
+    if (state?.fromEmbeddedCheckout && state?.orderData) {
+      // Handle embedded checkout flow
+      setEmbeddedOrderData(state.orderData);
+      setLoading(false);
+      return;
+    }
+
+    // Handle session-based checkout flow
     const sessionId = searchParams.get('session_id');
 
     if (!sessionId) {
@@ -116,7 +141,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     };
 
     fetchSessionData();
-  }, [searchParams, cart]);
+  }, [searchParams, cart, location.state]);
 
   const handleContinueShopping = () => {
     navigate('/shop');
@@ -135,7 +160,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     );
   }
 
-  if (error || !sessionData) {
+  if (error || (!sessionData && !embeddedOrderData)) {
     return (
       <div className="order-confirmation-page" style={{ minHeight: availableHeight }}>
         <div className="confirmation-container">
@@ -150,6 +175,60 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
         </div>
       </div>
     );
+  }
+
+  // Handle embedded checkout display
+  if (embeddedOrderData) {
+    const formattedAmount = embeddedOrderData.total.toFixed(2);
+    const orderId = new Date(embeddedOrderData.timestamp).getTime().toString().slice(-8).toUpperCase();
+
+    return (
+      <div className="order-confirmation-page" style={{ minHeight: availableHeight }}>
+        <div className="confirmation-container">
+          <div className="confirmation-content">
+            <div className="success-icon">✓</div>
+            <h1 className="confirmation-title">Order Confirmed!</h1>
+            <p className="confirmation-message">
+              Thank you for your purchase. Your order has been successfully processed.
+            </p>
+
+            <div className="order-details">
+              <h2>Order Details</h2>
+              <div className="detail-row">
+                <span className="detail-label">Order ID:</span>
+                <span className="detail-value">{orderId}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Total Amount:</span>
+                <span className="detail-value amount">${formattedAmount} USD</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Payment Status:</span>
+                <span className="detail-value status-paid">Paid</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Items:</span>
+                <span className="detail-value">{embeddedOrderData.items.length} item(s)</span>
+              </div>
+            </div>
+
+            <div className="confirmation-info">
+              <p>Your order will be processed and shipped within 2-3 business days.</p>
+            </div>
+
+            <button className="continue-shopping-btn" onClick={handleContinueShopping}>
+              Continue Shopping
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle session-based checkout display
+  // At this point, sessionData must exist (we checked for null above)
+  if (!sessionData) {
+    return null; // This should never happen due to earlier checks
   }
 
   const isPaid = sessionData.payment_status === 'paid';

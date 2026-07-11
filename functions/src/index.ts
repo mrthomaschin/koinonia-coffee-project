@@ -34,6 +34,40 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+// Create Payment Intent for embedded checkout
+app.post("/create-payment-intent", async (req: Request, res: Response) => {
+  try {
+    const { amount, currency = "usd", metadata } = req.body;
+
+    logger.info("Creating payment intent", { amount, currency, metadata });
+
+    if (!amount || amount < 50) {
+      res.status(400).json({ error: "Invalid amount (minimum $0.50)" });
+      return;
+    }
+
+    const paymentIntent = await getStripe().paymentIntents.create({
+      amount: Math.round(amount),
+      currency,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: metadata || {},
+    });
+
+    logger.info("Payment intent created", { id: paymentIntent.id });
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+    });
+  } catch (error: unknown) {
+    logger.error("Error creating payment intent", { error: (error as Error).message });
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Keep the existing checkout session endpoint for backward compatibility
 app.post("/create-checkout-session", async (req: Request, res: Response) => {
   try {
     const { lineItems, successUrl, cancelUrl } = req.body;

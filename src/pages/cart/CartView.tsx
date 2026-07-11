@@ -4,6 +4,8 @@ import { CartItem } from './CartViewModel';
 import { ItemType } from '../shop/item/ItemModel';
 import { CoffeeBagWeight } from '../shop/item/coffee_bag/CoffeeBagItem';
 import { useCart } from '../../contexts/CartContext';
+import { stripeService } from '../../services/stripeService';
+import EmbeddedCheckout from '../../components/EmbeddedCheckout';
 import './Cart.css';
 
 interface CartViewProps {
@@ -15,6 +17,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const { cart: viewModel, forceUpdate, showToast } = useCart();
     const [pendingQuantities, setPendingQuantities] = useState<{ [key: number]: number }>({});
     const [updateTrigger, setUpdateTrigger] = useState(0);
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [clientSecret, setClientSecret] = useState<string | null>(null);
+    const [isLoadingCheckout, setIsLoadingCheckout] = useState(false);
 
     const subtotal = useMemo(() => viewModel.getSubtotal(), [viewModel.cartItems, updateTrigger]);
     const isEmpty = useMemo(() => viewModel.cartItems.length === 0, [viewModel.cartItems, updateTrigger]);
@@ -86,13 +91,70 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         navigate('/shop');
     }, [navigate]);
 
-    const handleCheckout = useCallback(() => {
+    const handleCheckout = useCallback(async () => {
         if (hasAnyChanges) {
             showToast('Please update your cart before proceeding to checkout', 'error');
             return;
         }
-        navigate('/checkout');
-    }, [navigate, hasAnyChanges, showToast]);
+
+        setIsLoadingCheckout(true);
+        try {
+            const totalAmount = subtotal;
+            const { clientSecret: secret } = await stripeService.createPaymentIntent(
+                totalAmount,
+                {
+                    items: JSON.stringify(viewModel.cartItems.map(item => ({
+                        id: item.item.id,
+                        name: item.item.name,
+                        quantity: item.quantity
+                    })))
+                }
+            );
+
+            setClientSecret(secret);
+            setShowCheckout(true);
+        } catch (error) {
+            console.error('Error creating payment intent:', error);
+            showToast('Failed to initialize checkout. Please try again.', 'error');
+        } finally {
+            setIsLoadingCheckout(false);
+        }
+    }, [hasAnyChanges, showToast, subtotal, viewModel.cartItems]);
+
+    const handleCheckoutSuccess = useCallback(() => {
+        setShowCheckout(false);
+        setClientSecret(null);
+
+        // Store order data before clearing cart
+        const orderData = {
+            items: viewModel.cartItems.map(item => ({
+                name: item.item.name,
+                quantity: item.quantity,
+                price: viewModel.getItemPrice(item),
+                image: item.item.images[0],
+                selections: item.selections
+            })),
+            total: subtotal,
+            timestamp: new Date().toISOString()
+        };
+
+        viewModel.cartItems = [];
+        forceUpdate();
+        showToast('Payment successful! Thank you for your purchase.', 'success');
+
+        // Navigate with order data in state
+        navigate('/order-confirmation', {
+            state: {
+                orderData,
+                fromEmbeddedCheckout: true
+            }
+        });
+    }, [viewModel, forceUpdate, showToast, navigate, subtotal]);
+
+    const handleCheckoutCancel = useCallback(() => {
+        setShowCheckout(false);
+        setClientSecret(null);
+    }, []);
 
     const formatWeight = (weight: CoffeeBagWeight): string => {
         switch (weight) {
@@ -216,12 +278,26 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         <button
                             className="checkout-btn"
                             onClick={handleCheckout}
+                            disabled={isLoadingCheckout}
                         >
-                            Checkout
+                            {isLoadingCheckout ? 'Loading...' : 'Checkout'}
                         </button>
                     </div>
                 </div>
             </div>
+
+            {showCheckout && clientSecret && (
+                <div className="checkout-modal-overlay" onClick={handleCheckoutCancel}>
+                    <div className="checkout-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <EmbeddedCheckout
+                            clientSecret={clientSecret}
+                            totalAmount={subtotal}
+                            onSuccess={handleCheckoutSuccess}
+                            onCancel={handleCheckoutCancel}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
