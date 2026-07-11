@@ -177,12 +177,16 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         </div>
       )}
 
+      <div className="address-section">
+        <h3>Billing Address</h3>
+        <AddressElement options={{ mode: 'billing' }} />
+      </div>
+
       <PaymentElement
         options={{
           fields: {
             billingDetails: {
-              email: 'auto',
-              name: 'auto',
+              address: 'never',
             }
           }
         }}

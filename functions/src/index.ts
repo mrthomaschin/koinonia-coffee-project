@@ -2,6 +2,7 @@ import { setGlobalOptions } from "firebase-functions/v2";
 import { onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import Stripe from "stripe";
+import { Client } from "@notionhq/client";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
@@ -27,6 +28,19 @@ const getStripe = () => {
     });
   }
   return stripeInstance;
+};
+
+// Lazy-initialize Notion client
+let notionInstance: Client | null = null;
+const getNotion = () => {
+  if (!notionInstance) {
+    const token = process.env.NOTION_TOKEN;
+    if (!token) {
+      throw new Error("NOTION_TOKEN is not configured");
+    }
+    notionInstance = new Client({ auth: token });
+  }
+  return notionInstance;
 };
 
 const app = express();
@@ -142,17 +156,160 @@ app.get("/checkout-session/:sessionId", async (req: Request, res: Response) => {
       expand: ["line_items", "customer"],
     });
 
+    // Format shipping address
+    let shippingAddress = "";
+    if (session.shipping_details?.address) {
+      const addr = session.shipping_details.address;
+      const parts = [
+        addr.line1,
+        addr.line2,
+        addr.city,
+        addr.state,
+        addr.postal_code,
+        addr.country,
+      ].filter(Boolean);
+      shippingAddress = parts.join(", ");
+    }
+
     res.json({
       id: session.id,
       payment_status: session.payment_status,
       customer_email: session.customer_details?.email,
       customer_name: session.customer_details?.name,
+      customer_phone: session.customer_details?.phone,
       amount_total: session.amount_total,
       currency: session.currency,
       line_items: session.line_items,
+      shipping_address: shippingAddress,
     });
   } catch (error: unknown) {
     logger.error("Error retrieving session", { error: (error as Error).message });
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Create Notion order entry
+app.post("/create-notion-order", async (req: Request, res: Response) => {
+  try {
+    const {
+      customerName,
+      customerEmail,
+      customerPhone,
+      orderId,
+      items,
+      totalAmount,
+      orderDate,
+      transactionId,
+      shippingAddress,
+    } = req.body;
+
+    logger.info("Creating Notion order", { orderId });
+
+    const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+    if (!databaseId) {
+      logger.error("Notion database ID not configured");
+      res.status(500).json({ error: "Notion database ID not configured" });
+      return;
+    }
+
+    const itemsOrdered = items
+      .map((item: any) => {
+        const itemName = item.variations ?
+          `${item.name} (${item.variations})` :
+          item.name;
+        return `${item.quantity}x ${itemName} - $${(item.price * item.quantity).toFixed(2)}`;
+      })
+      .join("\n");
+
+    const notion = getNotion();
+    const response = await notion.pages.create({
+      parent: { database_id: databaseId },
+      properties: {
+        "Customer": {
+          title: [
+            {
+              text: {
+                content: customerName,
+              },
+            },
+          ],
+        },
+        "Order #": {
+          rich_text: [
+            {
+              text: {
+                content: orderId,
+              },
+            },
+          ],
+        },
+        "Status": {
+          status: {
+            name: "Paid",
+          },
+        },
+        "Fulfillment": {
+          status: {
+            name: "Pending",
+          },
+        },
+        "Items ordered": {
+          rich_text: [
+            {
+              text: {
+                content: itemsOrdered,
+              },
+            },
+          ],
+        },
+        "Email": {
+          email: customerEmail,
+        },
+        "Phone": {
+          phone_number: customerPhone || null,
+        },
+        "Shipping address": {
+          rich_text: [
+            {
+              text: {
+                content: shippingAddress || "N/A",
+              },
+            },
+          ],
+        },
+        "Transaction ID": {
+          rich_text: [
+            {
+              text: {
+                content: transactionId,
+              },
+            },
+          ],
+        },
+        "Receipt": {
+          url: `https://dashboard.stripe.com/payments/${transactionId}`,
+        },
+        "Total": {
+          number: totalAmount,
+        },
+        "Order created": {
+          date: {
+            start: new Date(orderDate).toISOString(),
+          },
+        },
+      },
+    });
+
+    logger.info("Notion order created successfully", {
+      orderId,
+      pageId: response.id,
+    });
+
+    res.json({ success: true, pageId: response.id });
+  } catch (error: unknown) {
+    logger.error("Error creating Notion order", {
+      error: (error as Error).message,
+    });
     res.status(500).json({ error: (error as Error).message });
   }
 });
@@ -226,7 +383,12 @@ const functionOptions: any = {
 
 // Only add secrets in production (not in emulator)
 if (process.env.FUNCTIONS_EMULATOR !== "true") {
-  functionOptions.secrets = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"];
+  functionOptions.secrets = [
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "NOTION_TOKEN",
+    "NOTION_ONLINE_ORDERS_DATABASE_ID",
+  ];
 }
 
 export const api = onRequest(functionOptions, app);

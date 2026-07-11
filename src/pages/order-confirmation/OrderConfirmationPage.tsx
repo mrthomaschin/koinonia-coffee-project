@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
 import { sendPurchaseNotification, sendCustomerConfirmation } from '../../services/emailService';
+import { notionService } from '../../services/notionService';
 import './OrderConfirmationPage.css';
 
 interface OrderConfirmationPageProps {
@@ -76,8 +77,28 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             const customerEmail = (state as any).customerEmail || 'customer@example.com';
             const customerName = (state as any).customerName || 'Valued Customer';
             const customerPhone = (state as any).customerPhone || '';
+            const shippingAddress = (state as any).shippingAddress || '';
 
-            console.log('📧 Sending purchase notification email...');
+            // Create Notion database entry
+            console.log('� Creating Notion order entry...');
+            try {
+              await notionService.createOrder({
+                customerName: customerName,
+                customerEmail: customerEmail,
+                customerPhone: customerPhone,
+                orderId: orderId,
+                items: purchaseItems,
+                totalAmount: state.orderData.total,
+                orderDate: new Date(state.orderData.timestamp).toLocaleString(),
+                transactionId: orderId,
+                shippingAddress: shippingAddress
+              });
+              console.log('✅ Notion order created successfully!');
+            } catch (notionError) {
+              console.error('❌ Failed to create Notion order:', notionError);
+            }
+
+            console.log('� Sending purchase notification email...');
             await sendPurchaseNotification({
               customerEmail: customerEmail,
               customerName: customerName,
@@ -162,6 +183,25 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
 
               const orderId = sessionId.slice(-8).toUpperCase();
               const subtotal = purchaseItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+              // Create Notion database entry
+              console.log('📝 Creating Notion order entry...');
+              try {
+                await notionService.createOrder({
+                  customerName: data.customer_name || 'Valued Customer',
+                  customerEmail: data.customer_email || 'N/A',
+                  customerPhone: (data as any).customer_phone || '',
+                  orderId: orderId,
+                  items: purchaseItems,
+                  totalAmount: data.amount_total / 100,
+                  orderDate: new Date().toLocaleString(),
+                  transactionId: sessionId,
+                  shippingAddress: (data as any).shipping_address || ''
+                });
+                console.log('✅ Notion order created successfully!');
+              } catch (notionError) {
+                console.error('❌ Failed to create Notion order:', notionError);
+              }
 
               console.log('📧 Sending purchase notification email...');
               await sendPurchaseNotification({
