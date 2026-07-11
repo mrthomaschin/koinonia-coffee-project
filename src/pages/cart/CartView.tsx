@@ -6,6 +6,7 @@ import { CoffeeBagWeight } from '../shop/item/coffee_bag/CoffeeBagItem';
 import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
 import EmbeddedCheckout from '../../components/EmbeddedCheckout';
+import { ShippingOption } from '../../components/ShippingSelector';
 import './Cart.css';
 
 interface CartViewProps {
@@ -121,9 +122,24 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         }
     }, [hasAnyChanges, showToast, subtotal, viewModel.cartItems]);
 
-    const handleCheckoutSuccess = useCallback(() => {
+    const handleCheckoutSuccess = useCallback(async (
+        paymentIntentId?: string,
+        shippingOption?: ShippingOption,
+        email?: string,
+        name?: string,
+        phone?: string
+    ) => {
         setShowCheckout(false);
         setClientSecret(null);
+
+        const customerEmail = email || 'customer@example.com';
+        const customerName = name || 'Valued Customer';
+        const customerPhone = phone || '';
+
+        console.log('Payment successful:', { paymentIntentId, customerEmail, customerName, customerPhone });
+
+        const shippingCost = shippingOption?.price || 0;
+        const totalWithShipping = subtotal + shippingCost;
 
         // Store order data before clearing cart
         const orderData = {
@@ -134,7 +150,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 image: item.item.images[0],
                 selections: item.selections
             })),
-            total: subtotal,
+            subtotal: subtotal,
+            shipping: shippingCost,
+            shippingMethod: shippingOption?.label || 'Standard Shipping',
+            total: totalWithShipping,
             timestamp: new Date().toISOString()
         };
 
@@ -146,7 +165,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         navigate('/order-confirmation', {
             state: {
                 orderData,
-                fromEmbeddedCheckout: true
+                fromEmbeddedCheckout: true,
+                customerEmail,
+                customerName,
+                customerPhone
             }
         });
     }, [viewModel, forceUpdate, showToast, navigate, subtotal]);

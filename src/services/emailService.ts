@@ -20,6 +20,7 @@ interface PurchaseItem {
 interface PurchaseNotificationData {
   customerEmail: string;
   customerName?: string;
+  customerPhone?: string;
   items: PurchaseItem[];
   totalAmount: number;
   orderDate: string;
@@ -29,6 +30,7 @@ interface PurchaseNotificationData {
 interface CustomerConfirmationData {
   customerEmail: string;
   customerName: string;
+  customerPhone?: string;
   items: PurchaseItem[];
   subtotal: number;
   shipping: number;
@@ -107,6 +109,7 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
     const templateParams = {
       customer_email: purchaseData.customerEmail,
       customer_name: purchaseData.customerName || 'N/A',
+      customer_phone: purchaseData.customerPhone || 'N/A',
       order_items: itemsList.trim(),
       subtotal: `$${subtotal.toFixed(2)}`,
       total_amount: `$${purchaseData.totalAmount.toFixed(2)}`,
@@ -177,6 +180,7 @@ export const sendCustomerConfirmation = async (confirmationData: CustomerConfirm
     const templateParams = {
       to_email: confirmationData.customerEmail,
       customer_name: confirmationData.customerName,
+      customer_phone: confirmationData.customerPhone || 'N/A',
       order_id: confirmationData.orderId,
       order_date: confirmationData.orderDate,
       items_html: itemsHtml,

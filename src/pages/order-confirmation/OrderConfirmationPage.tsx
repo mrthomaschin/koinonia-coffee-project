@@ -48,6 +48,70 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     if (state?.fromEmbeddedCheckout && state?.orderData) {
       // Handle embedded checkout flow
       setEmbeddedOrderData(state.orderData);
+
+      // Send emails for embedded checkout (only once)
+      if (!emailSentRef.current) {
+        emailSentRef.current = true;
+
+        const sendEmbeddedCheckoutEmails = async () => {
+          try {
+            if (!state.orderData) return;
+
+            console.log('💳 Embedded checkout payment confirmed, preparing emails...');
+            console.log('📦 Order data:', state.orderData);
+
+            const purchaseItems = state.orderData.items.map(item => ({
+              name: item.name,
+              sku: item.selections?.sku || 'N/A',
+              quantity: item.quantity,
+              price: item.price,
+              variations: item.selections?.variations,
+              image: item.image
+            }));
+
+            const orderId = new Date(state.orderData.timestamp).getTime().toString().slice(-8).toUpperCase();
+            const subtotal = state.orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            // Get customer info from cart or use defaults
+            const customerEmail = (state as any).customerEmail || 'customer@example.com';
+            const customerName = (state as any).customerName || 'Valued Customer';
+            const customerPhone = (state as any).customerPhone || '';
+
+            console.log('📧 Sending purchase notification email...');
+            await sendPurchaseNotification({
+              customerEmail: customerEmail,
+              customerName: customerName,
+              customerPhone: customerPhone,
+              items: purchaseItems,
+              totalAmount: state.orderData.total,
+              orderDate: new Date(state.orderData.timestamp).toLocaleString(),
+              sessionId: orderId
+            });
+            console.log('✅ Purchase notification sent successfully!');
+
+            // Send customer confirmation email
+            console.log('📧 Sending customer confirmation email...');
+            await sendCustomerConfirmation({
+              customerEmail: customerEmail,
+              customerName: customerName,
+              customerPhone: customerPhone,
+              items: purchaseItems,
+              subtotal: subtotal,
+              shipping: 8.99,
+              tax: state.orderData.total - subtotal - 8.99,
+              totalAmount: state.orderData.total,
+              orderDate: new Date(state.orderData.timestamp).toLocaleString(),
+              orderId: orderId
+            });
+            console.log('✅ Customer confirmation sent successfully!');
+          } catch (emailError) {
+            console.error('❌ Failed to send emails:', emailError);
+          }
+        };
+
+        sendEmbeddedCheckoutEmails();
+      }
+
       setLoading(false);
       return;
     }

@@ -1,24 +1,66 @@
 import React, { useState } from 'react';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, PaymentElement, useStripe, useElements, AddressElement } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import ShippingSelector, { ShippingOption, SHIPPING_OPTIONS } from './ShippingSelector';
 import './EmbeddedCheckout.css';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '');
 
 interface CheckoutFormProps {
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string) => void;
   onCancel: () => void;
   totalAmount: number;
+  onShippingChange: (option: ShippingOption) => void;
+  selectedShipping: ShippingOption;
 }
 
-const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSuccess, onCancel, totalAmount }) => {
+const CheckoutForm: React.FC<CheckoutFormProps> = ({
+  onSuccess,
+  onCancel,
+  totalAmount,
+  onShippingChange,
+  selectedShipping
+}) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove all non-digit characters for validation
+    const digitsOnly = phone.replace(/\D/g, '');
+    // Accept 10 or 11 digits (with or without country code)
+    return digitsOnly.length >= 10 && digitsOnly.length <= 11;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate email
+    if (!customerEmail || !validateEmail(customerEmail)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
+    if (!customerName.trim()) {
+      setErrorMessage('Please enter your name');
+      return;
+    }
+
+    if (!customerPhone || !validatePhone(customerPhone)) {
+      setPhoneError('Please enter a valid phone number');
+      return;
+    }
 
     if (!stripe || !elements) {
       return;
@@ -26,12 +68,15 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSuccess, onCancel, totalA
 
     setIsProcessing(true);
     setErrorMessage(null);
+    setEmailError(null);
+    setPhoneError(null);
 
     try {
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/order-confirmation`,
+          receipt_email: customerEmail,
         },
         redirect: 'if_required',
       });
@@ -40,7 +85,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSuccess, onCancel, totalA
         setErrorMessage(error.message || 'An error occurred');
         setIsProcessing(false);
       } else {
-        onSuccess();
+        onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone);
       }
     } catch (err) {
       setErrorMessage('Payment failed. Please try again.');
@@ -48,14 +93,100 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSuccess, onCancel, totalA
     }
   };
 
+  const displayTotal = totalAmount + selectedShipping.price;
+
   return (
     <form onSubmit={handleSubmit} className="embedded-checkout-form">
       <div className="checkout-header">
         <h2>Complete Your Purchase</h2>
-        <p className="total-amount">Total: ${totalAmount.toFixed(2)}</p>
+        <div className="checkout-totals">
+          <div className="subtotal-row">
+            <span>Subtotal:</span>
+            <span>${totalAmount.toFixed(2)}</span>
+          </div>
+          <div className="shipping-row">
+            <span>Shipping:</span>
+            <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
+          </div>
+          <div className="total-row">
+            <span>Total:</span>
+            <span className="total-amount">${displayTotal.toFixed(2)}</span>
+          </div>
+        </div>
       </div>
 
-      <PaymentElement />
+      <div className="customer-info-section">
+        <h3>Contact Information</h3>
+        <div className="form-group">
+          <label htmlFor="customer-name">Full Name *</label>
+          <input
+            type="text"
+            id="customer-name"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="John Doe"
+            required
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="customer-email">Email Address *</label>
+          <input
+            type="email"
+            id="customer-email"
+            value={customerEmail}
+            onChange={(e) => {
+              setCustomerEmail(e.target.value);
+              setEmailError(null);
+            }}
+            placeholder="john@example.com"
+            required
+            className={`form-input ${emailError ? 'error' : ''}`}
+          />
+          {emailError && <div className="field-error">{emailError}</div>}
+          <p className="field-hint">Order confirmation will be sent to this email</p>
+        </div>
+        <div className="form-group">
+          <label htmlFor="customer-phone">Phone Number *</label>
+          <input
+            type="tel"
+            id="customer-phone"
+            value={customerPhone}
+            onChange={(e) => {
+              setCustomerPhone(e.target.value);
+              setPhoneError(null);
+            }}
+            placeholder="(555) 123-4567"
+            required
+            className={`form-input ${phoneError ? 'error' : ''}`}
+          />
+          {phoneError && <div className="field-error">{phoneError}</div>}
+          <p className="field-hint">For shipping updates and order notifications</p>
+        </div>
+      </div>
+
+      <ShippingSelector
+        onShippingChange={onShippingChange}
+        selectedShipping={selectedShipping}
+      />
+
+      {selectedShipping.id !== 'local-pickup' && (
+        <div className="address-section">
+          <h3>Shipping Address</h3>
+          <AddressElement options={{ mode: 'shipping' }} />
+        </div>
+      )}
+
+      <PaymentElement
+        options={{
+          fields: {
+            billingDetails: {
+              email: 'auto',
+              name: 'auto',
+            }
+          }
+        }}
+      />
 
       {errorMessage && (
         <div className="error-message">
@@ -77,7 +208,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSuccess, onCancel, totalA
           disabled={!stripe || isProcessing}
           className="pay-btn"
         >
-          {isProcessing ? 'Processing...' : `Pay $${totalAmount.toFixed(2)}`}
+          {isProcessing ? 'Processing...' : `Pay $${displayTotal.toFixed(2)}`}
         </button>
       </div>
     </form>
@@ -87,7 +218,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ onSuccess, onCancel, totalA
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string) => void;
   onCancel: () => void;
 }
 
@@ -97,6 +228,17 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
+    SHIPPING_OPTIONS[1] // Default to standard shipping
+  );
+
+  const handleShippingChange = (option: ShippingOption) => {
+    setSelectedShipping(option);
+  };
+
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string) => {
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone);
+  };
   const options = {
     clientSecret,
     appearance: {
@@ -117,9 +259,11 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     <div className="embedded-checkout-container">
       <Elements stripe={stripePromise} options={options}>
         <CheckoutForm
-          onSuccess={onSuccess}
+          onSuccess={handleSuccess}
           onCancel={onCancel}
           totalAmount={totalAmount}
+          onShippingChange={handleShippingChange}
+          selectedShipping={selectedShipping}
         />
       </Elements>
     </div>

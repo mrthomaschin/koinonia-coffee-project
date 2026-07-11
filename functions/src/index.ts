@@ -37,7 +37,7 @@ app.use(express.json());
 // Create Payment Intent for embedded checkout
 app.post("/create-payment-intent", async (req: Request, res: Response) => {
   try {
-    const { amount, currency = "usd", metadata } = req.body;
+    const { amount, currency = "usd", metadata, shippingOptions } = req.body;
 
     logger.info("Creating payment intent", { amount, currency, metadata });
 
@@ -53,6 +53,10 @@ app.post("/create-payment-intent", async (req: Request, res: Response) => {
         enabled: true,
       },
       metadata: metadata || {},
+      shipping: shippingOptions ? {
+        name: shippingOptions.name || "Customer",
+        address: shippingOptions.address,
+      } : undefined,
     });
 
     logger.info("Payment intent created", { id: paymentIntent.id });
