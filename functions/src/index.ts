@@ -218,7 +218,7 @@ app.post("/create-notion-order", async (req: Request, res: Response) => {
         const itemName = item.variations ?
           `${item.name} (${item.variations})` :
           item.name;
-        return `${item.quantity}x ${itemName} - $${(item.price * item.quantity).toFixed(2)}`;
+        return `${item.quantity}x ${itemName}`;
       })
       .join("\n");
 
