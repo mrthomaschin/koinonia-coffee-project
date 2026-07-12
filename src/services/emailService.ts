@@ -1,5 +1,13 @@
 import emailjs from '@emailjs/browser';
 
+// Helper function to extract first name from full name
+function getFirstName(fullName: string | undefined): string {
+  if (!fullName) return 'Customer';
+  const trimmed = fullName.trim();
+  const firstSpace = trimmed.indexOf(' ');
+  return firstSpace > 0 ? trimmed.substring(0, firstSpace) : trimmed;
+}
+
 interface ContactFormData {
   firstName: string;
   lastName: string;
@@ -108,7 +116,7 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
 
     const templateParams = {
       customer_email: purchaseData.customerEmail,
-      customer_name: purchaseData.customerName || 'N/A',
+      customer_name: getFirstName(purchaseData.customerName),
       customer_phone: purchaseData.customerPhone || 'N/A',
       order_items: itemsList.trim(),
       subtotal: `$${subtotal.toFixed(2)}`,
@@ -179,7 +187,7 @@ export const sendCustomerConfirmation = async (confirmationData: CustomerConfirm
 
     const templateParams = {
       to_email: confirmationData.customerEmail,
-      customer_name: confirmationData.customerName,
+      customer_name: getFirstName(confirmationData.customerName),
       customer_phone: confirmationData.customerPhone || 'N/A',
       order_id: confirmationData.orderId,
       order_date: confirmationData.orderDate,

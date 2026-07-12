@@ -106,9 +106,10 @@ start_functions() {
     npm run build
     cd ..
     
-    print_info "Starting Firebase emulators..."
+    print_info "Starting Firebase emulators with UI..."
     print_info "Functions will be available at: http://127.0.0.1:5001/koinonia-coffee-project/us-central1/api"
-    firebase emulators:start --only functions
+    print_info "Emulator UI will be available at: http://127.0.0.1:4000"
+    firebase emulators:start
 }
 
 start_all() {
@@ -133,8 +134,8 @@ start_all() {
     npm run build
     cd ..
     
-    print_info "Starting Firebase emulators in background..."
-    firebase emulators:start --only functions &
+    print_info "Starting Firebase emulators with UI in background..."
+    firebase emulators:start &
     EMULATOR_PID=$!
     
     # Wait a bit for emulators to start
@@ -144,10 +145,12 @@ start_all() {
     print_info "Starting React development server..."
     print_info ""
     print_info "🚀 Development servers starting:"
-    print_info "   Frontend:  http://localhost:3000"
-    print_info "   Functions: http://127.0.0.1:5001/koinonia-coffee-project/us-central1/api"
+    print_info "   Frontend:     http://localhost:3000"
+    print_info "   Functions:    http://127.0.0.1:5001/koinonia-coffee-project/us-central1/api"
+    print_info "   Emulator UI:  http://127.0.0.1:4000"
     print_info ""
     print_info "📝 Using .env.local for local development configuration"
+    print_info "💡 Tip: Use Emulator UI to manually trigger scheduled functions"
     print_info "Press Ctrl+C to stop all servers"
     print_info ""
     
