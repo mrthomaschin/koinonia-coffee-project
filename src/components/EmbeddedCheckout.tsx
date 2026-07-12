@@ -97,6 +97,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="embedded-checkout-form">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="close-btn"
+        aria-label="Close checkout"
+      >
+        ×
+      </button>
       <div className="checkout-header">
         <h2>Complete Your Purchase</h2>
         <div className="checkout-totals">
