@@ -395,19 +395,24 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
 export const api = onRequest(functionOptions, app);
 
 // Manual trigger endpoint for testing order status updates (development only)
+const testOrderStatusCheckOptions: any = {
+  cors: true,
+};
+
+if (process.env.FUNCTIONS_EMULATOR !== "true") {
+  testOrderStatusCheckOptions.secrets = [
+    "NOTION_TOKEN",
+    "NOTION_ONLINE_ORDERS_DATABASE_ID",
+    "EMAILJS_SERVICE_ID",
+    "EMAILJS_PUBLIC_KEY",
+    "EMAILJS_PRIVATE_KEY",
+    "EMAILJS_SHIPPED_TEMPLATE_ID",
+    "EMAILJS_DELIVERED_TEMPLATE_ID",
+  ];
+}
+
 export const testOrderStatusCheck = onRequest(
-  {
-    cors: true,
-    secrets: process.env.FUNCTIONS_EMULATOR !== "true" ? [
-      "NOTION_TOKEN",
-      "NOTION_ONLINE_ORDERS_DATABASE_ID",
-      "EMAILJS_SERVICE_ID",
-      "EMAILJS_PUBLIC_KEY",
-      "EMAILJS_PRIVATE_KEY",
-      "EMAILJS_SHIPPED_TEMPLATE_ID",
-      "EMAILJS_DELIVERED_TEMPLATE_ID",
-    ] : undefined,
-  },
+  testOrderStatusCheckOptions,
   async (req: Request, res: Response) => {
     try {
       logger.info("🧪 Manual test trigger: Starting order status check...");
