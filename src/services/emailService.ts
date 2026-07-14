@@ -1,4 +1,7 @@
 import emailjs from '@emailjs/browser';
+import { createLogger } from '../util/logger';
+
+const logger = createLogger('EmailService');
 
 // Helper function to extract first name from full name
 function getFirstName(fullName: string | undefined): string {
@@ -68,7 +71,7 @@ export const submitContactForm = async (formData: ContactFormData): Promise<void
 
     await emailjs.send(serviceId, templateId, templateParams, publicKey);
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error('Error sending email:', error);
     throw error;
   }
 };
@@ -78,19 +81,19 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
   const purchaseTemplateId = process.env.REACT_APP_EMAILJS_PURCHASE_TEMPLATE_ID;
   const publicKey = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
 
-  console.log('EmailJS Config Check:', {
+  logger.log('EmailJS Config Check:', {
     serviceId: serviceId ? '✓ Set' : '✗ Missing',
     purchaseTemplateId: purchaseTemplateId ? '✓ Set' : '✗ Missing',
     publicKey: publicKey ? '✓ Set' : '✗ Missing'
   });
 
   if (!serviceId || !purchaseTemplateId || !publicKey) {
-    console.error('EmailJS purchase notification configuration is missing.');
+    logger.error('EmailJS purchase notification configuration is missing.');
     throw new Error('EmailJS purchase notification configuration is missing. Please check your environment variables.');
   }
 
   try {
-    console.log('Preparing email with purchase data:', purchaseData);
+    logger.log('Preparing email with purchase data:', purchaseData);
     const itemsList = purchaseData.items
       .map((item, index) => {
         const itemNumber = `${index + 1}.`;
@@ -127,11 +130,11 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
       to_name: 'Koinonia Coffee Project',
     };
 
-    console.log('Sending email via EmailJS with params:', templateParams);
+    logger.log('Sending email via EmailJS with params:', templateParams);
     const response = await emailjs.send(serviceId, purchaseTemplateId, templateParams, publicKey);
-    console.log('EmailJS response:', response);
+    logger.log('EmailJS response:', response);
   } catch (error) {
-    console.error('Error sending purchase notification email:', error);
+    logger.error('Error sending purchase notification email:', error);
     throw error;
   }
 };
@@ -141,19 +144,19 @@ export const sendCustomerConfirmation = async (confirmationData: CustomerConfirm
   const customerTemplateId = process.env.REACT_APP_EMAILJS_CUSTOMER_TEMPLATE_ID;
   const publicKey = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
 
-  console.log('EmailJS Customer Confirmation Config Check:', {
+  logger.log('EmailJS Customer Confirmation Config Check:', {
     serviceId: serviceId ? '✓ Set' : '✗ Missing',
     customerTemplateId: customerTemplateId ? '✓ Set' : '✗ Missing',
     publicKey: publicKey ? '✓ Set' : '✗ Missing'
   });
 
   if (!serviceId || !customerTemplateId || !publicKey) {
-    console.error('EmailJS customer confirmation configuration is missing.');
+    logger.error('EmailJS customer confirmation configuration is missing.');
     throw new Error('EmailJS customer confirmation configuration is missing. Please check your environment variables.');
   }
 
   try {
-    console.log('Preparing customer confirmation email:', confirmationData);
+    logger.log('Preparing customer confirmation email:', confirmationData);
 
     // Format items as HTML with inline images
     const itemsHtml = confirmationData.items
@@ -199,11 +202,11 @@ export const sendCustomerConfirmation = async (confirmationData: CustomerConfirm
       total: `$${confirmationData.totalAmount.toFixed(2)}`,
     };
 
-    console.log('Sending customer confirmation via EmailJS...');
+    logger.log('Sending customer confirmation via EmailJS...');
     const response = await emailjs.send(serviceId, customerTemplateId, templateParams, publicKey);
-    console.log('Customer confirmation EmailJS response:', response);
+    logger.log('Customer confirmation EmailJS response:', response);
   } catch (error) {
-    console.error('Error sending customer confirmation email:', error);
+    logger.error('Error sending customer confirmation email:', error);
     throw error;
   }
 };

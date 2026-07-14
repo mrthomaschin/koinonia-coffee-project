@@ -1,3 +1,5 @@
+import { createLogger } from '../util/logger';
+
 interface OrderItem {
   name: string;
   sku: string;
@@ -57,6 +59,8 @@ interface CachedInventory {
 const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache';
 const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000;
 
+const logger = createLogger('NotionService');
+
 class NotionService {
   private backendUrl: string;
 
@@ -84,7 +88,7 @@ class NotionService {
 
   async createOrder(orderData: NotionOrderData): Promise<void> {
     try {
-      console.log('📝 Creating Notion database entry for order:', orderData.orderId);
+      logger.log('📝 Creating Notion database entry for order:', orderData.orderId);
 
       const response = await fetch(`${this.backendUrl}/create-notion-order`, {
         method: 'POST',
@@ -100,30 +104,30 @@ class NotionService {
       }
 
       const result = await response.json();
-      console.log('✅ Notion order created successfully:', result.pageId);
+      logger.log('✅ Notion order created successfully:', result.pageId);
     } catch (error) {
-      console.error('❌ Failed to create Notion order:', error);
+      logger.error('❌ Failed to create Notion order:', error);
       throw error;
     }
   }
 
   async updateOrderStatus(orderId: string, status: string): Promise<void> {
-    console.warn('updateOrderStatus not yet implemented on backend');
+    logger.warn('updateOrderStatus not yet implemented on backend');
   }
 
   async updateFulfillmentStatus(orderId: string, fulfillment: string): Promise<void> {
-    console.warn('updateFulfillmentStatus not yet implemented on backend');
+    logger.warn('updateFulfillmentStatus not yet implemented on backend');
   }
 
   async getInventory(): Promise<NotionInventoryItem[]> {
     try {
       const cached = this.getCachedInventory();
       if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS) {
-        console.log(`✅ Returning ${cached.items.length} inventory items from local cache`);
+        logger.log(`✅ Returning ${cached.items.length} inventory items from local cache`);
         return cached.items;
       }
 
-      console.log('📦 Fetching inventory from backend');
+      logger.log('📦 Fetching inventory from backend');
 
       const response = await fetch(`${this.backendUrl}/get-inventory`, {
         method: 'GET',
@@ -139,17 +143,17 @@ class NotionService {
 
       const result = await response.json();
       const lastSyncedAt: number = result.lastSyncedAt || Date.now();
-      console.log(`✅ Successfully fetched ${result.items.length} inventory items`);
+      logger.log(`✅ Successfully fetched ${result.items.length} inventory items`);
 
       // Log images for debugging
       result.items.forEach((item: any) => {
-        console.log(`📦 ${item.name} images:`, item.images);
+        logger.log(`📦 ${item.name} images:`, item.images);
       });
 
       // Log items with variants for debugging
       result.items.forEach((item: any) => {
         if (item.variants && item.variants.length > 0) {
-          console.log(`📦 Item with variants: ${item.name} (${item.sku})`, {
+          logger.log(`📦 Item with variants: ${item.name} (${item.sku})`, {
             variants: item.variants
           });
         }
@@ -158,11 +162,11 @@ class NotionService {
       this.setCachedInventory({ items: result.items, lastSyncedAt });
       return result.items;
     } catch (error) {
-      console.error('❌ Failed to fetch inventory:', error);
+      logger.error('❌ Failed to fetch inventory:', error);
 
       const cached = this.getCachedInventory();
       if (cached) {
-        console.warn('⚠️ Returning stale inventory from local cache');
+        logger.warn('⚠️ Returning stale inventory from local cache');
         return cached.items;
       }
 

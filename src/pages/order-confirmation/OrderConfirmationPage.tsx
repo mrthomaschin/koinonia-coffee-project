@@ -5,6 +5,9 @@ import { stripeService } from '../../services/stripeService';
 import { sendPurchaseNotification, sendCustomerConfirmation } from '../../services/emailService';
 import { notionService } from '../../services/notionService';
 import './OrderConfirmationPage.css';
+import { createLogger } from '../../util/logger';
+
+const logger = createLogger('OrderConfirmationPage');
 
 interface OrderConfirmationPageProps {
   availableHeight: number;
@@ -58,8 +61,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
           try {
             if (!state.orderData) return;
 
-            console.log('💳 Embedded checkout payment confirmed, preparing emails...');
-            console.log('📦 Order data:', state.orderData);
+            logger.log('💳 Embedded checkout payment confirmed, preparing emails...');
+            logger.log('📦 Order data:', state.orderData);
 
             // Read cart items from localStorage to get variant SKU and price
             const storedCartItems = localStorage.getItem('checkout_cart_items');
@@ -68,7 +71,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               try {
                 cartItems = JSON.parse(storedCartItems);
               } catch (e) {
-                console.error('Failed to parse cart items from localStorage:', e);
+                logger.error('Failed to parse cart items from localStorage:', e);
               }
               // Clear the stored cart items after use
               localStorage.removeItem('checkout_cart_items');
@@ -97,7 +100,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             const shippingAddress = (state as any).shippingAddress || '';
 
             // Create Notion database entry
-            console.log('� Creating Notion order entry...');
+            logger.log('� Creating Notion order entry...');
             try {
               await notionService.createOrder({
                 customerName: customerName,
@@ -110,12 +113,12 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 transactionId: orderId,
                 shippingAddress: shippingAddress
               });
-              console.log('✅ Notion order created successfully!');
+              logger.log('✅ Notion order created successfully!');
             } catch (notionError) {
-              console.error('❌ Failed to create Notion order:', notionError);
+              logger.error('❌ Failed to create Notion order:', notionError);
             }
 
-            console.log('� Sending purchase notification email...');
+            logger.log('� Sending purchase notification email...');
             await sendPurchaseNotification({
               customerEmail: customerEmail,
               customerName: customerName,
@@ -125,10 +128,10 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               orderDate: new Date(state.orderData.timestamp).toLocaleString(),
               sessionId: orderId
             });
-            console.log('✅ Purchase notification sent successfully!');
+            logger.log('✅ Purchase notification sent successfully!');
 
             // Send customer confirmation email
-            console.log('📧 Sending customer confirmation email...');
+            logger.log('📧 Sending customer confirmation email...');
             await sendCustomerConfirmation({
               customerEmail: customerEmail,
               customerName: customerName,
@@ -141,9 +144,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               orderDate: new Date(state.orderData.timestamp).toLocaleString(),
               orderId: orderId
             });
-            console.log('✅ Customer confirmation sent successfully!');
+            logger.log('✅ Customer confirmation sent successfully!');
           } catch (emailError) {
-            console.error('❌ Failed to send emails:', emailError);
+            logger.error('❌ Failed to send emails:', emailError);
           }
         };
 
@@ -173,8 +176,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
           if (!emailSentRef.current) {
             emailSentRef.current = true;
             try {
-              console.log('💳 Payment confirmed, preparing email notification...');
-              console.log('📦 Cart items:', cart.cartItems);
+              logger.log('💳 Payment confirmed, preparing email notification...');
+              logger.log('📦 Cart items:', cart.cartItems);
 
               const purchaseItems = cart.cartItems.map(cartItem => {
                 const variations: string[] = [];
@@ -186,7 +189,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 }
 
                 const imageUrl = cartItem.item.images && cartItem.item.images.length > 0 ? cartItem.item.images[0] : undefined;
-                console.log(`📸 Item "${cartItem.item.name}" image:`, imageUrl);
+                logger.log(`📸 Item "${cartItem.item.name}" image:`, imageUrl);
 
                 return {
                   name: cartItem.item.name,
@@ -202,7 +205,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               const subtotal = purchaseItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
               // Create Notion database entry
-              console.log('📝 Creating Notion order entry...');
+              logger.log('📝 Creating Notion order entry...');
               try {
                 await notionService.createOrder({
                   customerName: data.customer_name || 'Valued Customer',
@@ -215,12 +218,12 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   transactionId: sessionId,
                   shippingAddress: (data as any).shipping_address || ''
                 });
-                console.log('✅ Notion order created successfully!');
+                logger.log('✅ Notion order created successfully!');
               } catch (notionError) {
-                console.error('❌ Failed to create Notion order:', notionError);
+                logger.error('❌ Failed to create Notion order:', notionError);
               }
 
-              console.log('📧 Sending purchase notification email...');
+              logger.log('📧 Sending purchase notification email...');
               await sendPurchaseNotification({
                 customerEmail: data.customer_email || 'N/A',
                 customerName: data.customer_name,
@@ -229,10 +232,10 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 orderDate: new Date().toLocaleString(),
                 sessionId: sessionId
               });
-              console.log('✅ Purchase notification sent successfully!');
+              logger.log('✅ Purchase notification sent successfully!');
 
               // Send customer confirmation email
-              console.log('📧 Sending customer confirmation email...');
+              logger.log('📧 Sending customer confirmation email...');
               await sendCustomerConfirmation({
                 customerEmail: data.customer_email,
                 customerName: data.customer_name || 'Valued Customer',
@@ -244,9 +247,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 orderDate: new Date().toLocaleString(),
                 orderId: orderId
               });
-              console.log('✅ Customer confirmation sent successfully!');
+              logger.log('✅ Customer confirmation sent successfully!');
             } catch (emailError) {
-              console.error('❌ Failed to send emails:', emailError);
+              logger.error('❌ Failed to send emails:', emailError);
             }
           }
 
@@ -254,7 +257,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
           localStorage.removeItem('koinonia_cart');
         }
       } catch (err) {
-        console.error('Error fetching session:', err);
+        logger.error('Error fetching session:', err);
         setError('Failed to retrieve order information');
       } finally {
         setLoading(false);

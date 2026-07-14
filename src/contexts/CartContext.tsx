@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartViewModel, CartItem } from '../pages/cart/CartViewModel';
 import { ToastMessage, createToast, ToastType } from '../components/Toast';
+import { createLogger } from '../util/logger';
 
 interface CartContextType {
   cart: CartViewModel;
@@ -9,6 +10,8 @@ interface CartContextType {
   toasts: ToastMessage[];
   removeToast: (id: string) => void;
 }
+
+const logger = createLogger('CartContext');
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -34,7 +37,7 @@ const loadCartFromStorage = (): CartItem[] => {
       return Array.isArray(parsed) ? parsed : [];
     }
   } catch (error) {
-    console.error('Failed to load cart from storage:', error);
+    logger.error('Failed to load cart from storage:', error);
   }
   return [];
 };
@@ -43,7 +46,7 @@ const saveCartToStorage = (items: CartItem[]): void => {
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   } catch (error) {
-    console.error('Failed to save cart to storage:', error);
+    logger.error('Failed to save cart to storage:', error);
   }
 };
 

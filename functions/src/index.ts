@@ -1,7 +1,7 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import * as logger from "firebase-functions/logger";
+import { createLogger } from "./logger";
 import Stripe from "stripe";
 import { Client } from "@notionhq/client";
 import express, { Request, Response } from "express";
@@ -13,6 +13,8 @@ import { getFirestore } from "firebase-admin/firestore";
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
 dotenv.config({ path: ".env.local" });
+
+const logger = createLogger('index');
 
 setGlobalOptions({ maxInstances: 10 });
 

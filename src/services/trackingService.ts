@@ -1,9 +1,13 @@
+import { createLogger } from '../util/logger';
+
 declare global {
     interface Window {
         dataLayer: any[];
         gtag: (...args: any[]) => void;
     }
 }
+
+const logger = createLogger('TrackingService');
 
 class TrackingService {
     private static instance: TrackingService;
@@ -39,7 +43,7 @@ class TrackingService {
 
     public trackPageView(path: string, title?: string): void {
         if (!this.initialized) {
-            console.warn('TrackingService not initialized');
+            logger.warn('TrackingService not initialized');
             return;
         }
 
@@ -54,7 +58,7 @@ class TrackingService {
         eventParams?: Record<string, any>
     ): void {
         if (!this.initialized) {
-            console.warn('TrackingService not initialized');
+            logger.warn('TrackingService not initialized');
             return;
         }
 

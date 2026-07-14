@@ -2,6 +2,7 @@ import { Item, ItemType } from './item/ItemModel';
 import { sampleItems, setGlobalItems } from './shopData';
 import { notionService } from '../../services/notionService';
 import { convertNotionItemsToItems } from './notionItemMapper';
+import { createLogger } from '../../util/logger';
 
 export enum SortBy {
     DEFAULT = 'default',
@@ -17,6 +18,8 @@ export enum FilterBy {
     BEANS = 'beans',
     MERCH = 'merch',
 }
+
+const logger = createLogger('ShopViewModel');
 
 export class ShopViewModel {
     private _items: Item[];
@@ -51,7 +54,7 @@ export class ShopViewModel {
             // Register items globally so item detail pages can find them
             setGlobalItems(this._items);
         } catch (error) {
-            console.error('Failed to load inventory from Notion, falling back to sample data:', error);
+            logger.error('Failed to load inventory from Notion, falling back to sample data:', error);
             this._error = 'Failed to load inventory. Using sample data.';
             this._items = sampleItems;
             setGlobalItems(sampleItems);

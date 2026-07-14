@@ -4,6 +4,9 @@ import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
 import { sendPurchaseNotification } from '../../services/emailService';
 import './Checkout.css';
+import { createLogger } from '../../util/logger';
+
+const logger = createLogger('CheckoutSuccess');
 
 interface CheckoutSuccessProps {
   availableHeight: number;
@@ -18,12 +21,12 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('🎯 CheckoutSuccess component mounted');
+    logger.log('🎯 CheckoutSuccess component mounted');
     const sessionId = searchParams.get('session_id');
-    console.log('🔑 Session ID from URL:', sessionId);
+    logger.log('🔑 Session ID from URL:', sessionId);
 
     if (!sessionId) {
-      console.error('❌ No session ID found in URL');
+      logger.error('❌ No session ID found in URL');
       setError('No session ID found');
       setIsVerifying(false);
       return;
@@ -31,16 +34,16 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
 
     const verifySession = async () => {
       try {
-        console.log('🔍 Verifying session:', sessionId);
+        logger.log('🔍 Verifying session:', sessionId);
         const data = await stripeService.retrieveSession(sessionId);
-        console.log('📦 Session data received:', data);
+        logger.log('📦 Session data received:', data);
         setSessionData(data);
 
-        console.log('💳 Payment status:', data.payment_status);
+        logger.log('💳 Payment status:', data.payment_status);
         if (data.payment_status === 'paid') {
           try {
-            console.log('Payment verified, preparing to send email notification...');
-            console.log('Cart items:', cart.cartItems);
+            logger.log('Payment verified, preparing to send email notification...');
+            logger.log('Cart items:', cart.cartItems);
 
             const purchaseItems = cart.cartItems.map(cartItem => {
               const variations: string[] = [];
@@ -60,8 +63,8 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
               };
             });
 
-            console.log('Purchase items prepared:', purchaseItems);
-            console.log('Sending email notification...');
+            logger.log('Purchase items prepared:', purchaseItems);
+            logger.log('Sending email notification...');
 
             await sendPurchaseNotification({
               customerEmail: data.customer_email || 'N/A',
@@ -72,16 +75,16 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
               sessionId: sessionId
             });
 
-            console.log('✓ Email notification sent successfully!');
+            logger.log('✓ Email notification sent successfully!');
           } catch (emailError) {
-            console.error('Failed to send purchase notification:', emailError);
+            logger.error('Failed to send purchase notification:', emailError);
           }
 
           cart.cartItems = [];
           forceUpdate();
         }
       } catch (err) {
-        console.error('Session verification error:', err);
+        logger.error('Session verification error:', err);
         setError('Failed to verify payment');
       } finally {
         setIsVerifying(false);

@@ -8,6 +8,9 @@ import { stripeService } from '../../services/stripeService';
 import EmbeddedCheckout from '../../components/EmbeddedCheckout';
 import { ShippingOption } from '../../components/ShippingSelector';
 import './Cart.css';
+import { createLogger } from '../../util/logger';
+
+const logger = createLogger('CartView');
 
 interface CartViewProps {
     availableHeight: number;
@@ -116,7 +119,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             setClientSecret(secret);
             setShowCheckout(true);
         } catch (error) {
-            console.error('Error creating payment intent:', error);
+            logger.error('Error creating payment intent:', error);
             showToast('Failed to initialize checkout. Please try again.', 'error');
         } finally {
             setIsLoadingCheckout(false);
@@ -137,7 +140,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         const customerName = name || 'Valued Customer';
         const customerPhone = phone || '';
 
-        console.log('Payment successful:', { paymentIntentId, customerEmail, customerName, customerPhone });
+        logger.log('Payment successful:', { paymentIntentId, customerEmail, customerName, customerPhone });
 
         const shippingCost = shippingOption?.price || 0;
         const totalWithShipping = subtotal + shippingCost;

@@ -1,5 +1,8 @@
 import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { createLogger } from '../util/logger';
 import { CartItem } from '../pages/cart/CartViewModel';
+
+const logger = createLogger('StripeService');
 
 class StripeService {
   private stripePromise: Promise<Stripe | null>;
@@ -88,7 +91,7 @@ class StripeService {
         throw new Error('No checkout URL returned from server');
       }
     } catch (error) {
-      console.error('Error creating checkout session:', error);
+      logger.error('Error creating checkout session:', error);
       throw error;
     }
   }
@@ -114,7 +117,7 @@ class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error creating payment intent:', error);
+      logger.error('Error creating payment intent:', error);
       throw error;
     }
   }
@@ -134,7 +137,7 @@ class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error retrieving session:', error);
+      logger.error('Error retrieving session:', error);
       throw error;
     }
   }

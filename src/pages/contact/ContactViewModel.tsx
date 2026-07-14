@@ -1,6 +1,9 @@
 import { submitContactForm } from '../../services/emailService';
 import { FormData, FormErrors } from './ContactModel';
 import trackingService from '../../services/trackingService';
+import { createLogger } from '../../util/logger';
+
+const logger = createLogger('ContactViewModel');
 
 export class ContactViewModel {
   private _formData: FormData;
@@ -123,7 +126,7 @@ export class ContactViewModel {
 
       return true;
     } catch (error) {
-      console.error('Failed to submit form:', error);
+      logger.error('Failed to submit form:', error);
       alert('Failed to send message. Please try again.');
       return false;
     } finally {

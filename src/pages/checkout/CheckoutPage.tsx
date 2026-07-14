@@ -4,6 +4,9 @@ import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
 import { CoffeeBagWeight } from '../shop/item/coffee_bag/CoffeeBagItem';
 import './CheckoutPage.css';
+import { createLogger } from '../../util/logger';
+
+const logger = createLogger('CheckoutPage');
 
 interface CheckoutPageProps {
   availableHeight: number;
@@ -41,7 +44,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ availableHeight }) => {
     try {
       await stripeService.createCheckoutSession(cart.cartItems, tax, shipping);
     } catch (error) {
-      console.error('Checkout error:', error);
+      logger.error('Checkout error:', error);
       if (error instanceof Error) {
         showToast(error.message, 'error');
       } else {

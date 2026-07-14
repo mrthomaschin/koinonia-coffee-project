@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getItemBySlug } from '../shopData';
 import { Item } from './ItemModel';
 import { CartViewModel } from '../../cart/CartViewModel';
+import { createLogger } from '../../../util/logger';
+
+const logger = createLogger('ItemViewModel');
 
 export const useItemDetailViewModel = (itemProp?: Item, cart?: CartViewModel) => {
     const { slug } = useParams<{ slug: string }>();
@@ -32,7 +35,7 @@ export const useItemDetailViewModel = (itemProp?: Item, cart?: CartViewModel) =>
     const defaultHandleAddToCart = (): void => {
         if (item && cart) {
             const result = cart.addItem(item);
-            console.log('Add to cart result:', result);
+            logger.log('Add to cart result:', result);
         }
     };
 
