@@ -19,6 +19,36 @@ interface NotionOrderData {
   shippingAddress?: string;
 }
 
+export interface InventoryVariant {
+  sku: string;
+  size?: string;
+  color?: string;
+  weight?: string;
+  quantity: number;
+  price: number;
+}
+
+export interface NotionInventoryItem {
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
+  images: string[];
+  itemType: string;
+  createdAt: string;
+  quantity: number;
+  // Coffee-specific
+  weights?: string[];
+  roastLevel?: string;
+  origin?: string;
+  tastingNotes?: string[];
+  // Merch-specific
+  sizes?: string[];
+  colors?: string[];
+  // Variant inventory (for size/color/weight specific stock tracking)
+  variants?: InventoryVariant[] | null;
+}
+
 class NotionService {
   private backendUrl: string;
 
@@ -57,6 +87,46 @@ class NotionService {
 
   async updateFulfillmentStatus(orderId: string, fulfillment: string): Promise<void> {
     console.warn('updateFulfillmentStatus not yet implemented on backend');
+  }
+
+  async getInventory(): Promise<NotionInventoryItem[]> {
+    try {
+      console.log('📦 Fetching inventory from Notion database');
+
+      const response = await fetch(`${this.backendUrl}/get-inventory`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ Successfully fetched ${result.items.length} inventory items`);
+
+      // Log images for debugging
+      result.items.forEach((item: any) => {
+        console.log(`📦 ${item.name} images:`, item.images);
+      });
+
+      // Log items with variants for debugging
+      result.items.forEach((item: any) => {
+        if (item.variants && item.variants.length > 0) {
+          console.log(`📦 Item with variants: ${item.name} (${item.sku})`, {
+            variants: item.variants
+          });
+        }
+      });
+
+      return result.items;
+    } catch (error) {
+      console.error('❌ Failed to fetch inventory:', error);
+      throw error;
+    }
   }
 }
 

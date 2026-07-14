@@ -1,16 +1,14 @@
-import { Item, ItemType } from "../ItemModel";
+import { Item, ItemType, InventoryVariant } from "../ItemModel";
 
 export enum MerchSize {
-    XS = "XS",
     S = "S",
     M = "M",
     L = "L",
     XL = "XL",
-    XXL = "XXL",
 }
 
 export class MerchItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, images: string[], itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, shopifyVariantId?: string) {
+    constructor(id: string, name: string, description: string, price: number, images: string[], itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, variants?: InventoryVariant[] | null) {
         this.sku = id;
         this.name = name;
         this.description = description;
@@ -21,7 +19,7 @@ export class MerchItem implements Item {
         this.availableSizes = availableSizes;
         this.colors = colors;
         this.quantity = quantity;
-        this.shopifyVariantId = shopifyVariantId;
+        this.variants = variants || null;
     }
 
     sku: string;
@@ -34,5 +32,5 @@ export class MerchItem implements Item {
     availableSizes: MerchSize[];
     colors: string[];
     quantity: number;
-    shopifyVariantId?: string;
+    variants?: InventoryVariant[] | null;
 }

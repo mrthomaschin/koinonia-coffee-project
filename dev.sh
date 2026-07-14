@@ -79,6 +79,22 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+# Function to kill any existing Firebase emulator processes
+kill_existing_emulators() {
+    print_info "Checking for existing Firebase emulator processes..."
+    
+    # Kill any existing firebase emulator processes
+    pkill -f "firebase emulators:start" 2>/dev/null || true
+    pkill -f "functionsEmulatorRuntime" 2>/dev/null || true
+    
+    # Also kill processes on emulator ports
+    lsof -ti:5001 | xargs kill -9 2>/dev/null || true
+    lsof -ti:4000 | xargs kill -9 2>/dev/null || true
+    
+    sleep 1
+    print_info "✓ Cleared any existing emulator processes"
+}
+
 start_frontend() {
     print_section "Starting Frontend Development Server"
     
@@ -93,6 +109,9 @@ start_frontend() {
 
 start_functions() {
     print_section "Starting Firebase Functions Emulator"
+    
+    # Kill any existing emulators first
+    kill_existing_emulators
     
     if [ ! -d "functions/node_modules" ]; then
         print_info "Installing functions dependencies..."
@@ -114,6 +133,9 @@ start_functions() {
 
 start_all() {
     print_section "Starting Full Development Environment"
+    
+    # Kill any existing emulators first
+    kill_existing_emulators
     
     # Install dependencies if needed
     if [ ! -d "node_modules" ]; then

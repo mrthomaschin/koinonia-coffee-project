@@ -22,7 +22,30 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
 
   const handleAddToCart = () => {
     const size = selectedSize ? MerchSize[selectedSize] : undefined;
-    const result = cart.addItem(item, quantity, { size });
+    const color = selectedColor || undefined;
+
+    // Find the matching variant for the selected size/color
+    let variantSku = item.sku;
+    let variantPrice = item.price;
+
+    if (item.variants && item.variants.length > 0) {
+      const variant = item.variants.find(v => {
+        const sizeMatch = !size || v.size === size;
+        const colorMatch = !color || v.color === color;
+        return sizeMatch && colorMatch;
+      });
+      if (variant) {
+        variantSku = variant.sku;
+        variantPrice = variant.price > 0 ? variant.price : item.price;
+      }
+    }
+
+    const result = cart.addItem(item, quantity, {
+      size,
+      color,
+      variantSku,
+      variantPrice
+    });
     forceUpdate();
 
     if (result.success) {

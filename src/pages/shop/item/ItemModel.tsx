@@ -4,6 +4,16 @@ export enum ItemType {
     accessories,
     stickers,
     coffee,
+    brewTools,
+}
+
+export interface InventoryVariant {
+    sku: string;
+    size?: string;
+    color?: string;
+    weight?: string;
+    quantity: number;
+    price: number;
 }
 
 export interface Item {
@@ -15,4 +25,5 @@ export interface Item {
     itemType: ItemType;
     createdAt: Date;
     quantity: number;
+    variants?: InventoryVariant[] | null;
 }

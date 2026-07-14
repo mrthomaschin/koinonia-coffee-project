@@ -1,5 +1,7 @@
 import { Item, ItemType } from './item/ItemModel';
-import { sampleItems } from './shopData';
+import { sampleItems, setGlobalItems } from './shopData';
+import { notionService } from '../../services/notionService';
+import { convertNotionItemsToItems } from './notionItemMapper';
 
 export enum SortBy {
     DEFAULT = 'default',
@@ -20,11 +22,50 @@ export class ShopViewModel {
     private _items: Item[];
     private _sortBy: SortBy;
     private _filterBy: FilterBy;
+    private _isLoading: boolean;
+    private _error: string | null;
+    private _useNotion: boolean;
 
-    constructor() {
-        this._items = sampleItems;
+    constructor(useNotion: boolean = true) {
+        this._items = [];
         this._sortBy = SortBy.DEFAULT;
         this._filterBy = FilterBy.ALL;
+        this._isLoading = false;
+        this._error = null;
+        this._useNotion = useNotion;
+    }
+
+    async loadInventory(): Promise<void> {
+        if (!this._useNotion) {
+            this._items = sampleItems;
+            return;
+        }
+
+        this._isLoading = true;
+        this._error = null;
+
+        try {
+            const notionItems = await notionService.getInventory();
+            this._items = convertNotionItemsToItems(notionItems);
+
+            // Register items globally so item detail pages can find them
+            setGlobalItems(this._items);
+        } catch (error) {
+            console.error('Failed to load inventory from Notion, falling back to sample data:', error);
+            this._error = 'Failed to load inventory. Using sample data.';
+            this._items = sampleItems;
+            setGlobalItems(sampleItems);
+        } finally {
+            this._isLoading = false;
+        }
+    }
+
+    get isLoading(): boolean {
+        return this._isLoading;
+    }
+
+    get error(): string | null {
+        return this._error;
     }
 
     get items(): Item[] {
@@ -70,6 +111,7 @@ export class ShopViewModel {
             case SortBy.PRICE_HIGH_TO_LOW:
                 return sortedItems.sort((a, b) => b.price - a.price);
             default:
+                // Keep original order from Notion (sorted by Index property)
                 return sortedItems;
         }
     }
@@ -79,9 +121,15 @@ export class ShopViewModel {
             case FilterBy.ALL:
                 return items;
             case FilterBy.BEANS:
-                return items.filter(item => item.itemType === ItemType.beans);
+                return items.filter(item => item.itemType === ItemType.coffee);
             case FilterBy.MERCH:
-                return items.filter(item => item.itemType === ItemType.merch);
+                return items.filter(item =>
+                    item.itemType === ItemType.apparel ||
+                    item.itemType === ItemType.drinkware ||
+                    item.itemType === ItemType.accessories ||
+                    item.itemType === ItemType.stickers ||
+                    item.itemType === ItemType.brewTools
+                );
             default:
                 return items;
         }

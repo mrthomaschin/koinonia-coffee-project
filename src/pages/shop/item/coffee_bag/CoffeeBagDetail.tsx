@@ -17,7 +17,24 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddToCart = () => {
-    const result = cart.addItem(item, quantity, { weight: selectedWeight });
+    // Find the matching variant for the selected weight
+    let variantSku = item.sku;
+    let variantPrice = item.price;
+
+    if (item.variants && item.variants.length > 0 && selectedWeight) {
+      const weightStr = selectedWeight === CoffeeBagWeight._200g ? '200g' : '5lb';
+      const variant = item.variants.find(v => v.weight === weightStr);
+      if (variant) {
+        variantSku = variant.sku;
+        variantPrice = variant.price > 0 ? variant.price : item.price;
+      }
+    }
+
+    const result = cart.addItem(item, quantity, {
+      weight: selectedWeight,
+      variantSku,
+      variantPrice
+    });
     forceUpdate();
 
     if (result.success) {
@@ -28,9 +45,17 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   };
 
   const calculatePrice = () => {
-    const basePrice = item.price;
-    const weightMultiplier = selectedWeight / item.weight[0];
-    return (basePrice * weightMultiplier * quantity).toFixed(2);
+    // If variants exist, use variant price
+    if (item.variants && item.variants.length > 0 && selectedWeight) {
+      const weightStr = selectedWeight === CoffeeBagWeight._200g ? '200g' : '5lb';
+      const variant = item.variants.find(v => v.weight === weightStr);
+      if (variant && variant.price > 0) {
+        return (variant.price * quantity).toFixed(2);
+      }
+    }
+
+    // Use base price from Notion
+    return (item.price * quantity).toFixed(2);
   };
 
   const renderMetadata = (coffeeItem: CoffeeBagItem) => (
@@ -72,12 +97,6 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
             >
               {weight}{(() => {
                 switch (weight) {
-                  case CoffeeBagWeight._12oz:
-                    return 'oz';
-                  case CoffeeBagWeight._16oz:
-                    return 'oz';
-                  case CoffeeBagWeight._24oz:
-                    return 'oz';
                   case CoffeeBagWeight._200g:
                     return 'g';
                   case CoffeeBagWeight._5lb:

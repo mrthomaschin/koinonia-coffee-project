@@ -61,14 +61,31 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             console.log('💳 Embedded checkout payment confirmed, preparing emails...');
             console.log('📦 Order data:', state.orderData);
 
-            const purchaseItems = state.orderData.items.map(item => ({
-              name: item.name,
-              sku: item.selections?.sku || 'N/A',
-              quantity: item.quantity,
-              price: item.price,
-              variations: item.selections?.variations,
-              image: item.image
-            }));
+            // Read cart items from localStorage to get variant SKU and price
+            const storedCartItems = localStorage.getItem('checkout_cart_items');
+            let cartItems = [];
+            if (storedCartItems) {
+              try {
+                cartItems = JSON.parse(storedCartItems);
+              } catch (e) {
+                console.error('Failed to parse cart items from localStorage:', e);
+              }
+              // Clear the stored cart items after use
+              localStorage.removeItem('checkout_cart_items');
+            }
+
+            // Map Stripe items to cart items to get variant data
+            const purchaseItems = state.orderData.items.map(item => {
+              const cartItem = cartItems.find((ci: any) => ci.item.name === item.name);
+              return {
+                name: item.name,
+                sku: cartItem?.variantSku || cartItem?.item?.sku || 'N/A',
+                quantity: item.quantity,
+                price: cartItem?.variantPrice || cartItem?.item?.price || item.price,
+                variations: item.selections?.variations,
+                image: item.image
+              };
+            });
 
             const orderId = new Date(state.orderData.timestamp).getTime().toString().slice(-8).toUpperCase();
             const subtotal = state.orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);

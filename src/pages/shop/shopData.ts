@@ -1,7 +1,7 @@
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize } from './item/merch/MerchItem';
 import { Item, ItemType } from './item/ItemModel';
-import { ASSETS } from '../../util/constants';
+import { ASSETS, ICONS } from '../../util/constants';
 
 export const generateSlug = (name: string): string => {
   return name
@@ -10,13 +10,26 @@ export const generateSlug = (name: string): string => {
     .replace(/^-+|-+$/g, '');
 };
 
+// Global item registry - updated by ShopViewModel when Notion items load
+let globalItems: Item[] = [];
+
+export const setGlobalItems = (items: Item[]) => {
+  globalItems = items;
+};
+
+export const getGlobalItems = (): Item[] => {
+  return globalItems.length > 0 ? globalItems : sampleItems;
+};
+
+// NOTE: sampleItems is now used as fallback data only.
+// Primary inventory source is Notion database via ShopViewModel.loadInventory()
 export const sampleItems: Item[] = [
   new CoffeeBagItem(
     'B-ETH-W',
     'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
     10.00,
-    [ASSETS.ethiopiaOne, ASSETS.coffeeBags],
+    [ICONS.shopPlaceholder],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.light,
@@ -29,7 +42,7 @@ export const sampleItems: Item[] = [
     'Koin Blend',
     'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
     0.00,
-    [ASSETS.koinoniaBlendOne, ASSETS.koinoniaBlendTwo, ASSETS.coffeeBags],
+    [ICONS.shopPlaceholder],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.mediumLight,
@@ -42,7 +55,7 @@ export const sampleItems: Item[] = [
     'Koinonia Signature Tee',
     'Premium Cotton Tee with our signature logos on the front and back. Comfortable and stylish for everyday wear.',
     30.00,
-    [ASSETS.koinoniaSigTeeOne, ASSETS.koinoniaSigTeeTwo],
+    [ICONS.shopPlaceholder],
     ItemType.apparel,
     new Date(),
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
@@ -54,7 +67,7 @@ export const sampleItems: Item[] = [
     'Koinonia Circle Sticker',
     '',
     2.50,
-    [ASSETS.circleSticker1],
+    [ICONS.shopPlaceholder],
     ItemType.stickers,
     new Date(),
     [],
@@ -66,7 +79,7 @@ export const sampleItems: Item[] = [
     'Logo Sticker',
     '',
     2.50,
-    [ASSETS.logoSticker1],
+    [ICONS.shopPlaceholder],
     ItemType.stickers,
     new Date(),
     [],
@@ -78,7 +91,7 @@ export const sampleItems: Item[] = [
     'Koinonia Letter Sticker',
     '',
     3.00,
-    [ASSETS.letterSticker1],
+    [ICONS.shopPlaceholder],
     ItemType.stickers,
     new Date(),
     [],
@@ -90,7 +103,7 @@ export const sampleItems: Item[] = [
     'Koinonia Letter Sticker 2',
     '',
     3.00,
-    [ASSETS.letterSticker2],
+    [ICONS.shopPlaceholder],
     ItemType.stickers,
     new Date(),
     [],
@@ -102,7 +115,7 @@ export const sampleItems: Item[] = [
     'Sticker Pack',
     'Can\'t decide on a sticker? Why not get all of them!',
     7.00,
-    [ASSETS.stickerGroup1],
+    [ICONS.shopPlaceholder],
     ItemType.stickers,
     new Date(),
     [],
@@ -112,9 +125,11 @@ export const sampleItems: Item[] = [
 ];
 
 export const getItemBySlug = (slug: string): Item | undefined => {
-  return sampleItems.find(item => generateSlug(item.name) === slug);
+  const items = getGlobalItems();
+  return items.find(item => generateSlug(item.name) === slug);
 };
 
 export const getItemById = (id: string): Item | undefined => {
-  return sampleItems.find(item => item.sku === id);
+  const items = getGlobalItems();
+  return items.find(item => item.sku === id);
 };

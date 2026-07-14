@@ -25,17 +25,7 @@ export const ICONS = {
 } as const;
 
 export const ASSETS = {
-  koinoniaSigTeeOne: '/assets/images/DSCF6417.jpg',
-  koinoniaSigTeeTwo: '/assets/images/DSCF6368.jpg',
-  koinoniaBlendOne: '/assets/images/cgpt_koin_blend_1.png',
-  koinoniaBlendTwo: '/assets/images/espresso_shot.png',
-  ethiopiaOne: '/assets/images/cgpt_ethiopia_1.png',
-  coffeeBags: '/assets/images/cgpt_bags_3.png',
-  circleSticker1: '/assets/images/cgpt_circle_sticker.png',
-  logoSticker1: '/assets/images/cgpt_logo_sticker.png',
-  letterSticker1: '/assets/images/cgpt_letter_sticker2.png',
-  letterSticker2: '/assets/images/cgpt_letter_sticker_2.png',
-  stickerGroup1: '/assets/images/cgpt_render_2.png'
+
 } as const;
 
 export const FONTS = {

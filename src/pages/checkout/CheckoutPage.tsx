@@ -22,12 +22,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ availableHeight }) => {
 
   const formatWeight = (weight: CoffeeBagWeight): string => {
     switch (weight) {
-      case CoffeeBagWeight._12oz:
-        return '12oz';
-      case CoffeeBagWeight._16oz:
-        return '16oz';
-      case CoffeeBagWeight._24oz:
-        return '24oz';
       case CoffeeBagWeight._200g:
         return '200g';
       case CoffeeBagWeight._5lb:

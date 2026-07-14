@@ -1,17 +1,21 @@
-import { Item, ItemType } from "../shop/item/ItemModel";
+import { Item } from "../shop/item/ItemModel";
 import { CoffeeBagWeight } from "../shop/item/coffee_bag/CoffeeBagItem";
 import trackingService from "../../services/trackingService";
 
 export interface CartItemSelection {
     weight?: CoffeeBagWeight;
     size?: string;
-    shopifyVariantId?: string;
+    color?: string;
+    variantSku?: string;
+    variantPrice?: number;
 }
 
 export interface CartItem {
     item: Item;
     quantity: number;
     selections: CartItemSelection;
+    variantPrice?: number;
+    variantSku?: string;
 }
 
 export class CartViewModel {
@@ -25,7 +29,7 @@ export class CartViewModel {
     }
 
     getItemPrice(cartItem: CartItem): number {
-        return cartItem.item.price;
+        return cartItem.variantPrice ?? cartItem.item.price;
     }
 
     updateQuantity(index: number, newQuantity: number): void {
@@ -37,42 +41,57 @@ export class CartViewModel {
     }
 
     addItem(item: Item, quantity: number = 1, selections: CartItemSelection = {}): { success: boolean; message: string } {
-        if (item.quantity === 0) {
+        // Use variant SKU and price from selections if provided (passed from detail page)
+        let variantSku = selections.variantSku || item.sku;
+        let variantPrice = selections.variantPrice || item.price;
+
+        // For stock checking: if variant SKU provided, try to find variant quantity, otherwise use parent quantity
+        let availableQuantity = item.quantity;
+        if (selections.variantSku && item.variants && item.variants.length > 0) {
+            const variant = item.variants.find(v => v.sku === selections.variantSku);
+            if (variant) {
+                availableQuantity = variant.quantity;
+            }
+        }
+
+        // Only check stock if we have a quantity requirement (parent items might have 0 quantity)
+        // Variants are assumed to be in stock if they're being added
+        if (!selections.variantSku && availableQuantity === 0) {
             return { success: false, message: 'Item is out of stock' };
         }
 
         const existingIndex = this.cartItems.findIndex(
-            ci => ci.item.sku === item.sku &&
+            ci => ci.item.sku === variantSku &&
                 JSON.stringify(ci.selections) === JSON.stringify(selections)
         );
 
         if (existingIndex >= 0) {
             const newQuantity = this.cartItems[existingIndex].quantity + quantity;
 
-            if (newQuantity > item.quantity) {
-                return { success: false, message: `Only ${item.quantity} available in stock` };
+            if (newQuantity > availableQuantity && availableQuantity > 0) {
+                return { success: false, message: `Only ${availableQuantity} available in stock` };
             }
 
             this.cartItems[existingIndex].quantity = newQuantity;
-            const cartItem = { item, quantity, selections };
+            this.cartItems[existingIndex].variantPrice = variantPrice;
+            this.cartItems[existingIndex].variantSku = variantSku;
             trackingService.trackAddToCart(
-                item.sku,
+                variantSku,
                 item.name,
-                this.getItemPrice(cartItem),
+                variantPrice,
                 quantity
             );
             return { success: true, message: 'Quantity updated in cart' };
         } else {
-            if (quantity > item.quantity) {
-                return { success: false, message: `Only ${item.quantity} available in stock` };
+            if (quantity > availableQuantity && availableQuantity > 0) {
+                return { success: false, message: `Only ${availableQuantity} available in stock` };
             }
 
-            this.cartItems.push({ item, quantity, selections });
-            const cartItem = { item, quantity, selections };
+            this.cartItems.push({ item, quantity, selections, variantPrice, variantSku });
             trackingService.trackAddToCart(
-                item.sku,
+                variantSku,
                 item.name,
-                this.getItemPrice(cartItem),
+                variantPrice,
                 quantity
             );
             return { success: true, message: 'Item added to cart' };

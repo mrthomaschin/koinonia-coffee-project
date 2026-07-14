@@ -22,6 +22,7 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
           src={item.images[0]}
           alt={item.name}
           className="preview-image"
+          loading="lazy"
         />
         <div className="preview-overlay">
           <span className="preview-view-details">VIEW DETAILS</span>

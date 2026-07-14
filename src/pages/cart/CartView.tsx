@@ -105,9 +105,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 totalAmount,
                 {
                     items: JSON.stringify(viewModel.cartItems.map(item => ({
-                        id: item.item.sku,
+                        id: item.variantSku || item.item.sku,
                         name: item.item.name,
-                        quantity: item.quantity
+                        quantity: item.quantity,
+                        price: item.variantPrice || item.item.price
                     })))
                 }
             );
@@ -146,7 +147,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             items: viewModel.cartItems.map(item => ({
                 name: item.item.name,
                 quantity: item.quantity,
-                price: viewModel.getItemPrice(item),
+                price: item.variantPrice || viewModel.getItemPrice(item),
+                sku: item.variantSku || item.item.sku,
                 image: item.item.images[0],
                 selections: {
                     ...item.selections,
@@ -183,12 +185,6 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
     const formatWeight = (weight: CoffeeBagWeight): string => {
         switch (weight) {
-            case CoffeeBagWeight._12oz:
-                return '12oz';
-            case CoffeeBagWeight._16oz:
-                return '16oz';
-            case CoffeeBagWeight._24oz:
-                return '24oz';
             case CoffeeBagWeight._200g:
                 return '200g';
             case CoffeeBagWeight._5lb:

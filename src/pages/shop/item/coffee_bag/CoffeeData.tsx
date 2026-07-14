@@ -185,7 +185,7 @@ export class Espresso implements BrewMethod {
 }
 
 export const coffeeDataMap: Record<string, Coffee> = {
-    '1': new Ethiopia(
+    'B-ETH-W': new Ethiopia(
         'Yirgacheffe, Ethiopia',
         '1,800-2,200m',
         'Washed',
@@ -220,7 +220,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             )
         ]
     ),
-    '2': new KoinBlend(
+    'B-KOIN': new KoinBlend(
         'Ethiopia, Colombia',
         '1,600-2,000m',
         'Washed, Natural',

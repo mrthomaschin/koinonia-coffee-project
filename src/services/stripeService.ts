@@ -28,6 +28,8 @@ class StripeService {
         currency: 'usd',
         quantity: cartItem.quantity,
         images: cartItem.item.images.length > 0 ? [cartItem.item.images[0]] : undefined,
+        variantSku: cartItem.variantSku || cartItem.item.sku,
+        variantPrice: cartItem.variantPrice || cartItem.item.price,
       };
     });
 
@@ -39,6 +41,8 @@ class StripeService {
         currency: 'usd',
         quantity: 1,
         images: undefined,
+        variantSku: 'TAX',
+        variantPrice: tax,
       });
     }
 
@@ -50,10 +54,15 @@ class StripeService {
         currency: 'usd',
         quantity: 1,
         images: undefined,
+        variantSku: 'SHIPPING',
+        variantPrice: shipping,
       });
     }
 
     try {
+      // Store cart items with variant data for order confirmation
+      localStorage.setItem('checkout_cart_items', JSON.stringify(cartItems));
+
       const response = await fetch(`${this.backendUrl}/create-checkout-session`, {
         method: 'POST',
         headers: {
@@ -135,7 +144,7 @@ class StripeService {
   }
 
   private calculateItemPrice(cartItem: CartItem): number {
-    return cartItem.item.price;
+    return cartItem.variantPrice ?? cartItem.item.price;
   }
 
   private getItemName(cartItem: CartItem): string {

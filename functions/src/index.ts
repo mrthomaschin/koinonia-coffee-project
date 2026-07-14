@@ -189,6 +189,172 @@ app.get("/checkout-session/:sessionId", async (req: Request, res: Response) => {
   }
 });
 
+// Get inventory items from Notion
+app.get("/get-inventory", async (req: Request, res: Response) => {
+  try {
+    logger.info("Fetching inventory from Notion");
+
+    const databaseId = process.env.NOTION_INVENTORY_DATABASE_ID;
+    if (!databaseId) {
+      logger.error("Notion inventory database ID not configured");
+      res.status(500).json({ error: "Notion inventory database ID not configured" });
+      return;
+    }
+
+    const notion = getNotion();
+
+    // Verify notion client is properly initialized
+    if (!notion) {
+      logger.error("Notion client not initialized");
+      res.status(500).json({ error: "Notion client initialization failed" });
+      return;
+    }
+
+    const response = await notion.databases.query({
+      database_id: databaseId,
+      filter: {
+        property: "Active",
+        checkbox: {
+          equals: true,
+        },
+      },
+      sorts: [
+        {
+          property: "Index",
+          direction: "ascending",
+        },
+        {
+          property: "Created At",
+          direction: "descending",
+        },
+      ],
+    });
+
+    // Separate parent items and variants
+    const parentItems = new Map<string, any>();
+    const variants = new Map<string, any[]>();
+
+    response.results.forEach((page: any) => {
+      if (!("properties" in page)) return;
+
+      const properties = page.properties;
+      const isVariant = properties["Is Variant"]?.checkbox || false;
+      const parentSKU = properties["Parent SKU"]?.rich_text?.[0]?.plain_text || "";
+      const sku = properties["SKU"]?.rich_text?.[0]?.plain_text || "";
+
+      if (isVariant && parentSKU) {
+        // This is a variant - store it under parent SKU
+        if (!variants.has(parentSKU)) {
+          variants.set(parentSKU, []);
+        }
+        variants.get(parentSKU)!.push(properties);
+      } else if (!isVariant) {
+        // This is a parent item
+        if (sku) {
+          parentItems.set(sku, properties);
+        }
+      }
+    });
+
+    // Build final items with variants
+    const items = Array.from(parentItems.entries()).map(([sku, properties]) => {
+      // Extract common properties
+      const name = properties["Name"]?.title?.[0]?.plain_text || "";
+      const description = properties["Description"]?.rich_text?.[0]?.plain_text || "";
+      const price = properties["Price"]?.number || 0;
+      const itemType = properties["Item Type"]?.select?.name || "";
+      // Default to quantity 1 if not set, so items can display
+      const quantity = properties["Quantity"]?.number ?? 1;
+      const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
+
+      // Extract images - prefer Firebase Storage URLs over Notion images
+      const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
+      const firebaseImageUrls = firebaseImageUrlsArray
+        .map((text: any) => text.plain_text)
+        .join("");
+      let images: string[] = [];
+
+      if (firebaseImageUrls) {
+        // Parse multiple Firebase Storage URLs (comma or newline separated)
+        images = firebaseImageUrls
+          .split(/[,\n]/)
+          .map((url: string) => url.trim())
+          .filter((url: string) => url && (url.startsWith("http://") || url.startsWith("https://")));
+      }
+
+      // Fallback to Notion images if no Firebase URLs
+      if (images.length === 0) {
+        const imagesProperty = properties["Images"]?.files || [];
+        images = imagesProperty.map((file: any) => {
+          if (file.type === "external") {
+            return file.external.url;
+          } else if (file.type === "file") {
+            return file.file.url;
+          }
+          return "";
+        }).filter((url: string) => url);
+      }
+
+      // Use placeholder if no images available
+      if (images.length === 0) {
+        images = ["/assets/images/shop_placeholder.png"];
+      }
+
+      // Coffee-specific properties
+      const weights = properties["Weights"]?.multi_select?.map((w: any) => w.name) || [];
+      const roastLevel = properties["Roast Level"]?.select?.name || "";
+      const origin = properties["Origin"]?.rich_text?.[0]?.plain_text || "";
+      const tastingNotes = properties["Tasting Notes"]?.multi_select?.map((n: any) => n.name) || [];
+
+      // Merch-specific properties
+      const sizes = properties["Sizes"]?.multi_select?.map((s: any) => s.name) || [];
+      const colors = properties["Colors"]?.multi_select?.map((c: any) => c.name) || [];
+
+      // Process variants if they exist
+      const itemVariants = variants.get(sku);
+      let variantInventory = null;
+
+      if (itemVariants && itemVariants.length > 0) {
+        variantInventory = itemVariants.map((variantProps: any) => ({
+          sku: variantProps["SKU"]?.rich_text?.[0]?.plain_text || "",
+          size: variantProps["Variant Size"]?.select?.name || "",
+          color: variantProps["Variant Color"]?.select?.name || "",
+          weight: variantProps["Variant Weight"]?.select?.name || "",
+          quantity: variantProps["Quantity"]?.number || 0,
+          price: variantProps["Price"]?.number || 0,
+        }));
+      }
+
+      return {
+        sku,
+        name,
+        description,
+        price,
+        images,
+        itemType,
+        createdAt,
+        quantity,
+        // Coffee-specific
+        weights,
+        roastLevel,
+        origin,
+        tastingNotes,
+        // Merch-specific
+        sizes,
+        colors,
+        // Variant inventory
+        variants: variantInventory,
+      };
+    }).filter((item: any) => item !== null);
+
+    logger.info(`Successfully fetched ${items.length} inventory items`);
+    res.json({ items });
+  } catch (error: unknown) {
+    logger.error("Error fetching inventory", { error: (error as Error).message });
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => {
   try {
@@ -237,10 +403,6 @@ app.post("/create-notion-order", async (req: Request, res: Response) => {
     const response = await notion.pages.create({
       parent: {
         database_id: databaseId,
-        type: "database_id",
-      },
-      template: {
-        type: "default",
       },
       properties: {
         "Customer": {
@@ -415,6 +577,7 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "STRIPE_WEBHOOK_SECRET",
     "NOTION_TOKEN",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
+    "NOTION_INVENTORY_DATABASE_ID",
   ];
 }
 
@@ -465,7 +628,6 @@ export const testOrderStatusCheck = onRequest(
       // Query orders updated in the last 15 minutes
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
-      // @ts-expect-error - Notion SDK 5.x query types are overly strict, method works correctly
       const response = await notion.databases.query({
         database_id: databaseId,
         filter: {
@@ -684,7 +846,6 @@ export const checkOrderStatusUpdates = onSchedule(
       // Query orders updated in the last 15 minutes
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
-      // @ts-expect-error - Notion SDK 5.x query types are overly strict, method works correctly
       const response = await notion.databases.query({
         database_id: databaseId,
         filter: {
