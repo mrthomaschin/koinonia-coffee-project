@@ -46,7 +46,33 @@ const getNotion = () => {
 
 const app = express();
 
-app.use(cors({ origin: true }));
+// Configure CORS for deployed environment (v2)
+const allowedOrigins = [
+  'https://koinoniacoffeeproject.com',
+  'https://koinonia-coffee-project.web.app',
+  'http://localhost:3001',
+  'http://localhost:3000'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 
 // Create Payment Intent for embedded checkout
@@ -567,7 +593,15 @@ app.post(
 // In production: use Firebase secrets
 // In emulator: use .env file (secrets config causes emulator to fetch from Firebase)
 const functionOptions: any = {
-  cors: true,
+  cors: [
+    'https://koinoniacoffeeproject.com',
+    'https://koinonia-coffee-project.web.app',
+    'http://localhost:3001',
+    'http://localhost:3000'
+  ],
+  corsOptions: {
+    maxAge: 3600,
+  }
 };
 
 // Only add secrets in production (not in emulator)
@@ -578,6 +612,11 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_TOKEN",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
     "NOTION_INVENTORY_DATABASE_ID",
+    "EMAILJS_SERVICE_ID",
+    "EMAILJS_PUBLIC_KEY",
+    "EMAILJS_PRIVATE_KEY",
+    "EMAILJS_SHIPPED_TEMPLATE_ID",
+    "EMAILJS_DELIVERED_TEMPLATE_ID",
   ];
 }
 
