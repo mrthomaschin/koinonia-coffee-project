@@ -11,14 +11,15 @@
 3. [Quick Start](#quick-start)
 4. [Stripe Payment Integration](#stripe-payment-integration)
 5. [Notion Order Tracking](#notion-order-tracking)
-6. [Automated Email Notifications](#automated-email-notifications)
-7. [Shipping & Local Pickup Options](#shipping--local-pickup-options)
-8. [Embedded Checkout](#embedded-checkout)
-9. [Deployment](#deployment)
-10. [Testing](#testing)
-11. [Troubleshooting](#troubleshooting)
-12. [Security & Best Practices](#security--best-practices)
-13. [Command Reference](#command-reference)
+6. [Notion Inventory Management](#notion-inventory-management)
+7. [Automated Email Notifications](#automated-email-notifications)
+8. [Shipping & Local Pickup Options](#shipping--local-pickup-options)
+9. [Embedded Checkout](#embedded-checkout)
+10. [Deployment](#deployment)
+11. [Testing](#testing)
+12. [Troubleshooting](#troubleshooting)
+13. [Security & Best Practices](#security--best-practices)
+14. [Command Reference](#command-reference)
 
 ---
 
@@ -323,6 +324,643 @@ firebase functions:secrets:set NOTION_ONLINE_ORDERS_DATABASE_ID
 
 ---
 
+## Notion Inventory Management
+
+### Overview
+
+The inventory system fetches product data from a Notion database in real-time, allowing you to manage your shop items without code changes. This replaces the static `shopData.ts` file with a dynamic Notion database.
+
+### Key Features
+
+✅ **Real-time Inventory** - Products update instantly when you change Notion  
+✅ **No Code Changes** - Add/edit products directly in Notion  
+✅ **Type-Specific Properties** - Coffee and merchandise have different attributes  
+✅ **Variant Support** - Track inventory per size/color (see variant guide)  
+✅ **Active Toggle** - Hide/show products with a checkbox  
+✅ **Fallback System** - Automatically falls back to sample data if Notion is unavailable  
+
+### Step 1: Create Notion Integration (if not already done)
+
+If you already created an integration for order tracking, you can reuse it. Otherwise:
+
+1. Go to [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations)
+2. Click **+ New integration**
+3. Fill in details:
+   - **Name**: Koinonia Coffee Shop
+   - **Associated workspace**: Select your workspace
+   - **Type**: Internal integration
+4. Click **Submit**
+5. Copy the **Internal Integration Token** (starts with `secret_`)
+
+### Step 2: Create Inventory Database
+
+1. In Notion, create a new page
+2. Type `/database` and select **Table - Full page**
+3. Name it **Shop Inventory** or similar
+
+### Step 3: Configure Database Properties
+
+#### Common Properties (All Items)
+
+| Property Name | Type | Description | Required |
+|--------------|------|-------------|----------|
+| **Name** | Title | Product name | ✅ Yes |
+| **SKU** | Text | Unique product identifier | ✅ Yes |
+| **Description** | Text | Product description | ✅ Yes |
+| **Price** | Number | Price in dollars (e.g., 10.00) | ✅ Yes |
+| **Item Type** | Select | Type of item | ✅ Yes |
+| **Quantity** | Number | Available stock quantity | ✅ Yes |
+| **Images** | Files & media | Product images (URLs or uploads) | ✅ Yes |
+| **Active** | Checkbox | Whether item is visible in shop | ✅ Yes |
+| **Created At** | Date | When item was added | ✅ Yes |
+
+#### Coffee-Specific Properties
+
+| Property Name | Type | Description | Required for Coffee |
+|--------------|------|-------------|---------------------|
+| **Weights** | Multi-select | Available weights | ✅ Yes |
+| **Roast Level** | Select | Roast level | ✅ Yes |
+| **Origin** | Text | Coffee origin/region | ✅ Yes |
+| **Tasting Notes** | Multi-select | Flavor notes | ✅ Yes |
+
+#### Merchandise-Specific Properties
+
+| Property Name | Type | Description | Required for Merch |
+|--------------|------|-------------|-------------------|
+| **Sizes** | Multi-select | Available sizes | For apparel |
+| **Colors** | Multi-select | Available colors | Optional |
+
+### Step 4: Configure Select Options
+
+#### Item Type Options
+Create these exact options in the **Item Type** select property:
+- `Coffee`
+- `Apparel`
+- `Drinkware`
+- `Accessories`
+- `Stickers`
+- `Brew Tools`
+
+#### Weights Options (for Coffee)
+Create these exact options in the **Weights** multi-select:
+- `12oz`
+- `16oz`
+- `24oz`
+- `200g`
+- `5lb`
+
+#### Roast Level Options (for Coffee)
+Create these exact options in the **Roast Level** select:
+- `Light`
+- `Medium-Light`
+- `Medium`
+- `Medium-Dark`
+- `Dark`
+
+#### Sizes Options (for Apparel)
+Create these exact options in the **Sizes** multi-select:
+- `XS`
+- `S`
+- `M`
+- `L`
+- `XL`
+- `XXL`
+
+### Step 5: Share Database with Integration
+
+1. Open your **Shop Inventory** database in Notion
+2. Click the **•••** menu in the top right
+3. Scroll down and click **+ Add connections**
+4. Select your integration (e.g., "Koinonia Coffee Shop")
+5. Click **Confirm**
+
+### Step 6: Get Database ID
+
+1. Open your **Shop Inventory** database in Notion
+2. Look at the URL in your browser:
+   ```
+   https://www.notion.so/workspace/DATABASE_ID?v=VIEW_ID
+   ```
+3. Copy the **DATABASE_ID** (32-character string between the last `/` and the `?`)
+
+### Step 7: Configure Environment Variables
+
+#### Local Development
+
+Edit `functions/.env.local`:
+
+```env
+NOTION_TOKEN=secret_your_actual_token_here
+NOTION_INVENTORY_DATABASE_ID=your_actual_database_id_here
+```
+
+#### Production
+
+```bash
+firebase functions:secrets:set NOTION_INVENTORY_DATABASE_ID
+```
+
+If you haven't already set the Notion token:
+```bash
+firebase functions:secrets:set NOTION_TOKEN
+```
+
+### Step 8: Add Sample Data
+
+#### Example Coffee Item
+
+| Property      | Value                                                         |
+| ---------------| ---------------------------------------------------------------|
+| Name          | Ethiopia Yirgacheffe                                          |
+| SKU           | B-ETH-001                                                     |
+| Description   | A bright and floral coffee with notes of bergamot and jasmine |
+| Price         | 15.00                                                         |
+| Item Type     | Coffee                                                        |
+| Quantity      | 10                                                            |
+| Active        | ✅ Checked                                                     |
+| Created At    | Today's date                                                  |
+| Weights       | 200g, 5lb                                                     |
+| Roast Level   | Light                                                         |
+| Origin        | Ethiopia                                                      |
+| Tasting Notes | Bergamot, Jasmine, Citrus                                     |
+| Images        | (Upload or paste image URLs)                                  |
+
+#### Example Merchandise Item
+
+| Property | Value |
+|----------|-------|
+| Name | Koinonia Signature Tee |
+| SKU | M-TEE-001 |
+| Description | Premium cotton tee with signature logo |
+| Price | 30.00 |
+| Item Type | Apparel |
+| Quantity | 25 |
+| Active | ✅ Checked |
+| Created At | Today's date |
+| Sizes | S, M, L, XL |
+| Colors | Beige, Black |
+| Images | (Upload or paste image URLs) |
+
+### Step 9: Test Integration
+
+1. Start your development server:
+   ```bash
+   npm run dev
+   ```
+
+2. Start Firebase emulators:
+   ```bash
+   npm run emulators
+   ```
+
+3. Navigate to the shop page in your browser
+4. You should see your Notion inventory items displayed
+5. Check the browser console for success messages:
+   ```
+   📦 Fetching inventory from Notion database
+   ✅ Successfully fetched X inventory items
+   ✅ Loaded X items from Notion
+   ```
+
+### Managing Inventory
+
+#### Adding New Items
+
+1. Open your Notion inventory database
+2. Click **+ New** to add a row
+3. Fill in all required properties
+4. Check the **Active** checkbox
+5. Save - the item will appear in your shop immediately
+
+#### Updating Items
+
+1. Edit any property in Notion
+2. Changes appear in the shop on next page load
+3. To temporarily hide an item, uncheck **Active**
+
+#### Removing Items
+
+1. Uncheck the **Active** checkbox to hide from shop
+2. Or delete the row entirely
+
+### Image Management Best Practices
+
+1. **Use consistent dimensions**: Recommended 800x800px or 1200x1200px
+2. **Optimize file sizes**: Compress images before uploading
+3. **Use external hosting**: For production, host images on:
+   - Firebase Storage
+   - Cloudinary
+   - AWS S3
+   - Any CDN with public URLs
+4. **Multiple images**: Add multiple files to the Images property for product galleries
+
+### Quick Property Reference
+
+#### Required Properties (All Items)
+
+| Property Name | Type          | Example Value                   | Notes                                                               |
+| ---------------| ---------------| ---------------------------------| ---------------------------------------------------------------------|
+| Name          | Title         | "Ethiopia Yirgacheffe"          | Product display name                                                |
+| SKU           | Text          | "B-ETH-001"                     | Unique identifier                                                   |
+| Description   | Text          | "A bright and floral coffee..." | Product description                                                 |
+| Price         | Number        | 15.00                           | Price in USD                                                        |
+| Item Type     | Select        | "Coffee"                        | Must be exact: Coffee, Apparel, Drinkware, Accessories, or Stickers |
+| Quantity      | Number        | 10                              | Available stock                                                     |
+| Images        | Files & media | [image URLs or files]           | Product images                                                      |
+| Active        | Checkbox      | ✅                               | Must be checked to show in shop                                     |
+| Created At    | Date          | 2026-07-13                      | Product creation date                                               |
+
+#### Coffee-Specific Properties
+
+| Property Name | Type | Example Value | Options |
+|--------------|------|---------------|---------|
+| Weights | Multi-select | 200g, 5lb | 12oz, 16oz, 24oz, 200g, 5lb |
+| Roast Level | Select | "Light" | Light, Medium-Light, Medium, Medium-Dark, Dark |
+| Origin | Text | "Ethiopia" | Coffee origin/region |
+| Tasting Notes | Multi-select | Bergamot, Jasmine | Any flavor descriptors |
+
+#### Merchandise-Specific Properties
+
+| Property Name | Type          | Example Value   | Options                  |
+| ---------------| ---------------| -----------------| --------------------------|
+| Sizes         | Multi-select  | S, M, L, XL     | S, M, L, XL              |
+| Colors        | Multi-select  | Beige, Black    | Any color names          |
+
+#### Important Notes
+
+✅ **Property names are case-sensitive** - Must match exactly  
+✅ **Active checkbox** - Only checked items appear in shop  
+✅ **Item Type** - Must use exact values listed above  
+✅ **Images** - Use public URLs or Notion file uploads  
+✅ **Coffee items** - Must have Weights, Roast Level, Origin, Tasting Notes  
+✅ **Apparel items** - Should have Sizes property filled  
+
+### API Endpoint
+
+The inventory is fetched via:
+```
+GET /get-inventory
+```
+
+Returns:
+```json
+{
+  "items": [
+    {
+      "sku": "B-ETH-001",
+      "name": "Ethiopia Yirgacheffe",
+      "description": "...",
+      "price": 15.00,
+      "images": ["url1", "url2"],
+      "itemType": "Coffee",
+      "createdAt": "2026-07-13T...",
+      "quantity": 10,
+      "weights": ["200g", "5lb"],
+      "roastLevel": "Light",
+      "origin": "Ethiopia",
+      "tastingNotes": ["Bergamot", "Jasmine"]
+    }
+  ]
+}
+```
+
+---
+
+## Variant-Based Inventory Tracking
+
+### Overview
+
+For products with multiple sizes, colors, or weights (like t-shirts or coffee bags), you can track inventory per variant while displaying as a single product. This uses a **parent-child variant system** where:
+- **Parent items** are the main products displayed on your shop page
+- **Variant items** track individual inventory for each size/color/weight combination
+
+**Example**: One "Koinonia Signature Tee" listing with separate inventory for S, M, L, XL sizes.
+
+### Database Structure
+
+#### Parent Items (Main Products)
+
+These are the products displayed on your shop page.
+
+**Example: Koinonia Signature Tee**
+
+| Property | Value |
+|----------|-------|
+| Name | Koinonia Signature Tee |
+| SKU | M-TEE-001 |
+| Description | Premium cotton tee with signature logo |
+| Price | 30.00 |
+| Item Type | Apparel |
+| **Quantity** | 0 (not used for parent when variants exist) |
+| Active | ✅ |
+| Created At | 2026-07-13 |
+| Sizes | S, M, L, XL (all available sizes) |
+| Colors | Beige (available colors) |
+| Images | [product images] |
+| **Is Variant** | ❌ Unchecked |
+| **Parent SKU** | (leave empty) |
+
+#### Variant Items (Size/Color Specific)
+
+These track individual inventory for each size/color combination.
+
+**Example: Koinonia Signature Tee - Size S**
+
+| Property | Value |
+|----------|-------|
+| Name | Koinonia Signature Tee - S |
+| SKU | M-TEE-001-S |
+| **Parent SKU** | M-TEE-001 |
+| **Is Variant** | ✅ Checked |
+| **Variant Size** | S |
+| **Variant Color** | Beige |
+| **Quantity** | 5 (actual stock for size S) |
+| Active | ✅ |
+| Item Type | Apparel |
+| Price | (can be same as parent or variant-specific) |
+
+**Repeat for each size:**
+- M-TEE-001-M (Medium, Quantity: 8)
+- M-TEE-001-L (Large, Quantity: 12)
+- M-TEE-001-XL (Extra Large, Quantity: 3)
+
+### Required Database Properties
+
+Add these properties to your existing inventory database:
+
+| Property Name | Type | Description | Required |
+|--------------|------|-------------|----------|
+| **Is Variant** | Checkbox | Check if this is a variant item | ✅ Yes |
+| **Parent SKU** | Text | SKU of parent product (for variants only) | For variants |
+| **Variant Size** | Select | Size for this variant | For apparel variants |
+| **Variant Color** | Select | Color for this variant | For variants with colors |
+| **Variant Weight** | Select | Weight for coffee variants | For coffee variants |
+
+#### Variant Size Options
+Create these options in the **Variant Size** select:
+- `S`
+- `M`
+- `L`
+- `XL`
+
+#### Variant Weight Options (for Coffee)
+Create these options in the **Variant Weight** select:
+- `200g`
+- `5lb`
+
+### Setup Instructions
+
+#### Step 1: Add New Properties
+
+1. Open your inventory database
+2. Add the following properties:
+   - **Is Variant** (Checkbox)
+   - **Parent SKU** (Text)
+   - **Variant Size** (Select)
+   - **Variant Color** (Select)
+   - **Variant Weight** (Select)
+
+#### Step 2: Convert Existing Items
+
+For the Koinonia Signature Tee example:
+
+1. **Keep one entry as the parent:**
+   - Name: "Koinonia Signature Tee"
+   - SKU: "M-TEE-001"
+   - Is Variant: ❌ Unchecked
+   - Quantity: 0 (or total across all sizes)
+   - Sizes: S, M, L, XL (all available)
+
+2. **Create variant entries for each size:**
+
+   **Variant 1:**
+   - Name: "Koinonia Signature Tee - S"
+   - SKU: "M-TEE-001-S"
+   - Parent SKU: "M-TEE-001"
+   - Is Variant: ✅ Checked
+   - Variant Size: S
+   - Quantity: 5 (actual stock)
+   - Active: ✅
+
+   **Variant 2:**
+   - Name: "Koinonia Signature Tee - M"
+   - SKU: "M-TEE-001-M"
+   - Parent SKU: "M-TEE-001"
+   - Is Variant: ✅ Checked
+   - Variant Size: M
+   - Quantity: 8
+   - Active: ✅
+
+   **Variant 3:**
+   - Name: "Koinonia Signature Tee - L"
+   - SKU: "M-TEE-001-L"
+   - Parent SKU: "M-TEE-001"
+   - Is Variant: ✅ Checked
+   - Variant Size: L
+   - Quantity: 12
+   - Active: ✅
+
+   **Variant 4:**
+   - Name: "Koinonia Signature Tee - XL"
+   - SKU: "M-TEE-001-XL"
+   - Parent SKU: "M-TEE-001"
+   - Is Variant: ✅ Checked
+   - Variant Size: XL
+   - Quantity: 3
+   - Active: ✅
+
+#### Step 3: Test the Setup
+
+1. Refresh your shop page
+2. You should see **only one** "Koinonia Signature Tee" listing
+3. When customers select a size, the system will check variant inventory
+4. Out-of-stock sizes will be disabled automatically
+
+### How It Works
+
+#### Frontend Behavior
+
+1. **Shop Page**: Shows only parent items (one listing per product)
+2. **Product Page**:
+   - Displays all available sizes from parent's "Sizes" property
+   - When customer selects a size, checks variant inventory
+   - Shows "Out of Stock" if variant quantity = 0
+   - Shows available quantity for selected variant
+
+#### Backend Processing
+
+1. Fetches all items from database
+2. Separates parent items and variants
+3. Groups variants by Parent SKU
+4. Attaches variant inventory to parent items
+5. Returns parent items with embedded variant data
+
+#### Data Structure
+
+```json
+{
+  "sku": "M-TEE-001",
+  "name": "Koinonia Signature Tee",
+  "price": 30.00,
+  "sizes": ["S", "M", "L", "XL"],
+  "variants": [
+    {
+      "sku": "M-TEE-001-S",
+      "size": "S",
+      "quantity": 5
+    },
+    {
+      "sku": "M-TEE-001-M",
+      "size": "M",
+      "quantity": 8
+    },
+    {
+      "sku": "M-TEE-001-L",
+      "size": "L",
+      "quantity": 12
+    },
+    {
+      "sku": "M-TEE-001-XL",
+      "size": "XL",
+      "quantity": 3
+    }
+  ]
+}
+```
+
+### Use Cases
+
+#### Apparel with Multiple Sizes
+**Example: T-Shirts, Hoodies**
+- Parent: "Koinonia Hoodie"
+- Variants: S, M, L, XL (each with separate inventory)
+
+#### Apparel with Size + Color Combinations
+**Example: T-Shirt in Multiple Colors**
+- Parent: "Koinonia Tee"
+- Variants:
+  - S-Beige, M-Beige, L-Beige, XL-Beige
+  - S-Black, M-Black, L-Black, XL-Black
+
+#### Coffee with Multiple Weights
+**Example: Ethiopia Yirgacheffe**
+- Parent: "Ethiopia Yirgacheffe"
+- Variants:
+  - 200g (Quantity: 15)
+  - 5lb (Quantity: 3)
+
+### Inventory Management
+
+#### Adding Stock
+
+1. Find the specific variant row (e.g., "M-TEE-001-M")
+2. Update the Quantity field
+3. Changes reflect immediately on website
+
+#### Checking Stock Levels
+
+Create a Notion view filtered by:
+- **Is Variant** = Checked
+- **Quantity** < 5 (low stock alert)
+
+#### Reordering
+
+Sort variants by:
+- Parent SKU (to group by product)
+- Variant Size (to see all sizes together)
+
+#### Reporting
+
+Create formulas to calculate:
+- Total stock per parent: Sum of all variant quantities
+- Best-selling sizes: Track which variants sell fastest
+
+### Best Practices
+
+#### SKU Naming Convention
+
+Use consistent patterns:
+- Parent: `M-TEE-001`
+- Variants: `M-TEE-001-S`, `M-TEE-001-M`, etc.
+
+For color variants:
+- `M-TEE-001-S-BEIGE`
+- `M-TEE-001-S-BLACK`
+
+#### Variant Naming
+
+Make variant names descriptive:
+- ✅ "Koinonia Signature Tee - S"
+- ✅ "Koinonia Signature Tee - M - Black"
+- ❌ "Variant 1"
+
+#### Active Status
+
+- **Parent Active = ✅**: Product shows on shop
+- **Variant Active = ✅**: Size is available for selection
+- **Variant Active = ❌**: Size is hidden (discontinued)
+
+#### Images
+
+- Add images to **parent** item only
+- Variants inherit parent images
+- For color variants, you can add color-specific images to variants
+
+### Migration Checklist
+
+If you already have separate listings for each size:
+
+- [ ] Identify which items need variant tracking
+- [ ] Choose one entry to be the parent
+- [ ] Add "Is Variant" and "Parent SKU" properties
+- [ ] Mark other entries as variants
+- [ ] Set Parent SKU on all variants
+- [ ] Set Variant Size/Color on variants
+- [ ] Verify parent has all sizes listed in Sizes property
+- [ ] Test on website
+- [ ] Verify only one listing appears
+- [ ] Test size selection and inventory
+
+### Troubleshooting
+
+#### Multiple Listings Still Showing
+
+**Issue**: Seeing 4 separate tee listings instead of 1
+
+**Solution**:
+1. Verify variants have "Is Variant" = ✅
+2. Verify variants have correct "Parent SKU"
+3. Check that only parent has "Is Variant" = ❌
+
+#### Size Shows as Available but No Stock
+
+**Issue**: Size S is selectable but shows 0 stock
+
+**Solution**:
+1. Check variant with Variant Size = "S" has quantity > 0
+2. Verify Parent SKU matches exactly (case-sensitive)
+3. Ensure variant is Active = ✅
+
+#### Variant Not Linking to Parent
+
+**Issue**: Variant exists but not showing in product
+
+**Solution**:
+1. Parent SKU must match parent's SKU exactly
+2. Check for extra spaces in SKU fields
+3. Verify both parent and variant are Active = ✅
+
+### Example Database View
+
+Create a filtered view to see variants grouped by parent:
+
+**Filter**: Is Variant = Checked
+**Sort**: Parent SKU (ascending), then Variant Size (ascending)
+
+This shows all variants organized by product, making inventory management easier.
+
+---
+
 ## Automated Email Notifications
 
 ### Overview
@@ -346,16 +984,45 @@ Every 10 minutes:
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Setup Checklist
+### Prerequisites
 
-#### 1. Notion Database (Already configured above)
-- ✅ `Shipped Email Sent` checkbox property
-- ✅ `Delivered Email Sent` checkbox property
+Before setting up automated notifications, ensure you have:
+1. ✅ Notion database configured (see [Notion Order Tracking](#notion-order-tracking))
+2. ✅ EmailJS account with templates created
+3. ✅ Firebase Functions deployed or emulator running
 
-#### 2. Create EmailJS Templates
+### Step 1: Update Notion Database Schema
 
-##### Template 1: Order Shipped
+Add two new checkbox properties to your Notion order database:
 
+| Property Name          | Type     | Description                               |
+| ------------------------| ----------| -------------------------------------------|
+| `Shipped Email Sent`   | Checkbox | Tracks if shipped notification was sent   |
+| `Delivered Email Sent` | Checkbox | Tracks if delivered notification was sent |
+
+**How to add:**
+1. Open your Notion order database
+2. Click the **+** button to add a new property
+3. Name it `Shipped Email Sent`
+4. Select **Checkbox** as the type
+5. Repeat for `Delivered Email Sent`
+
+### Step 2: Create EmailJS Templates
+
+#### Template 1: Order Shipped
+
+**Template Variables (use these exact names in EmailJS):**
+- `{{to_email}}` - Customer's email address
+- `{{customer_name}}` - Customer's name
+- `{{order_id}}` - Order ID (e.g., "ABC12345")
+- `{{{items_html}}}` - HTML formatted list of items (use triple braces for HTML)
+- `{{shipping_address}}` - Full shipping address
+- `{{carrier}}` - Shipping carrier (default: "USPS")
+- `{{tracking_number}}` - Tracking number (default: "Available soon")
+- `{{estimated_delivery}}` - Estimated delivery time (default: "3-5 business days")
+- `{{tracking_url}}` - URL to track package (default: USPS tracking)
+
+**Steps to create:**
 1. Go to [EmailJS Dashboard](https://dashboard.emailjs.com/) → Email Templates
 2. Click **Create New Template**
 3. Set **Subject**: `Your order #{{order_id}} has shipped! 📦`
@@ -438,8 +1105,18 @@ Every 10 minutes:
 
 6. **Save** and copy the **Template ID**
 
-##### Template 2: Order Delivered
+#### Template 2: Order Delivered
 
+**Template Variables (use these exact names in EmailJS):**
+- `{{to_email}}` - Customer's email address
+- `{{customer_name}}` - Customer's name
+- `{{order_id}}` - Order ID (e.g., "ABC12345")
+- `{{{items_html}}}` - HTML formatted list of items (use triple braces for HTML)
+- `{{delivery_date}}` - Date when order was delivered (e.g., "January 15, 2026")
+- `{{delivery_location}}` - Where package was left (default: "Front door")
+- `{{review_url}}` - URL for customer to leave a review
+
+**Steps to create:**
 1. Go to [EmailJS Dashboard](https://dashboard.emailjs.com/) → Email Templates
 2. Click **Create New Template**
 3. Set **Subject**: `Your order #{{order_id}} has been delivered! 🎉`
@@ -527,31 +1204,9 @@ Every 10 minutes:
 
 6. **Save** and copy the **Template ID**
 
-##### Template Variables Reference
+### Step 3: Configure EmailJS Environment Variables
 
-**Shipped Template:**
-- `{{to_email}}` - Customer email
-- `{{customer_name}}` - Customer's name
-- `{{order_id}}` - Order number
-- `{{{items_html}}}` - **Use triple braces!** HTML list of items
-- `{{shipping_address}}` - Full shipping address
-- `{{carrier}}` - Default: "USPS"
-- `{{tracking_number}}` - Default: "Available soon"
-- `{{estimated_delivery}}` - Default: "3-5 business days"
-- `{{tracking_url}}` - USPS tracking URL
-
-**Delivered Template:**
-- `{{to_email}}` - Customer email
-- `{{customer_name}}` - Customer's name
-- `{{order_id}}` - Order number
-- `{{{items_html}}}` - **Use triple braces!** HTML list of items
-- `{{delivery_date}}` - Auto-generated delivery date
-- `{{delivery_location}}` - Default: "Front door"
-- `{{review_url}}` - Default: "https://koinoniacoffeeproject.com/reviews"
-
-#### 3. Configure EmailJS Environment Variables
-
-##### Local Development
+#### Local Development
 
 Edit `functions/.env.local`:
 
@@ -567,27 +1222,100 @@ EMAILJS_DELIVERED_TEMPLATE_ID=template_yyyyyyy
 - **Public Key**: EmailJS Dashboard → Account → General
 - **Template IDs**: EmailJS Dashboard → Email Templates → Your Template
 
-##### Production
+Restart your Firebase emulator after updating the file.
+
+#### Production
+
+Use Firebase secrets to securely store credentials:
 
 ```bash
+# Set EmailJS Service ID
 firebase functions:secrets:set EMAILJS_SERVICE_ID
+
+# Set EmailJS Public Key
 firebase functions:secrets:set EMAILJS_PUBLIC_KEY
+
+# Set Shipped Template ID
 firebase functions:secrets:set EMAILJS_SHIPPED_TEMPLATE_ID
+
+# Set Delivered Template ID
 firebase functions:secrets:set EMAILJS_DELIVERED_TEMPLATE_ID
 ```
 
-#### 4. Deploy Scheduled Function
+When prompted, paste your actual values from EmailJS.
+
+### Step 4: Deploy the Scheduled Function
 
 **⚠️ Requires Firebase Blaze Plan** (Cloud Scheduler costs ~$0.10/month)
 
+#### For Local Testing (Emulator)
+
+The scheduled function will run in the emulator, but **scheduled triggers don't auto-run in the emulator**.
+
+**Use the test endpoint to manually trigger the check:**
+
 ```bash
-# Deploy the scheduler function
+# Trigger the order status check manually
+curl http://127.0.0.1:5001/koinonia-coffee-project/us-central1/testOrderStatusCheck
+```
+
+This will:
+- Check Notion for recently updated orders
+- Send any pending emails
+- Return a JSON response with results:
+  ```json
+  {
+    "success": true,
+    "message": "Order status check completed",
+    "results": {
+      "ordersChecked": 2,
+      "emailsSent": 1,
+      "errors": []
+    }
+  }
+  ```
+
+**Or use the Emulator UI:**
+1. Open http://localhost:4000
+2. Go to Functions → testOrderStatusCheck
+3. Click "Send Request"
+4. View the response and logs
+
+#### For Production Deployment
+
+```bash
+# Deploy all functions
+firebase deploy --only functions
+
+# Or deploy just the scheduler
 firebase deploy --only functions:checkOrderStatusUpdates
 ```
 
-#### 5. Test the System
+**Important:** Firebase Cloud Scheduler requires the **Blaze (pay-as-you-go) plan**. The function itself is free within Firebase's generous free tier, but the scheduler requires billing to be enabled.
 
-##### Local Testing (Development)
+**Cost estimate:**
+- Cloud Scheduler: $0.10 per job per month (1 job = $0.10/month)
+- Function invocations: ~4,320/month (every 10 min) - FREE (within 2M free tier)
+- **Total monthly cost: ~$0.10**
+
+### Step 5: Test the System
+
+#### Test Workflow
+
+1. **Create a test order** through your checkout flow
+2. **Verify it appears in Notion** with Fulfillment = "Pending"
+3. **Update the Fulfillment status** to "Shipped" in Notion
+4. **Wait up to 10 minutes** (or manually trigger the function)
+5. **Check:**
+   - Customer receives "Shipped" email
+   - `Shipped Email Sent` checkbox is checked in Notion
+6. **Update Fulfillment** to "Delivered"
+7. **Wait up to 10 minutes** (or manually trigger)
+8. **Check:**
+   - Customer receives "Delivered" email
+   - `Delivered Email Sent` checkbox is checked in Notion
+
+#### Local Testing (Development)
 
 **Start Development Servers:**
 
@@ -657,23 +1385,6 @@ This will start:
    - Verify NO new emails are sent
    - Check response shows `emailsSent: 0`
 
-##### Production Testing
-
-Once deployed to production, the scheduled function runs automatically every 10 minutes. No manual triggering needed.
-
-1. Create a test order through checkout
-2. Verify it appears in Notion with Fulfillment = "Pending"
-3. Update Fulfillment status to "Shipped" in Notion
-4. Wait up to 10 minutes
-5. Check:
-   - Customer receives "Shipped" email
-   - `Shipped Email Sent` checkbox is checked in Notion
-6. Update Fulfillment to "Delivered"
-7. Wait up to 10 minutes
-8. Check:
-   - Customer receives "Delivered" email
-   - `Delivered Email Sent` checkbox is checked in Notion
-
 ### Monitoring
 
 View logs to monitor the scheduled function:
@@ -716,6 +1427,73 @@ if (fulfillmentStatus === "Processing" && !processingEmailSent && processingTemp
   // Send processing email
 }
 ```
+
+#### Add More Email Variables
+
+Modify the `sendEmailJSNotification` function to include additional order details:
+
+```typescript
+template_params: {
+  to_email: toEmail,
+  customer_name: customerName,
+  order_id: orderId,
+  status: status,
+  tracking_number: trackingNumber,  // Add this
+  estimated_delivery: estimatedDate, // Add this
+},
+```
+
+### Troubleshooting
+
+#### No emails are being sent
+
+**Check:**
+1. ✅ EmailJS credentials are correctly set in environment variables
+2. ✅ Template IDs match your EmailJS templates
+3. ✅ Notion database has the tracking checkbox properties
+4. ✅ Customer email exists in the Notion order entry
+5. ✅ Scheduled function is deployed and running (check Firebase Console)
+
+**Debug:**
+```bash
+# Check function logs
+firebase functions:log --only checkOrderStatusUpdates
+```
+
+#### Duplicate emails being sent
+
+**Cause:** Tracking checkboxes aren't being updated in Notion
+
+**Fix:**
+1. Verify your Notion integration has **write permissions** to the database
+2. Check that property names match exactly: `Shipped Email Sent` and `Delivered Email Sent`
+3. Manually check the boxes to stop duplicate sends
+
+#### Function not running on schedule
+
+**Check:**
+1. ✅ Firebase project is on **Blaze plan** (required for Cloud Scheduler)
+2. ✅ Function is deployed: `firebase deploy --only functions:checkOrderStatusUpdates`
+3. ✅ Check Cloud Scheduler in Firebase Console
+
+**Enable Cloud Scheduler:**
+```bash
+# Check if scheduler is enabled
+gcloud scheduler jobs list
+
+# If not enabled, deploy the function to enable it
+firebase deploy --only functions:checkOrderStatusUpdates
+```
+
+#### EmailJS rate limits
+
+**Free tier limits:**
+- 200 emails/month
+- 2 email templates
+
+**If you exceed limits:**
+- Upgrade to EmailJS paid plan ($15/month for 1,000 emails)
+- Or switch to SendGrid/Mailgun
 
 ---
 
@@ -1384,12 +2162,87 @@ cd functions && npm run build
 
 You now have a complete e-commerce solution with:
 
-✅ **Embedded Stripe Checkout** - Seamless payment experience  
-✅ **Notion Order Tracking** - Centralized order management  
+✅ **Embedded Stripe Checkout** - Seamless payment experience without leaving your site  
+✅ **Notion Order Tracking** - Centralized order management in Notion database  
+✅ **Notion Inventory Management** - Dynamic product catalog managed in Notion  
 ✅ **Automated Email Notifications** - Customer updates on shipping/delivery  
 ✅ **Flexible Shipping Options** - Local pickup and multiple shipping speeds  
 ✅ **Secure Backend** - All sensitive operations server-side  
 ✅ **Production Ready** - Scalable Firebase infrastructure  
+
+### Tech Stack Summary
+
+**Frontend:**
+- React with TypeScript
+- Stripe Elements for embedded checkout
+- Real-time inventory fetching from Notion
+
+**Backend:**
+- Firebase Functions (Node.js/TypeScript)
+- Stripe API for payment processing
+- Notion API for order and inventory management
+- EmailJS for email notifications
+- Cloud Scheduler for automated tasks
+
+**Infrastructure:**
+- Firebase Hosting (static site)
+- Firebase Functions (serverless backend)
+- Firebase Cloud Scheduler (automated notifications)
+- Stripe (payment processing)
+- Notion (data management)
+- EmailJS (email service)
+
+### Key Features
+
+1. **Dynamic Inventory**: Manage products in Notion without code changes
+2. **Type-Specific Properties**: Coffee and merchandise have different attributes
+3. **Real-time Updates**: Changes in Notion reflect immediately in the shop
+4. **Automated Workflows**: Scheduled functions check for order status changes
+5. **Duplicate Prevention**: Checkbox tracking prevents repeated emails
+6. **Fallback System**: Sample data loads if Notion is unavailable
+7. **Secure Payments**: Stripe handles PCI compliance
+8. **Flexible Shipping**: Multiple options including local pickup
+
+### Cost Breakdown
+
+**Monthly Costs (within free tiers):**
+- Firebase Hosting: FREE (10GB storage)
+- Firebase Functions: FREE (2M invocations/month)
+- Cloud Scheduler: ~$0.10/month
+- Stripe: 2.9% + 30¢ per transaction (no monthly fee)
+- EmailJS: FREE (200 emails/month)
+
+**Estimated monthly cost**: ~$0.10 + transaction fees
+
+### Maintenance Requirements
+
+**Daily:**
+- Monitor order fulfillment in Notion
+- Update order statuses as needed
+
+**Weekly:**
+- Check Firebase logs for errors
+- Review EmailJS usage
+
+**Monthly:**
+- Review inventory levels in Notion
+- Update product information as needed
+- Monitor billing and usage
+
+**As Needed:**
+- Add new products to Notion inventory
+- Update email templates
+- Adjust shipping options
+- Modify notification triggers
+
+### Next Steps
+
+1. **Complete initial setup** using this guide
+2. **Test thoroughly** with sample orders
+3. **Deploy to production** with live Stripe keys
+4. **Monitor first few orders** to ensure smooth operation
+5. **Customize** email templates and branding
+6. **Scale** as needed - infrastructure handles growth automatically
 
 **Total setup time**: ~2-3 hours  
 **Monthly cost**: ~$0.10 (within free tiers)  
