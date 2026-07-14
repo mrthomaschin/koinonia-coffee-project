@@ -1,5 +1,6 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onRequest } from "firebase-functions/v2/https";
 import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
 import cors from "cors";
@@ -33,7 +34,7 @@ const getFirestoreDb = () => {
 };
 
 const INVENTORY_CACHE_DOC = "inventory_cache/latest";
-const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000;
+const INVENTORY_CACHE_TTL_MS = 5 * 60 * 1000; // Reduced to 5 minutes to prevent stale data
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface InventoryCache {
@@ -106,7 +107,9 @@ const allowedOrigins = [
   'https://koinoniacoffeeproject.com',
   'https://koinonia-coffee-project.web.app',
   'http://localhost:3001',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5001'
 ];
 
 app.use(cors({
@@ -125,10 +128,22 @@ app.use(cors({
   credentials: true
 }));
 
-// Handle preflight requests
-app.options('*', cors());
-
 app.use(express.json());
+
+// Handle preflight requests explicitly
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 // Create Payment Intent for embedded checkout
 app.post("/create-payment-intent", StripeService.createPaymentIntent);
@@ -141,7 +156,17 @@ app.get("/checkout-session/:sessionId", StripeService.getCheckoutSession);
 // Get inventory items from cache (Firestore) with Notion fallback
 app.get("/get-inventory", async (req: Request, res: Response) => {
   try {
-    const cache = await getInventoryWithFallback();
+    const bypassCache = req.query.bypass === "true";
+    let cache: InventoryCache;
+
+    if (bypassCache) {
+      logger.info("Bypassing cache, fetching fresh from Notion");
+      cache = await fetchInventoryFromNotion();
+      await writeInventoryCache(cache);
+    } else {
+      cache = await getInventoryWithFallback();
+    }
+
     logger.info(`Returning ${cache.items.length} inventory items`);
     res.json({ items: cache.items, lastSyncedAt: cache.lastSyncedAt });
   } catch (error: unknown) {
@@ -206,3 +231,6 @@ export const syncInventoryCache = onSchedule(
     }
   }
 );
+
+// Export the Express app as a Firebase Functions v2 HTTP function
+export const api = onRequest(app);

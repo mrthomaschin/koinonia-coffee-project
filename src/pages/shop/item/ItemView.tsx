@@ -7,6 +7,7 @@ import CoffeeBagDetail from './coffee_bag/CoffeeBagDetail';
 import MerchDetail from './merch/MerchDetail';
 import './ItemView.css';
 import { useCart } from '../../../contexts/CartContext';
+import { ICONS } from '../../../util/constants';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -19,6 +20,7 @@ interface ItemViewProps {
   renderBrewingMethod?: (item: Item) => React.ReactNode;
   calculatePrice?: () => string;
   handleAddToCart?: () => void;
+  isSoldOut?: boolean;
 }
 
 export const ItemView: React.FC<ItemViewProps> = ({
@@ -32,6 +34,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
   renderBrewingMethod,
   calculatePrice,
   handleAddToCart,
+  isSoldOut,
 }) => {
   const { cart } = useCart();
   const {
@@ -187,10 +190,11 @@ export const ItemView: React.FC<ItemViewProps> = ({
               <span className="detail-price">${(calculatePrice || defaultCalculatePrice)()}</span>
             </div>
             <button
-              className={`detail-add-to-cart ${item.quantity === 0 ? 'out-of-stock' : ''}`}
+              className={`detail-add-to-cart ${isSoldOut !== undefined ? (isSoldOut ? 'out-of-stock' : '') : (item.quantity === 0 ? 'out-of-stock' : '')}`}
               onClick={handleAddToCart || defaultHandleAddToCart}
+              disabled={isSoldOut !== undefined ? isSoldOut : item.quantity === 0}
             >
-              {item.quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
+              {isSoldOut !== undefined ? (isSoldOut ? 'Sold Out' : 'Add to Cart') : (item.quantity === 0 ? 'Sold Out' : 'Add to Cart')}
             </button>
           </div>
         </div>

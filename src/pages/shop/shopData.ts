@@ -2,6 +2,7 @@ import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/Co
 import { MerchItem, MerchSize } from './item/merch/MerchItem';
 import { Item, ItemType } from './item/ItemModel';
 import { ASSETS, ICONS } from '../../util/constants';
+import { saveInventoryCache, loadInventoryCache } from '../../services/cacheService';
 
 export const generateSlug = (name: string): string => {
   return name
@@ -15,10 +16,19 @@ let globalItems: Item[] = [];
 
 export const setGlobalItems = (items: Item[]) => {
   globalItems = items;
+  saveInventoryCache(items);
 };
 
 export const getGlobalItems = (): Item[] => {
-  return globalItems.length > 0 ? globalItems : sampleItems;
+  if (globalItems.length > 0) return globalItems;
+
+  const cached = loadInventoryCache();
+  if (cached && cached.length > 0) {
+    globalItems = cached;
+    return cached;
+  }
+
+  return sampleItems;
 };
 
 // NOTE: sampleItems is now used as fallback data only.

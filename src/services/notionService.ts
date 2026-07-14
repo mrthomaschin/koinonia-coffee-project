@@ -28,6 +28,7 @@ export interface InventoryVariant {
   weight?: string;
   quantity: number;
   price: number;
+  isSoldOut?: boolean;
 }
 
 export interface NotionInventoryItem {
@@ -57,7 +58,7 @@ interface CachedInventory {
 }
 
 const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache';
-const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000;
+const INVENTORY_CACHE_TTL_MS = 5 * 60 * 1000; // Reduced to 5 minutes to prevent stale data
 
 const logger = createLogger('NotionService');
 
@@ -81,6 +82,14 @@ class NotionService {
   private setCachedInventory(cache: CachedInventory): void {
     try {
       localStorage.setItem(INVENTORY_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+      // Ignore storage errors (e.g. private mode)
+    }
+  }
+
+  private clearCachedInventory(): void {
+    try {
+      localStorage.removeItem(INVENTORY_CACHE_KEY);
     } catch {
       // Ignore storage errors (e.g. private mode)
     }
@@ -119,17 +128,22 @@ class NotionService {
     logger.warn('updateFulfillmentStatus not yet implemented on backend');
   }
 
-  async getInventory(): Promise<NotionInventoryItem[]> {
+  async getInventory(bypassCache: boolean = false): Promise<NotionInventoryItem[]> {
     try {
       const cached = this.getCachedInventory();
-      if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS) {
+      if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS && !bypassCache) {
         logger.log(`✅ Returning ${cached.items.length} inventory items from local cache`);
         return cached.items;
       }
 
+      // Clear local cache if bypassing
+      if (bypassCache) {
+        this.clearCachedInventory();
+      }
+
       logger.log('📦 Fetching inventory from backend');
 
-      const response = await fetch(`${this.backendUrl}/get-inventory`, {
+      const response = await fetch(`${this.backendUrl}/get-inventory?bypass=${bypassCache}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -145,16 +159,29 @@ class NotionService {
       const lastSyncedAt: number = result.lastSyncedAt || Date.now();
       logger.log(`✅ Successfully fetched ${result.items.length} inventory items`);
 
-      // Log images for debugging
+      // Log items with their quantities for monitoring
       result.items.forEach((item: any) => {
-        logger.log(`📦 ${item.name} images:`, item.images);
-      });
+        const hasVariants = item.variants && item.variants.length > 0;
+        const itemTypeLabel = hasVariants ? "Parent item (with variants)" : "Standalone item (no variants)";
 
-      // Log items with variants for debugging
-      result.items.forEach((item: any) => {
-        if (item.variants && item.variants.length > 0) {
-          logger.log(`📦 Item with variants: ${item.name} (${item.sku})`, {
-            variants: item.variants
+        logger.log(`📦 ${itemTypeLabel}: ${item.name} (${item.sku})`, {
+          sku: item.sku,
+          name: item.name,
+          quantity: item.quantity,
+          hasVariants: hasVariants,
+        });
+
+        // Log variant details if present
+        if (hasVariants) {
+          logger.log(`📦 Variants for ${item.name} (${item.sku})`, {
+            variantDetails: item.variants.map((v: any) => ({
+              sku: v.sku,
+              size: v.size,
+              color: v.color,
+              weight: v.weight,
+              quantity: v.quantity,
+              isSoldOut: v.isSoldOut
+            }))
           });
         }
       });

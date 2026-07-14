@@ -56,9 +56,9 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
 
               return {
                 name: cartItem.item.name,
-                sku: cartItem.item.sku,
+                sku: cartItem.variantSku || cartItem.item.sku,
                 quantity: cartItem.quantity,
-                price: cartItem.item.price,
+                price: cartItem.variantPrice || cartItem.item.price,
                 variations: variations.length > 0 ? variations.join(', ') : undefined
               };
             });

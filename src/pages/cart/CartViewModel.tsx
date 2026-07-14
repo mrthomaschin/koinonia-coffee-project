@@ -102,7 +102,7 @@ export class CartViewModel {
         const cartItem = this.cartItems[index];
         if (cartItem) {
             trackingService.trackRemoveFromCart(
-                cartItem.item.sku,
+                cartItem.variantSku || cartItem.item.sku,
                 cartItem.item.name,
                 this.getItemPrice(cartItem),
                 cartItem.quantity

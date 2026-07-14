@@ -58,6 +58,20 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     return (item.price * quantity).toFixed(2);
   };
 
+  const isSoldOut = () => {
+    // If variants exist, check the selected variant's isSoldOut flag
+    if (item.variants && item.variants.length > 0 && selectedWeight) {
+      const weightStr = selectedWeight === CoffeeBagWeight._200g ? '200g' : '5lb';
+      const variant = item.variants.find(v => v.weight === weightStr);
+      if (variant) {
+        return variant.isSoldOut === true;
+      }
+    }
+
+    // Fall back to overall item quantity
+    return item.quantity === 0;
+  };
+
   const renderMetadata = (coffeeItem: CoffeeBagItem) => (
     <>
       <span className="category-badge">{ItemType[coffeeItem.itemType]}</span>
@@ -193,6 +207,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       renderBrewingMethod={renderBrewingMethod}
       calculatePrice={calculatePrice}
       handleAddToCart={handleAddToCart}
+      isSoldOut={isSoldOut()}
     />
   );
 };

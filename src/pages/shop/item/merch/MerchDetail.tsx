@@ -59,6 +59,34 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
     return (item.price * quantity).toFixed(2);
   };
 
+  const isSoldOut = () => {
+    // If variants exist, check the selected variant's isSoldOut flag
+    if (item.variants && item.variants.length > 0) {
+      const size = selectedSize ? MerchSize[selectedSize] : undefined;
+      const color = selectedColor || undefined;
+      console.log('Merch isSoldOut check:', {
+        itemName: item.name,
+        selectedSize,
+        selectedColor,
+        sizeMatch: size,
+        colorMatch: color,
+        allVariants: item.variants
+      });
+      const variant = item.variants.find(v => {
+        const sizeMatch = !size || v.size === size;
+        const colorMatch = !color || v.color === color;
+        return sizeMatch && colorMatch;
+      });
+      console.log('Found variant:', variant);
+      if (variant) {
+        return variant.isSoldOut === true;
+      }
+    }
+
+    // Fall back to overall item quantity
+    return item.quantity === 0;
+  };
+
   const renderMetadata = (merchItem: MerchItem) => (
     <>
       <span className="category-badge">{ItemType[merchItem.itemType]}</span>
@@ -130,6 +158,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
       renderOptions={renderOptions}
       calculatePrice={calculatePrice}
       handleAddToCart={handleAddToCart}
+      isSoldOut={isSoldOut()}
     />
   );
 };

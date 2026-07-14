@@ -14,6 +14,7 @@ export interface InventoryVariant {
     weight?: string;
     quantity: number;
     price: number;
+    isSoldOut?: boolean;
 }
 
 export interface Item {

@@ -27,6 +27,7 @@ interface EmbeddedOrderData {
     name: string;
     quantity: number;
     price: number;
+    sku?: string;
     image?: string;
     selections?: any;
   }>;
@@ -64,28 +65,28 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             logger.log('💳 Embedded checkout payment confirmed, preparing emails...');
             logger.log('📦 Order data:', state.orderData);
 
-            // Read cart items from localStorage to get variant SKU and price
-            const storedCartItems = localStorage.getItem('checkout_cart_items');
-            let cartItems = [];
-            if (storedCartItems) {
-              try {
-                cartItems = JSON.parse(storedCartItems);
-              } catch (e) {
-                logger.error('Failed to parse cart items from localStorage:', e);
-              }
-              // Clear the stored cart items after use
-              localStorage.removeItem('checkout_cart_items');
-            }
-
-            // Map Stripe items to cart items to get variant data
+            // Map order items to purchase items (SKU already in orderData)
             const purchaseItems = state.orderData.items.map(item => {
-              const cartItem = cartItems.find((ci: any) => ci.item.name === item.name);
+              const variations: string[] = [];
+              if (item.selections?.weight) {
+                const weight = item.selections.weight;
+                if (weight === 200) {
+                  variations.push('200g');
+                } else if (weight === 5) {
+                  variations.push('5lb');
+                } else {
+                  variations.push(`${weight}g`);
+                }
+              }
+              if (item.selections?.size) {
+                variations.push(item.selections.size);
+              }
               return {
                 name: item.name,
-                sku: cartItem?.variantSku || cartItem?.item?.sku || 'N/A',
+                sku: item.sku || 'N/A',
                 quantity: item.quantity,
-                price: cartItem?.variantPrice || cartItem?.item?.price || item.price,
-                variations: item.selections?.variations,
+                price: item.price,
+                variations: variations.length > 0 ? variations.join(', ') : undefined,
                 image: item.image
               };
             });
@@ -182,7 +183,14 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               const purchaseItems = cart.cartItems.map(cartItem => {
                 const variations: string[] = [];
                 if (cartItem.selections.weight) {
-                  variations.push(`${cartItem.selections.weight}oz`);
+                  const weight = cartItem.selections.weight;
+                  if (weight === 200) {
+                    variations.push('200g');
+                  } else if (weight === 5) {
+                    variations.push('5lb');
+                  } else {
+                    variations.push(`${weight}g`);
+                  }
                 }
                 if (cartItem.selections.size) {
                   variations.push(cartItem.selections.size);
@@ -193,9 +201,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
 
                 return {
                   name: cartItem.item.name,
-                  sku: cartItem.item.sku,
+                  sku: cartItem.variantSku || cartItem.item.sku,
                   quantity: cartItem.quantity,
-                  price: cartItem.item.price,
+                  price: cartItem.variantPrice || cartItem.item.price,
                   variations: variations.length > 0 ? variations.join(', ') : undefined,
                   image: imageUrl
                 };

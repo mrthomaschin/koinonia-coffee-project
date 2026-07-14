@@ -56,8 +56,15 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         viewModel.cartItems.forEach((cartItem, index) => {
             const newQuantity = pendingQuantities[index] ?? cartItem.quantity;
             if (newQuantity !== cartItem.quantity) {
-                if (newQuantity > 0 && newQuantity > cartItem.item.quantity) {
-                    showToast(`${cartItem.item.name}: Only ${cartItem.item.quantity} available in stock`, 'error');
+                let availableQuantity = cartItem.item.quantity;
+                if (cartItem.variantSku && cartItem.item.variants && cartItem.item.variants.length > 0) {
+                    const variant = cartItem.item.variants.find(v => v.sku === cartItem.variantSku);
+                    if (variant) {
+                        availableQuantity = variant.quantity;
+                    }
+                }
+                if (newQuantity > 0 && newQuantity > availableQuantity && availableQuantity > 0) {
+                    showToast(`${cartItem.item.name}: Only ${availableQuantity} available in stock`, 'error');
                     hasErrors = true;
                 } else {
                     updates.push({ index, quantity: newQuantity, name: cartItem.item.name });
@@ -155,7 +162,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 image: item.item.images[0],
                 selections: {
                     ...item.selections,
-                    sku: item.item.sku
+                    sku: item.variantSku || item.item.sku
                 }
             })),
             subtotal: subtotal,

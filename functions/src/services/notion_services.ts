@@ -82,7 +82,8 @@ export class NotionService {
             const description = properties["Description"]?.rich_text?.[0]?.plain_text || "";
             const price = properties["Price"]?.number || 0;
             const itemType = properties["Item Type"]?.select?.name || "";
-            const quantity = properties["Quantity"]?.number ?? 1;
+            // Quantity is always a formula that returns a number
+            const quantity = properties["Quantity"]?.formula?.number ?? 1;
             const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
 
             const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
@@ -125,14 +126,21 @@ export class NotionService {
             let variantInventory = null;
 
             if (itemVariants && itemVariants.length > 0) {
-                variantInventory = itemVariants.map((variantProps: any) => ({
-                    sku: variantProps["SKU"]?.rich_text?.[0]?.plain_text || "",
-                    size: variantProps["Variant Size"]?.select?.name || "",
-                    color: variantProps["Variant Color"]?.select?.name || "",
-                    weight: variantProps["Variant Weight"]?.select?.name || "",
-                    quantity: variantProps["Quantity"]?.number || 0,
-                    price: variantProps["Price"]?.number || 0,
-                }));
+                variantInventory = itemVariants.map((variantProps: any) => {
+                    // Quantity is always a formula that returns a number
+                    const quantity = variantProps["Quantity"]?.formula?.number || 0;
+                    const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+
+                    return {
+                        sku: variantSku,
+                        size: variantProps["Variant Size"]?.select?.name || "",
+                        color: variantProps["Variant Color"]?.select?.name || "",
+                        weight: variantProps["Variant Weight"]?.select?.name || "",
+                        quantity: quantity,
+                        price: variantProps["Price"]?.number || 0,
+                        isSoldOut: quantity <= 0,
+                    };
+                });
             }
 
             return {
@@ -183,8 +191,8 @@ export class NotionService {
 
             const itemsOrdered = items
                 .map((item: any) => {
-                    const itemName = item.variations ?
-                        `${item.name} (${item.variations})` :
+                    const itemName = item.selections?.variations || item.variations ?
+                        `${item.name} (${item.selections?.variations || item.variations})` :
                         item.name;
                     return `${item.quantity}x ${itemName}`;
                 })
@@ -193,8 +201,8 @@ export class NotionService {
 
             const itemsOrderedFormatted = items
                 .map((item: any) => {
-                    const itemName = item.variations ?
-                        `${item.name} (${item.variations})` :
+                    const itemName = item.selections?.variations || item.variations ?
+                        `${item.name} (${item.selections?.variations || item.variations})` :
                         item.name;
                     return `${itemName},${item.sku},${item.quantity}`;
                 })
