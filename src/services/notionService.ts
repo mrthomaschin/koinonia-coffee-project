@@ -49,11 +49,37 @@ export interface NotionInventoryItem {
   variants?: InventoryVariant[] | null;
 }
 
+interface CachedInventory {
+  items: NotionInventoryItem[];
+  lastSyncedAt: number;
+}
+
+const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache';
+const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000;
+
 class NotionService {
   private backendUrl: string;
 
   constructor() {
     this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+  }
+
+  private getCachedInventory(): CachedInventory | null {
+    try {
+      const raw = localStorage.getItem(INVENTORY_CACHE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as CachedInventory;
+    } catch {
+      return null;
+    }
+  }
+
+  private setCachedInventory(cache: CachedInventory): void {
+    try {
+      localStorage.setItem(INVENTORY_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+      // Ignore storage errors (e.g. private mode)
+    }
   }
 
   async createOrder(orderData: NotionOrderData): Promise<void> {
@@ -91,7 +117,13 @@ class NotionService {
 
   async getInventory(): Promise<NotionInventoryItem[]> {
     try {
-      console.log('📦 Fetching inventory from Notion database');
+      const cached = this.getCachedInventory();
+      if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS) {
+        console.log(`✅ Returning ${cached.items.length} inventory items from local cache`);
+        return cached.items;
+      }
+
+      console.log('📦 Fetching inventory from backend');
 
       const response = await fetch(`${this.backendUrl}/get-inventory`, {
         method: 'GET',
@@ -106,6 +138,7 @@ class NotionService {
       }
 
       const result = await response.json();
+      const lastSyncedAt: number = result.lastSyncedAt || Date.now();
       console.log(`✅ Successfully fetched ${result.items.length} inventory items`);
 
       // Log images for debugging
@@ -122,9 +155,17 @@ class NotionService {
         }
       });
 
+      this.setCachedInventory({ items: result.items, lastSyncedAt });
       return result.items;
     } catch (error) {
       console.error('❌ Failed to fetch inventory:', error);
+
+      const cached = this.getCachedInventory();
+      if (cached) {
+        console.warn('⚠️ Returning stale inventory from local cache');
+        return cached.items;
+      }
+
       throw error;
     }
   }

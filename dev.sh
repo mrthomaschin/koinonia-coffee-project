@@ -90,6 +90,7 @@ kill_existing_emulators() {
     # Also kill processes on emulator ports
     lsof -ti:5001 | xargs kill -9 2>/dev/null || true
     lsof -ti:4000 | xargs kill -9 2>/dev/null || true
+    lsof -ti:8080 | xargs kill -9 2>/dev/null || true
     
     sleep 1
     print_info "✓ Cleared any existing emulator processes"
@@ -127,8 +128,9 @@ start_functions() {
     
     print_info "Starting Firebase emulators with UI..."
     print_info "Functions will be available at: http://127.0.0.1:5001/koinonia-coffee-project/us-central1/api"
+    print_info "Firestore will be available at: http://127.0.0.1:8080"
     print_info "Emulator UI will be available at: http://127.0.0.1:4000"
-    firebase emulators:start
+    firebase emulators:start --only functions,firestore
 }
 
 start_all() {
@@ -156,8 +158,8 @@ start_all() {
     npm run build
     cd ..
     
-    print_info "Starting Firebase emulators with UI in background..."
-    firebase emulators:start &
+    print_info "Starting Firebase emulators (functions + firestore) with UI in background..."
+    firebase emulators:start --only functions,firestore &
     EMULATOR_PID=$!
     
     # Wait a bit for emulators to start

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Deployment script for Koinonia Coffee Project
-# Usage: ./deploy.sh [frontend|functions|all]
+# Usage: ./deploy.sh [frontend|functions|firestore|all]
 # Note: Run with bash (./deploy.sh) or bash deploy.sh, not sh deploy.sh
 
 set -e
@@ -159,12 +159,22 @@ deploy_functions() {
     print_info "💳 Stripe payment endpoints are now live"
 }
 
+deploy_firestore() {
+    print_section "Deploying Firestore Rules and Indexes"
+    
+    print_info "Deploying Firestore rules and indexes..."
+    firebase deploy --only firestore
+    
+    print_info "✅ Firestore deployment complete!"
+}
+
 deploy_all() {
-    print_section "Full Deployment - Website & Stripe Payment Server"
+    print_section "Full Deployment - Website, Stripe & Firestore"
     print_info ""
     print_info "🚀 Deploying complete application:"
     print_info "   • Frontend (React app) → Firebase Hosting"
     print_info "   • Backend (Stripe API) → Firebase Functions"
+    print_info "   • Firestore rules & indexes → Firebase Firestore"
     print_info ""
     
     # Verify Firebase configuration once for both deployments
@@ -212,8 +222,8 @@ deploy_all() {
     print_info ""
     print_section "Deploying to Firebase"
     
-    # Deploy both at once
-    print_info "Deploying frontend and functions..."
+    # Deploy all at once
+    print_info "Deploying frontend, functions, and firestore..."
     firebase deploy
     
     print_info ""
@@ -223,6 +233,7 @@ deploy_all() {
     print_info "🌐 Your application is now live!"
     print_info "   • Website: Check Firebase Hosting console"
     print_info "   • API: Check Firebase Functions console"
+    print_info "   • Firestore: Check Firebase Firestore console"
     print_info ""
     print_info "📝 Next steps:"
     print_info "   1. Test the live application"
@@ -240,12 +251,16 @@ case $DEPLOY_TARGET in
         verify_firebase_config
         deploy_functions
         ;;
+    firestore)
+        verify_firebase_config
+        deploy_firestore
+        ;;
     all)
         deploy_all
         ;;
     *)
         print_error "Invalid deployment target: $DEPLOY_TARGET"
-        echo "Usage: ./deploy.sh [frontend|functions|all]"
+        echo "Usage: ./deploy.sh [frontend|functions|firestore|all]"
         exit 1
         ;;
 esac

@@ -154,21 +154,21 @@ Add a few test items to verify the setup:
 
 ### Example Coffee Item
 
-| Property | Value |
-|----------|-------|
-| Name | Ethiopia Yirgacheffe |
-| SKU | B-ETH-001 |
-| Description | A bright and floral coffee with notes of bergamot and jasmine |
-| Price | 15.00 |
-| Item Type | Coffee |
-| Quantity | 10 |
-| Active | ✅ Checked |
-| Created At | Today's date |
-| Weights | 200g, 5lb |
-| Roast Level | Light |
-| Origin | Ethiopia |
-| Tasting Notes | Bergamot, Jasmine, Citrus |
-| Images | (Upload or paste image URLs) |
+| Property      | Value                                                         |
+| ---------------| ---------------------------------------------------------------|
+| Name          | Ethiopia Yirgacheffe                                          |
+| SKU           | B-ETH-001                                                     |
+| Description   | A bright and floral coffee with notes of bergamot and jasmine |
+| Price         | 15.00                                                         |
+| Item Type     | Coffee                                                        |
+| Quantity      | 10                                                            |
+| Active        | ✅ Checked                                                     |
+| Created At    | Today's date                                                  |
+| Weights       | 200g, 5lb                                                     |
+| Roast Level   | Light                                                         |
+| Origin        | Ethiopia                                                      |
+| Tasting Notes | Bergamot, Jasmine, Citrus                                     |
+| Images        | (Upload or paste image URLs)                                  |
 
 ### Example Merchandise Item
 
