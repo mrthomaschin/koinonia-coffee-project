@@ -105,7 +105,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 totalAmount,
                 {
                     items: JSON.stringify(viewModel.cartItems.map(item => ({
-                        id: item.item.id,
+                        id: item.item.sku,
                         name: item.item.name,
                         quantity: item.quantity
                     })))
@@ -148,7 +148,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 quantity: item.quantity,
                 price: viewModel.getItemPrice(item),
                 image: item.item.images[0],
-                selections: item.selections
+                selections: {
+                    ...item.selections,
+                    sku: item.item.sku
+                }
             })),
             subtotal: subtotal,
             shipping: shippingCost,

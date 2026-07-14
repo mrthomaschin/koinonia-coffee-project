@@ -88,7 +88,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
           if (item.itemType === ItemType.coffee) {
             return (
               <CoffeeBagPreview
-                key={item.id}
+                key={item.sku}
                 item={item as CoffeeBagItem}
                 onClick={handleItemClick}
               />
@@ -96,7 +96,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
           }
           return (
             <MerchPreview
-              key={item.id}
+              key={item.sku}
               item={item as MerchItem}
               onClick={handleItemClick}
             />

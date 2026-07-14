@@ -177,6 +177,7 @@ export const sendCustomerConfirmation = async (confirmationData: CustomerConfirm
             </div>
             <div style="display: table-cell; vertical-align: top; padding-left: 16px;">
               <div style="font-size: 14px; font-weight: 500; color: #000000; margin-bottom: 4px;">${itemName}</div>
+              <div style="font-size: 13px; color: #666666; margin-bottom: 4px;">SKU: ${item.sku}</div>
               <div style="font-size: 13px; color: #666666; margin-bottom: 8px;">Qty: ${item.quantity}</div>
               <div style="font-size: 14px; font-weight: 500; color: #000000;">$${lineTotal.toFixed(2)}</div>
             </div>

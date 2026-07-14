@@ -7,7 +7,7 @@ export enum ItemType {
 }
 
 export interface Item {
-    id: string;
+    sku: string;
     name: string;
     description: string;
     price: number;
@@ -15,5 +15,4 @@ export interface Item {
     itemType: ItemType;
     createdAt: Date;
     quantity: number;
-    shopifyVariantId?: string;
 }

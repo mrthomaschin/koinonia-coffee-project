@@ -11,7 +11,7 @@ export enum MerchSize {
 
 export class MerchItem implements Item {
     constructor(id: string, name: string, description: string, price: number, images: string[], itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, shopifyVariantId?: string) {
-        this.id = id;
+        this.sku = id;
         this.name = name;
         this.description = description;
         this.price = price;
@@ -24,7 +24,7 @@ export class MerchItem implements Item {
         this.shopifyVariantId = shopifyVariantId;
     }
 
-    id: string;
+    sku: string;
     name: string;
     description: string;
     price: number;

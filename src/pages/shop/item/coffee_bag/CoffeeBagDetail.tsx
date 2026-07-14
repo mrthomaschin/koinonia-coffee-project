@@ -113,7 +113,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   );
 
   const renderBrewingMethod = () => {
-    const coffeeData = getCoffeeDataById(item.id);
+    const coffeeData = getCoffeeDataById(item.sku);
 
     if (!coffeeData || !coffeeData.brewingMethods || coffeeData.brewingMethods.length === 0) {
       return null;

@@ -173,7 +173,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
 
                 return {
                   name: cartItem.item.name,
-                  sku: cartItem.item.id,
+                  sku: cartItem.item.sku,
                   quantity: cartItem.quantity,
                   price: cartItem.item.price,
                   variations: variations.length > 0 ? variations.join(', ') : undefined,

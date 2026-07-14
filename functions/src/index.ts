@@ -222,9 +222,26 @@ app.post("/create-notion-order", async (req: Request, res: Response) => {
       })
       .join("\n");
 
+
+    const itemsOrderedFormatted = items
+      .map((item: any) => {
+        const itemName = item.variations ?
+          `${item.name} (${item.variations})` :
+          item.name;
+        return `${itemName},${item.sku},${item.quantity}`;
+      })
+      .join("\n");
+
+
     const notion = getNotion();
     const response = await notion.pages.create({
-      parent: { database_id: databaseId },
+      parent: {
+        database_id: databaseId,
+        type: "database_id",
+      },
+      template: {
+        type: "default",
+      },
       properties: {
         "Customer": {
           title: [
@@ -259,6 +276,15 @@ app.post("/create-notion-order", async (req: Request, res: Response) => {
             {
               text: {
                 content: itemsOrdered,
+              },
+            },
+          ],
+        },
+        "Items ordered formatted": {
+          rich_text: [
+            {
+              text: {
+                content: itemsOrderedFormatted,
               },
             },
           ],
@@ -439,6 +465,7 @@ export const testOrderStatusCheck = onRequest(
       // Query orders updated in the last 15 minutes
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
+      // @ts-expect-error - Notion SDK 5.x query types are overly strict, method works correctly
       const response = await notion.databases.query({
         database_id: databaseId,
         filter: {
@@ -657,6 +684,7 @@ export const checkOrderStatusUpdates = onSchedule(
       // Query orders updated in the last 15 minutes
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
+      // @ts-expect-error - Notion SDK 5.x query types are overly strict, method works correctly
       const response = await notion.databases.query({
         database_id: databaseId,
         filter: {

@@ -12,7 +12,7 @@ export const generateSlug = (name: string): string => {
 
 export const sampleItems: Item[] = [
   new CoffeeBagItem(
-    '1',
+    'B-ETH-W',
     'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
     10.00,
@@ -23,10 +23,9 @@ export const sampleItems: Item[] = [
     'Ethiopia',
     ['Bergamot', 'Jasmine', 'Citrus'],
     1,
-    undefined
   ),
   new CoffeeBagItem(
-    '2',
+    'B-KOIN',
     'Koin Blend',
     'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
     0.00,
@@ -37,7 +36,6 @@ export const sampleItems: Item[] = [
     'Ethiopia, Colombia',
     ['Chocolate', 'Caramel', 'Nutty'],
     0,
-    undefined
   ),
   new MerchItem(
     '4',
@@ -50,7 +48,6 @@ export const sampleItems: Item[] = [
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
     ['Beige'],
     10,
-    'gid://shopify/ProductVariant/8042073751670'
   ),
   new MerchItem(
     '5',
@@ -63,7 +60,6 @@ export const sampleItems: Item[] = [
     [],
     ['Navy'],
     5,
-    undefined
   ),
   new MerchItem(
     '6',
@@ -76,7 +72,6 @@ export const sampleItems: Item[] = [
     [],
     ['Navy'],
     5,
-    undefined
   ),
   new MerchItem(
     '7',
@@ -89,7 +84,6 @@ export const sampleItems: Item[] = [
     [],
     ['White'],
     5,
-    undefined
   ),
   new MerchItem(
     '8',
@@ -102,7 +96,6 @@ export const sampleItems: Item[] = [
     [],
     ['White'],
     5,
-    undefined
   ),
   new MerchItem(
     '9',
@@ -115,7 +108,6 @@ export const sampleItems: Item[] = [
     [],
     ['White'],
     5,
-    undefined
   ),
 ];
 
@@ -124,5 +116,5 @@ export const getItemBySlug = (slug: string): Item | undefined => {
 };
 
 export const getItemById = (id: string): Item | undefined => {
-  return sampleItems.find(item => item.id === id);
+  return sampleItems.find(item => item.sku === id);
 };

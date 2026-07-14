@@ -42,7 +42,7 @@ export class CartViewModel {
         }
 
         const existingIndex = this.cartItems.findIndex(
-            ci => ci.item.id === item.id &&
+            ci => ci.item.sku === item.sku &&
                 JSON.stringify(ci.selections) === JSON.stringify(selections)
         );
 
@@ -56,7 +56,7 @@ export class CartViewModel {
             this.cartItems[existingIndex].quantity = newQuantity;
             const cartItem = { item, quantity, selections };
             trackingService.trackAddToCart(
-                item.id,
+                item.sku,
                 item.name,
                 this.getItemPrice(cartItem),
                 quantity
@@ -70,7 +70,7 @@ export class CartViewModel {
             this.cartItems.push({ item, quantity, selections });
             const cartItem = { item, quantity, selections };
             trackingService.trackAddToCart(
-                item.id,
+                item.sku,
                 item.name,
                 this.getItemPrice(cartItem),
                 quantity
@@ -83,7 +83,7 @@ export class CartViewModel {
         const cartItem = this.cartItems[index];
         if (cartItem) {
             trackingService.trackRemoveFromCart(
-                cartItem.item.id,
+                cartItem.item.sku,
                 cartItem.item.name,
                 this.getItemPrice(cartItem),
                 cartItem.quantity
@@ -94,21 +94,5 @@ export class CartViewModel {
 
     getTotalItems(): number {
         return this.cartItems.reduce((total, cartItem) => total + cartItem.quantity, 0);
-    }
-
-    getShopifyLineItems(): Array<{ variantId: string; quantity: number }> {
-        return this.cartItems
-            .map(cartItem => {
-                const variantId = cartItem.selections.shopifyVariantId || cartItem.item.shopifyVariantId;
-                if (!variantId) {
-                    console.warn(`No Shopify variant ID found for item: ${cartItem.item.name}`);
-                    return null;
-                }
-                return {
-                    variantId,
-                    quantity: cartItem.quantity
-                };
-            })
-            .filter((item): item is { variantId: string; quantity: number } => item !== null);
     }
 }
