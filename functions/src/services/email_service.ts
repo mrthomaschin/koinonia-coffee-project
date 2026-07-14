@@ -1,0 +1,315 @@
+import { Client } from "@notionhq/client";
+import { createLogger } from "../logger";
+
+const logger = createLogger("email");
+
+// Lazy-initialize Notion client
+let notionInstance: Client | null = null;
+const getNotion = () => {
+    if (!notionInstance) {
+        const token = process.env.NOTION_TOKEN;
+        if (!token) {
+            throw new Error("NOTION_TOKEN is not configured");
+        }
+        notionInstance = new Client({ auth: token });
+    }
+    return notionInstance;
+};
+
+export class EmailService {
+    private static getFirstName(fullName: string): string {
+        if (!fullName) return "Customer";
+        const trimmed = fullName.trim();
+        const firstSpace = trimmed.indexOf(" ");
+        return firstSpace > 0 ? trimmed.substring(0, firstSpace) : trimmed;
+    }
+
+    private static parseItemsToHtml(itemsText: string): string {
+        if (!itemsText) return "<p>No items found</p>";
+
+        const lines = itemsText.split("\n").filter((line) => line.trim());
+
+        return lines.map((line) => {
+            const trimmed = line.trim();
+            return `
+      <div style="display: table; width: 100%; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
+        <div style="display: table-cell; vertical-align: top; padding-left: 16px;">
+          <div style="font-size: 14px; font-weight: 500; color: #000000; margin-bottom: 4px;">${trimmed}</div>
+        </div>
+      </div>
+    `;
+        }).join("");
+    }
+
+    static async sendShippedNotification(params: {
+        serviceId: string;
+        templateId: string;
+        publicKey: string;
+        privateKey: string;
+        toEmail: string;
+        customerName: string;
+        orderId: string;
+        itemsHtml: string;
+        shippingAddress: string;
+        trackingCarrier: string;
+        trackingInfo: string;
+    }): Promise<void> {
+        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo } = params;
+
+        // Generate tracking URL based on carrier
+        let trackingUrl = "https://tools.usps.com/go/TrackConfirmAction";
+        if (trackingCarrier === "UPS") {
+            trackingUrl = "https://www.ups.com/track";
+        } else if (trackingCarrier === "Fedex") {
+            trackingUrl = "https://www.fedex.com/fedextrack/";
+        }
+
+        const emailData = {
+            service_id: serviceId,
+            template_id: templateId,
+            user_id: publicKey,
+            accessToken: privateKey,
+            template_params: {
+                to_email: toEmail,
+                customer_name: customerName,
+                order_id: orderId,
+                items_html: itemsHtml,
+                shipping_address: shippingAddress,
+                carrier: trackingCarrier || "USPS",
+                tracking_info: trackingInfo || "Tracking information will be updated soon",
+                tracking_number: trackingInfo || "Available soon",
+                estimated_delivery: "3-5 business days",
+                tracking_url: trackingUrl,
+            },
+        };
+
+        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(emailData),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
+        }
+    }
+
+    static async sendDeliveredNotification(params: {
+        serviceId: string;
+        templateId: string;
+        publicKey: string;
+        privateKey: string;
+        toEmail: string;
+        customerName: string;
+        orderId: string;
+        itemsHtml: string;
+        deliveryDate: string;
+    }): Promise<void> {
+        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, deliveryDate } = params;
+
+        const emailData = {
+            service_id: serviceId,
+            template_id: templateId,
+            user_id: publicKey,
+            accessToken: privateKey,
+            template_params: {
+                to_email: toEmail,
+                customer_name: customerName,
+                order_id: orderId,
+                items_html: itemsHtml,
+                delivery_date: deliveryDate,
+                delivery_location: "Front door",
+                review_url: "https://koinoniacoffeeproject.com/reviews",
+            },
+        };
+
+        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(emailData),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
+        }
+    }
+
+    static async handleOrderStatusUpdates(event?: any): Promise<void> {
+        try {
+            logger.info("Starting order status check...");
+
+            const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+            const emailjsServiceId = process.env.EMAILJS_SERVICE_ID;
+            const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
+            const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
+            const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
+            const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
+
+            if (!databaseId) {
+                logger.error("NOTION_ONLINE_ORDERS_DATABASE_ID not configured");
+                return;
+            }
+
+            if (!emailjsServiceId || !emailjsPublicKey || !emailjsPrivateKey) {
+                logger.error("EmailJS configuration missing");
+                return;
+            }
+
+            const notion = getNotion();
+
+            // Query orders updated in the last 15 minutes
+            const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+            const response = await notion.databases.query({
+                database_id: databaseId,
+                filter: {
+                    and: [
+                        {
+                            timestamp: "last_edited_time",
+                            last_edited_time: {
+                                after: fifteenMinutesAgo,
+                            },
+                        },
+                    ],
+                },
+            });
+
+            logger.info(`Found ${response.results.length} recently updated orders`);
+
+            for (const page of response.results) {
+                if (!("properties" in page)) continue;
+
+                const properties = page.properties;
+
+                // Extract order data
+                const fulfillmentProp = properties["Fulfillment"];
+                const shippedEmailSentProp = properties["Shipped Email Sent"];
+                const deliveredEmailSentProp = properties["Delivered Email Sent"];
+                const emailProp = properties["Email"];
+                const customerProp = properties["Customer"];
+                const orderIdProp = properties["Order #"];
+                const itemsOrderedProp = properties["Items ordered"];
+                const shippingAddressProp = properties["Shipping address"];
+                const trackingCarrierProp = properties["Tracking Carrier"];
+                const trackingInfoProp = properties["Tracking Info"];
+
+                if (
+                    fulfillmentProp?.type !== "status" ||
+                    shippedEmailSentProp?.type !== "checkbox" ||
+                    deliveredEmailSentProp?.type !== "checkbox" ||
+                    emailProp?.type !== "email" ||
+                    customerProp?.type !== "title" ||
+                    orderIdProp?.type !== "rich_text"
+                ) {
+                    continue;
+                }
+
+                const fulfillmentStatus = (fulfillmentProp.status as any)?.name;
+                const shippedEmailSent = shippedEmailSentProp.checkbox;
+                const deliveredEmailSent = deliveredEmailSentProp.checkbox;
+                const customerEmail = emailProp.email as string;
+                const customerFullName = (customerProp.title as any)[0]?.plain_text || "Customer";
+                const customerName = EmailService.getFirstName(customerFullName);
+                const orderId = (orderIdProp.rich_text as any)[0]?.plain_text || "N/A";
+                const itemsOrdered = (itemsOrderedProp?.type === "rich_text" ?
+                    (itemsOrderedProp.rich_text as any)[0]?.plain_text || "" : "") as string;
+                const shippingAddress = shippingAddressProp?.type === "rich_text" ?
+                    (shippingAddressProp.rich_text as any)[0]?.plain_text || "N/A" : "N/A";
+                const trackingCarrier = trackingCarrierProp?.type === "select" ?
+                    (trackingCarrierProp.select as any)?.name || "" : "";
+                const trackingInfo = trackingInfoProp?.type === "rich_text" ?
+                    (trackingInfoProp.rich_text as any)[0]?.plain_text || "" : "";
+
+                if (!customerEmail) {
+                    logger.warn(`Order ${orderId} has no email address, skipping`);
+                    continue;
+                }
+
+                // Parse items for HTML rendering
+                const itemsHtml: string = EmailService.parseItemsToHtml(itemsOrdered);
+
+                // Check if we need to send "Shipped" notification
+                if (fulfillmentStatus === "Shipped" && !shippedEmailSent && shippedTemplateId) {
+                    logger.info(`Sending shipped notification for order ${orderId}`);
+
+                    try {
+                        await EmailService.sendShippedNotification({
+                            serviceId: emailjsServiceId,
+                            templateId: shippedTemplateId,
+                            publicKey: emailjsPublicKey,
+                            privateKey: emailjsPrivateKey,
+                            toEmail: customerEmail,
+                            customerName,
+                            orderId,
+                            itemsHtml,
+                            shippingAddress,
+                            trackingCarrier,
+                            trackingInfo,
+                        });
+
+                        // Mark as sent in Notion
+                        await notion.pages.update({
+                            page_id: page.id,
+                            properties: {
+                                "Shipped Email Sent": {
+                                    checkbox: true,
+                                },
+                            },
+                        });
+
+                        logger.info(`✅ Shipped notification sent for order ${orderId}`);
+                    } catch (error) {
+                        logger.error(`Failed to send shipped notification for ${orderId}:`, error);
+                    }
+                }
+
+                // Check if we need to send "Delivered" notification
+                if (fulfillmentStatus === "Delivered" && !deliveredEmailSent && deliveredTemplateId) {
+                    logger.info(`Sending delivered notification for order ${orderId}`);
+
+                    try {
+                        await EmailService.sendDeliveredNotification({
+                            serviceId: emailjsServiceId,
+                            templateId: deliveredTemplateId,
+                            publicKey: emailjsPublicKey,
+                            privateKey: emailjsPrivateKey,
+                            toEmail: customerEmail,
+                            customerName,
+                            orderId,
+                            itemsHtml,
+                            deliveryDate: new Date().toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                            }),
+                        });
+
+                        // Mark as sent in Notion
+                        await notion.pages.update({
+                            page_id: page.id,
+                            properties: {
+                                "Delivered Email Sent": {
+                                    checkbox: true,
+                                },
+                            },
+                        });
+
+                        logger.info(`✅ Delivered notification sent for order ${orderId}`);
+                    } catch (error) {
+                        logger.error(`Failed to send delivered notification for ${orderId}:`, error);
+                    }
+                }
+            }
+
+            logger.info("Order status check completed");
+        } catch (error) {
+            logger.error("Error checking order status updates:", error);
+        }
+    }
+}
