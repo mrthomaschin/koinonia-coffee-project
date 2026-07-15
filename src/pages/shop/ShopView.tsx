@@ -68,7 +68,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
           fontSize: '18px',
           color: '#666'
         }}>
-          Loading inventory...
+          Loading items...
         </div>
       </div>
     );

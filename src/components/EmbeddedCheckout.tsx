@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { createLogger } from '../util/logger';
 import { Elements, PaymentElement, useStripe, useElements, AddressElement } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import ShippingSelector, { ShippingOption, DEFAULT_SHIPPING_OPTIONS } from './ShippingSelector';
 import { mapEasyPostRates, filterAllowedServices } from '../util/EasyPostMapper';
 import { EasyPostRate } from '../models/ShippingModels';
 import './EmbeddedCheckout.css';
+
+const logger = createLogger('EmbeddedCheckout');
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '');
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
@@ -260,19 +263,19 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         setIsProcessing(false);
       } else {
         // Purchase shipment if shipping is selected and rate is available
-        console.log('[shipment] Checking shipment purchase conditions', {
+        logger.log('[shipment] Checking shipment purchase conditions', {
           deliveryMethod,
           selectedShippingId: selectedShipping.id,
           shouldPurchase: deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup'
         });
 
         if (deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup') {
-          console.log('[shipment] Starting shipment purchase process');
+          logger.log('[shipment] Starting shipment purchase process');
           try {
             const addressData = await elements?.getElement('address', { mode: 'shipping' })?.getValue();
             const toAddress = addressData?.value?.address;
 
-            console.log('[shipment] Address retrieved', { hasAddress: !!toAddress });
+            logger.log('[shipment] Address retrieved', { hasAddress: !!toAddress });
 
             if (toAddress) {
               // Format shipping address for display
@@ -287,7 +290,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
               setShippingAddress(formattedAddress);
 
-              console.log('[shipment] Calling purchase-shipment endpoint', {
+              logger.log('[shipment] Calling purchase-shipment endpoint', {
                 endpoint: `${backendUrl}/purchase-shipment`,
                 rateId: selectedShipping.id
               });
@@ -313,7 +316,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
               const shipmentData = await response.json();
 
-              console.log('[shipment] Purchase shipment response received', {
+              logger.log('[shipment] Purchase shipment response received', {
                 status: response.status,
                 ok: response.ok,
                 hasTrackingNumber: !!shipmentData.trackingNumber,
@@ -321,7 +324,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               });
 
               if (response.ok) {
-                console.log('[shipment] Shipment purchased successfully', shipmentData);
+                logger.log('[shipment] Shipment purchased successfully', shipmentData);
                 // Pass shipment data along with payment success
                 onSuccess(
                   paymentIntent?.id,
@@ -332,7 +335,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   shippingAddress
                 );
               } else {
-                console.error('[shipment] Purchase shipment API call failed', {
+                logger.error('[shipment] Purchase shipment API call failed', {
                   status: response.status,
                   statusText: response.statusText
                 });
@@ -340,17 +343,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
               }
             } else {
-              console.log('[shipment] No address available, skipping shipment purchase');
+              logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
               onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
             }
           } catch (shipmentError) {
-            console.error('[shipment] Error during shipment purchase:', shipmentError);
+            logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
             onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
           }
         } else {
-          console.log('[shipment] Shipment purchase conditions not met, skipping', {
+          logger.log('[shipment] Shipment purchase conditions not met, skipping', {
             deliveryMethod,
             selectedShippingId: selectedShipping.id
           });

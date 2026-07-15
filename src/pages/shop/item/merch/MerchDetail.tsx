@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createLogger } from '../../../../util/logger';
 import { MerchItem, MerchSize } from './MerchItem';
 import { ItemView } from '../ItemView';
 import { useCart } from '../../../../contexts/CartContext';
@@ -9,6 +10,8 @@ interface MerchDetailProps {
   item: MerchItem;
   onBack: () => void;
 }
+
+const logger = createLogger('MerchDetail');
 
 const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
@@ -64,7 +67,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
     if (item.variants && item.variants.length > 0) {
       const size = selectedSize ? MerchSize[selectedSize] : undefined;
       const color = selectedColor || undefined;
-      console.log('Merch isSoldOut check:', {
+      logger.log('Merch isSoldOut check:', {
         itemName: item.name,
         selectedSize,
         selectedColor,
@@ -77,7 +80,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
         const colorMatch = !color || v.color === color;
         return sizeMatch && colorMatch;
       });
-      console.log('Found variant:', variant);
+      logger.log('Found variant:', variant);
       if (variant) {
         return variant.isSoldOut === true;
       }

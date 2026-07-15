@@ -1,4 +1,7 @@
 import { Item } from '../pages/shop/item/ItemModel';
+import { createLogger } from '../util/logger';
+
+const logger = createLogger('CacheService');
 
 const CACHE_KEY = 'koinonia_inventory_cache';
 const CACHE_TIMESTAMP_KEY = 'koinonia_inventory_timestamp';
@@ -9,7 +12,7 @@ export const saveInventoryCache = (items: Item[]): void => {
         localStorage.setItem(CACHE_KEY, JSON.stringify(items));
         localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
     } catch (error) {
-        console.error('Failed to save inventory to cache:', error);
+        logger.error('Failed to save inventory to cache:', error);
     }
 };
 
@@ -28,7 +31,7 @@ export const loadInventoryCache = (): Item[] | null => {
 
         return JSON.parse(cached);
     } catch (error) {
-        console.error('Failed to load inventory from cache:', error);
+        logger.error('Failed to load inventory from cache:', error);
         return null;
     }
 };
@@ -38,6 +41,6 @@ export const clearInventoryCache = (): void => {
         localStorage.removeItem(CACHE_KEY);
         localStorage.removeItem(CACHE_TIMESTAMP_KEY);
     } catch (error) {
-        console.error('Failed to clear inventory cache:', error);
+        logger.error('Failed to clear inventory cache:', error);
     }
 };
