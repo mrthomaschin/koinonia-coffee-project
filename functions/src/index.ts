@@ -10,6 +10,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
+import { getShippingRates } from "./services/easypost_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -178,6 +179,9 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
 
+// Get shipping rates from EasyPost
+app.post("/get-shipping-rates", getShippingRates);
+
 // Test endpoint for order status check (manual trigger)
 app.post("/test-order-status-check", async (req: Request, res: Response) => NotionService.handleTestOrderStatus(req, res));
 
@@ -203,6 +207,7 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "EMAILJS_PRIVATE_KEY",
     "EMAILJS_SHIPPED_TEMPLATE_ID",
     "EMAILJS_DELIVERED_TEMPLATE_ID",
+    "EASYPOST_API_KEY",
   ];
 }
 
@@ -224,6 +229,7 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
   syncInventoryCacheOptions.secrets = [
     "NOTION_TOKEN",
     "NOTION_INVENTORY_DATABASE_ID",
+    "EASYPOST_API_KEY",
   ];
 }
 
@@ -241,4 +247,9 @@ export const syncInventoryCache = onSchedule(
 );
 
 // Export the Express app as a Firebase Functions v2 HTTP function
-export const api = onRequest(app);
+const apiOptions: any = {};
+// Only add secrets in production (not in emulator)
+if (process.env.FUNCTIONS_EMULATOR !== "true") {
+  apiOptions.secrets = ["EASYPOST_API_KEY"];
+}
+export const api = onRequest(apiOptions, app);

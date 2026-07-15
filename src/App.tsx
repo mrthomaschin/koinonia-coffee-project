@@ -17,7 +17,6 @@ import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
 import Menu from './pages/menu/Menu';
 import CartView from './pages/cart/CartView';
-import CheckoutPage from './pages/checkout/CheckoutPage';
 import OrderConfirmationPage from './pages/order-confirmation/OrderConfirmationPage';
 import trackingService from './services/trackingService';
 
@@ -129,10 +128,6 @@ const MainContent: React.FC = () => {
                 <ComingSoon availableHeight={availableHeight} />
               )
             }
-          />
-          <Route
-            path="/checkout"
-            element={<CheckoutPage availableHeight={availableHeight} />}
           />
           <Route
             path="/order-confirmation"

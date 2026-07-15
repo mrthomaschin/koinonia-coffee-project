@@ -66,6 +66,37 @@
   color: #666;
 }
 
+.shipping-carrier {
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 0.25rem;
+}
+
+.loading-shipping {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.shipping-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .shipping-price {
   font-weight: 600;
   color: #4caf50;
