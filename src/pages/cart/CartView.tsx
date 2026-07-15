@@ -138,7 +138,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         shippingOption?: ShippingOption,
         email?: string,
         name?: string,
-        phone?: string
+        phone?: string,
+        shipmentData?: any,
+        shippingAddress?: string
     ) => {
         setShowCheckout(false);
         setClientSecret(null);
@@ -169,7 +171,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             shipping: shippingCost,
             shippingMethod: shippingOption?.label || 'Standard Shipping',
             total: totalWithShipping,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            shipmentData: shipmentData || null,
+            shippingAddress: shippingAddress || null,
+            isLocalPickup: shippingOption?.id === 'local-pickup' || false
         };
 
         viewModel.cartItems = [];

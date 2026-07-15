@@ -10,7 +10,7 @@ const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string) => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -38,8 +38,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>(DEFAULT_SHIPPING_OPTIONS);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   const [shippingAddressComplete, setShippingAddressComplete] = useState(false);
-  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('pickup');
+  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('shipping');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const [shippingAddress, setShippingAddress] = useState<string>('');
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -113,8 +115,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         email: customerEmail || undefined,
       };
 
-      console.log('Fetching shipping rates with address:', toAddress);
-
       const response = await fetch(`${backendUrl}/get-shipping-rates`, {
         method: 'POST',
         headers: {
@@ -123,17 +123,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         body: JSON.stringify({ toAddress }),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response:', errorText);
         throw new Error(`Failed to fetch shipping rates: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Shipping rates data:', data);
+
+      // Store shipment ID for later use in purchase
+      if (data.shipmentId) {
+        setShipmentId(data.shipmentId);
+      }
 
       // Filter rates by allowed services using EasyPostMapper
       const filteredRates = filterAllowedServices(data.rates as EasyPostRate[]);
@@ -158,7 +158,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         onShippingChange(options[0]);
       }
     } catch (error) {
-      console.error('Error fetching shipping rates:', error);
       // On error, show no shipping options
       setShippingOptions([]);
     } finally {
@@ -168,17 +167,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   const handleAddressChange = async (event: any) => {
     const addressData = event.value;
-    console.log('Address changed:', addressData);
-    console.log('Event complete:', event.complete);
-    console.log('Event value complete:', addressData?.complete);
 
     // Stripe's AddressElement should provide complete property
     // Try multiple ways to access it
     const isComplete = event.complete || addressData?.complete;
-    console.log('Is complete:', isComplete);
 
     if (isComplete) {
-      console.log('Setting shippingAddressComplete to true');
       setShippingAddressComplete(true);
 
       // Validate the address before fetching rates
@@ -186,7 +180,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       const isAddressValid = validateAddress(address);
 
       if (!isAddressValid) {
-        console.log('Address validation failed, showing no shipping options');
         setShippingOptions([]);
         setIsLoadingShipping(false);
         return;
@@ -208,7 +201,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       setDebounceTimer(timer);
     } else {
-      console.log('Setting shippingAddressComplete to false');
       setShippingAddressComplete(false);
       // Clear any pending fetch if address becomes incomplete
       if (debounceTimer) {
@@ -267,7 +259,104 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         setErrorMessage(error.message || 'An error occurred');
         setIsProcessing(false);
       } else {
-        onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone);
+        // Purchase shipment if shipping is selected and rate is available
+        console.log('[shipment] Checking shipment purchase conditions', {
+          deliveryMethod,
+          selectedShippingId: selectedShipping.id,
+          shouldPurchase: deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup'
+        });
+
+        if (deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup') {
+          console.log('[shipment] Starting shipment purchase process');
+          try {
+            const addressData = await elements?.getElement('address', { mode: 'shipping' })?.getValue();
+            const toAddress = addressData?.value?.address;
+
+            console.log('[shipment] Address retrieved', { hasAddress: !!toAddress });
+
+            if (toAddress) {
+              // Format shipping address for display
+              const formattedAddress = [
+                toAddress.line1,
+                toAddress.line2,
+                toAddress.city,
+                toAddress.state,
+                toAddress.postal_code,
+                toAddress.country
+              ].filter(Boolean).join(', ');
+
+              setShippingAddress(formattedAddress);
+
+              console.log('[shipment] Calling purchase-shipment endpoint', {
+                endpoint: `${backendUrl}/purchase-shipment`,
+                rateId: selectedShipping.id
+              });
+
+              const response = await fetch(`${backendUrl}/purchase-shipment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  toAddress: {
+                    street1: toAddress.line1,
+                    street2: toAddress.line2,
+                    city: toAddress.city,
+                    state: toAddress.state,
+                    zip: toAddress.postal_code,
+                    country: toAddress.country || 'US',
+                  },
+                  rateId: selectedShipping.id,
+                  shipmentId: shipmentId,
+                }),
+              });
+
+              const shipmentData = await response.json();
+
+              console.log('[shipment] Purchase shipment response received', {
+                status: response.status,
+                ok: response.ok,
+                hasTrackingNumber: !!shipmentData.trackingNumber,
+                hasLabelUrl: !!shipmentData.labelUrl
+              });
+
+              if (response.ok) {
+                console.log('[shipment] Shipment purchased successfully', shipmentData);
+                // Pass shipment data along with payment success
+                onSuccess(
+                  paymentIntent?.id,
+                  customerEmail,
+                  customerName,
+                  customerPhone,
+                  shipmentData,
+                  shippingAddress
+                );
+              } else {
+                console.error('[shipment] Purchase shipment API call failed', {
+                  status: response.status,
+                  statusText: response.statusText
+                });
+                // Still proceed with payment success even if shipment purchase fails
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+              }
+            } else {
+              console.log('[shipment] No address available, skipping shipment purchase');
+              // No address available, proceed without shipment purchase
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+            }
+          } catch (shipmentError) {
+            console.error('[shipment] Error during shipment purchase:', shipmentError);
+            // Still proceed with payment success even if shipment purchase fails
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+          }
+        } else {
+          console.log('[shipment] Shipment purchase conditions not met, skipping', {
+            deliveryMethod,
+            selectedShippingId: selectedShipping.id
+          });
+          // Local pickup or no shipping rate selected
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+        }
       }
     } catch (err) {
       setErrorMessage('Payment failed. Please try again.');
@@ -441,7 +530,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any) => void;
   onCancel: () => void;
 }
 
@@ -452,7 +541,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   onCancel,
 }) => {
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
-    DEFAULT_SHIPPING_OPTIONS[1] // Default to standard shipping
+    DEFAULT_SHIPPING_OPTIONS[0] // Default to local pickup
   );
 
   const handleShippingChange = (option: ShippingOption) => {
@@ -461,11 +550,10 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
 
   const handleAddressChange = (address: any) => {
     // Handle address change if needed for parent component
-    console.log('Address changed:', address);
   };
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string) => {
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone);
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any) => {
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData);
   };
   const options = {
     clientSecret,

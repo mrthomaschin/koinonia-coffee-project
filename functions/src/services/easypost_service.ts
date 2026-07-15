@@ -115,8 +115,131 @@ const createEasyPostAddress = async (client: any, addressData: Address, verify: 
 };
 
 /**
- * Create an EasyPost Parcel object
+ * Purchase shipment with specific rate
  */
+export const purchaseShipment = async (
+    toAddress: Address,
+    rateId: string,
+    fromAddress?: Address,
+    parcel?: Parcel,
+    shipmentId?: string
+): Promise<{ trackingNumber: string; labelUrl: string; shipmentId: string; carrier?: string; service?: string }> => {
+    try {
+        logger.info('Starting shipment purchase process', {
+            step: 'init',
+            rateId,
+            toAddress: toAddress.city,
+            toState: toAddress.state,
+            hasShipmentId: !!shipmentId,
+            shipmentId
+        });
+
+        const client = getEasyPostClient();
+
+        let shipment: any;
+
+        if (shipmentId) {
+            logger.info('Retrieving existing shipment', { step: 'retrieve_shipment', shipmentId });
+            shipment = await client.Shipment.retrieve(shipmentId);
+            logger.info('Existing shipment retrieved', { step: 'shipment_retrieved', ratesCount: shipment.rates?.length || 0 });
+        } else {
+            // Use provided addresses/parcel or defaults
+            const from = fromAddress || DEFAULT_FROM_ADDRESS;
+            const pkg = parcel || DEFAULT_PARCEL;
+
+            logger.info('Setting up shipment parameters', {
+                step: 'params',
+                fromAddress: from.city,
+                fromState: from.state,
+                toAddress: toAddress.city,
+                toState: toAddress.state,
+                parcel: pkg
+            });
+
+            // Create EasyPost objects
+            logger.info('Creating EasyPost objects (address and parcel)', { step: 'create_objects' });
+
+            const [easyPostFromAddress, easyPostToAddress, easyPostParcel] = await Promise.all([
+                createEasyPostAddress(client, from, false),
+                createEasyPostAddress(client, toAddress, true),
+                createEasyPostParcel(client, pkg),
+            ]);
+
+            logger.info('EasyPost objects created successfully', {
+                step: 'objects_created',
+                fromAddressId: easyPostFromAddress.id,
+                toAddressId: easyPostToAddress.id,
+                parcelId: easyPostParcel.id
+            });
+
+            // Create shipment
+            logger.info('Creating shipment with EasyPost', { step: 'create_shipment' });
+
+            shipment = await client.Shipment.create({
+                to_address: easyPostToAddress,
+                from_address: easyPostFromAddress,
+                parcel: easyPostParcel,
+            });
+
+            logger.info('Shipment created successfully', {
+                step: 'shipment_created',
+                shipmentId: shipment.id,
+                ratesCount: shipment.rates?.length || 0
+            });
+        }
+
+        // Find and purchase the specific rate
+        logger.info('Finding and purchasing specific rate', { step: 'find_rate', rateId });
+
+        const rate = shipment.rates.find((r: any) => r.id === rateId);
+        if (!rate) {
+            logger.error('Rate not found in shipment', {
+                step: 'rate_not_found',
+                rateId,
+                availableRates: shipment.rates?.map((r: any) => r.id)
+            });
+            throw new Error('Rate not found in shipment');
+        }
+
+        logger.info('Rate found, attempting purchase', {
+            step: 'rate_found',
+            rateId,
+            service: rate.service,
+            carrier: rate.carrier,
+            price: rate.rate
+        });
+
+        // Purchase the shipment with the selected rate
+        logger.info('Purchasing shipment with selected rate', { step: 'purchase' });
+
+        const purchasedShipment = await client.Shipment.buy(shipment.id, rate.id);
+
+        logger.info('Shipment purchased successfully', {
+            step: 'purchase_complete',
+            shipmentId: purchasedShipment.id,
+            trackingNumber: purchasedShipment.tracking_code,
+            labelUrl: purchasedShipment.postage_label?.label_url,
+            carrier: purchasedShipment.selected_rate?.carrier,
+            service: purchasedShipment.selected_rate?.service
+        });
+
+        return {
+            trackingNumber: purchasedShipment.tracking_code,
+            labelUrl: purchasedShipment.postage_label.label_url,
+            shipmentId: purchasedShipment.id,
+            carrier: purchasedShipment.selected_rate?.carrier,
+            service: purchasedShipment.selected_rate?.service,
+        };
+    } catch (error) {
+        logger.error('Error purchasing shipment', {
+            step: 'error',
+            error: (error as Error).message,
+            rateId,
+            toAddress: toAddress.city
+        });
+        throw error;
+    }
+};
 const createEasyPostParcel = async (client: any, parcelData: Parcel) => {
     try {
         const parcel = await client.Parcel.create({
@@ -135,11 +258,16 @@ const createEasyPostParcel = async (client: any, parcelData: Parcel) => {
 /**
  * Fetch shipping rates from EasyPost
  */
+export interface ShippingRatesResponse {
+    rates: ShippingRate[];
+    shipmentId: string;
+}
+
 export const fetchShippingRates = async (
     toAddress: Address,
     fromAddress?: Address,
     parcel?: Parcel
-): Promise<ShippingRate[]> => {
+): Promise<ShippingRatesResponse> => {
     try {
         const client = getEasyPostClient();
 
@@ -196,7 +324,7 @@ export const fetchShippingRates = async (
         }));
 
         logger.info(`Fetched ${rates.length} shipping rates`);
-        return rates;
+        return { rates, shipmentId: shipment.id };
     } catch (error) {
         logger.error('Error fetching shipping rates', { error: (error as Error).message });
         throw error;
@@ -222,7 +350,7 @@ export const getShippingRates = async (req: Request, res: Response) => {
         }
 
         const rates = await fetchShippingRates(toAddress, fromAddress, parcel);
-        return res.json({ rates });
+        return res.json({ rates: rates.rates, shipmentId: rates.shipmentId });
     } catch (error) {
         logger.error('Error in getShippingRates handler', { error: (error as Error).message });
         return res.status(500).json({ error: (error as Error).message });

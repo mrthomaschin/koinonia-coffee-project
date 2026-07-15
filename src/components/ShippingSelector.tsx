@@ -36,7 +36,7 @@ const ShippingSelector: React.FC<ShippingSelectorProps> = ({
 }) => {
   const options = shippingOptions || DEFAULT_SHIPPING_OPTIONS;
   const [selected, setSelected] = useState<ShippingOption>(
-    selectedShipping || options[1] // Default to second option (or first if only one)
+    selectedShipping || options[0]
   );
 
   useEffect(() => {

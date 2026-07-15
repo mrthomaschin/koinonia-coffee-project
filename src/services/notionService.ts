@@ -19,6 +19,14 @@ interface NotionOrderData {
   orderDate: string;
   transactionId: string;
   shippingAddress?: string;
+  shipmentData?: {
+    trackingNumber: string;
+    labelUrl: string;
+    shipmentId: string;
+    carrier?: string;
+    service?: string;
+  };
+  isLocalPickup?: boolean;
 }
 
 export interface InventoryVariant {

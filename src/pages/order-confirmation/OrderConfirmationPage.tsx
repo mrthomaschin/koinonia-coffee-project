@@ -98,7 +98,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             const customerEmail = (state as any).customerEmail || 'customer@example.com';
             const customerName = (state as any).customerName || 'Valued Customer';
             const customerPhone = (state as any).customerPhone || '';
-            const shippingAddress = (state as any).shippingAddress || '';
+            const shippingAddress = (state as any).orderData?.shippingAddress || '';
+            const shipmentData = (state as any).orderData?.shipmentData || null;
+            const isLocalPickup = (state as any).orderData?.isLocalPickup || false;
 
             // Create Notion database entry
             logger.log('� Creating Notion order entry...');
@@ -112,7 +114,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 totalAmount: state.orderData.total,
                 orderDate: new Date(state.orderData.timestamp).toLocaleString(),
                 transactionId: orderId,
-                shippingAddress: shippingAddress
+                shippingAddress: shippingAddress,
+                shipmentData: shipmentData,
+                isLocalPickup: isLocalPickup
               });
               logger.log('✅ Notion order created successfully!');
             } catch (notionError) {
@@ -212,6 +216,10 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               const orderId = sessionId.slice(-8).toUpperCase();
               const subtotal = purchaseItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+              // Get shipment data if available
+              const shipmentData = (data as any).shipmentData || null;
+              const isLocalPickup = (data as any).isLocalPickup || false;
+
               // Create Notion database entry
               logger.log('📝 Creating Notion order entry...');
               try {
@@ -224,7 +232,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   totalAmount: data.amount_total / 100,
                   orderDate: new Date().toLocaleString(),
                   transactionId: sessionId,
-                  shippingAddress: (data as any).shipping_address || ''
+                  shippingAddress: (data as any).shipping_address || '',
+                  shipmentData: shipmentData,
+                  isLocalPickup: isLocalPickup
                 });
                 logger.log('✅ Notion order created successfully!');
               } catch (notionError) {

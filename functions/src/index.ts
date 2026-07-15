@@ -10,7 +10,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
-import { getShippingRates } from "./services/easypost_service";
+import { getShippingRates, purchaseShipment } from "./services/easypost_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -181,6 +181,73 @@ app.post("/create-notion-order", async (req: Request, res: Response) => NotionSe
 
 // Get shipping rates from EasyPost
 app.post("/get-shipping-rates", getShippingRates);
+
+// Purchase shipment with EasyPost
+app.post("/purchase-shipment", async (req: Request, res: Response): Promise<void> => {
+  try {
+    logger.info('Purchase shipment request received', {
+      step: 'endpoint_start',
+      body: req.body
+    });
+
+    const { toAddress, rateId, shipmentId, fromAddress, parcel } = req.body;
+
+    logger.info('Validating request parameters', {
+      step: 'validate_params',
+      hasToAddress: !!toAddress,
+      hasRateId: !!rateId,
+      hasShipmentId: !!shipmentId,
+      hasFromAddress: !!fromAddress,
+      hasParcel: !!parcel
+    });
+
+    if (!toAddress || !rateId) {
+      logger.error('Missing required fields', {
+        step: 'validation_error',
+        toAddress: !!toAddress,
+        rateId: !!rateId
+      });
+      res.status(400).json({ error: 'Missing required fields: toAddress, rateId' });
+      return;
+    }
+
+    logger.info('Calling purchaseShipment function', {
+      step: 'call_service',
+      rateId,
+      toCity: toAddress.city,
+      hasShipmentId: !!shipmentId
+    });
+
+    const result = await purchaseShipment(toAddress, rateId, fromAddress, parcel, shipmentId);
+
+    logger.info('Shipment purchased successfully, preparing response', {
+      step: 'prepare_response',
+      shipmentId: result.shipmentId,
+      trackingNumber: result.trackingNumber,
+      hasLabelUrl: !!result.labelUrl
+    });
+
+    res.json({
+      trackingNumber: result.trackingNumber,
+      labelUrl: result.labelUrl,
+      shipmentId: result.shipmentId,
+      carrier: result.carrier,
+      service: result.service,
+    });
+
+    logger.info('Response sent successfully', {
+      step: 'endpoint_complete',
+      shipmentId: result.shipmentId
+    });
+  } catch (error: unknown) {
+    logger.error('Error purchasing shipment', {
+      step: 'endpoint_error',
+      error: (error as Error).message,
+      stack: (error as Error).stack
+    });
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
 
 // Test endpoint for order status check (manual trigger)
 app.post("/test-order-status-check", async (req: Request, res: Response) => NotionService.handleTestOrderStatus(req, res));

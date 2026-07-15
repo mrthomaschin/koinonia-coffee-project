@@ -30,7 +30,7 @@ class StripeService {
         amount: Math.round(price * 100),
         currency: 'usd',
         quantity: cartItem.quantity,
-        images: cartItem.item.images.length > 0 ? [cartItem.item.images[0]] : undefined,
+        images: cartItem.item.firebaseImageUrls.length > 0 ? [cartItem.item.firebaseImageUrls[0]] : undefined,
         variantSku: cartItem.variantSku || cartItem.item.sku,
         variantPrice: cartItem.variantPrice || cartItem.item.price,
       };
@@ -115,7 +115,9 @@ class StripeService {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+
+      return data;
     } catch (error) {
       logger.error('Error creating payment intent:', error);
       throw error;

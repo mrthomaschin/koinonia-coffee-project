@@ -4,6 +4,46 @@ import { createLogger } from "../logger";
 
 const logger = createLogger("notion");
 
+// Service name to display name mapping
+const SERVICE_DISPLAY_NAMES: Record<string, string> = {
+    // USPS
+    'GroundAdvantage': 'Ground Advantage',
+    'Priority': 'Priority Mail',
+    'Express': 'Priority Mail Express',
+    // UPS
+    'Ground': 'Ground',
+    '2ndDayAir': '2nd Day Air',
+    'NextDayAir': 'Next Day Air',
+    'NextDayAirSaver': 'Next Day Air Saver',
+    'NextDayAirEarlyAM': 'Next Day Air Early AM',
+    '3DaySelect': '3 Day Select',
+    'UPSGroundsaverGreaterThan1lb': 'Ground Saver',
+    // FedEx
+    'FEDEX_GROUND': 'FedEx Ground',
+    'FEDEX_2_DAY': 'FedEx 2 Day',
+    'FEDEX_2_DAY_AM': 'FedEx 2 Day AM',
+    'FIRST_OVERNIGHT': 'FedEx First Overnight',
+    'PRIORITY_OVERNIGHT': 'FedEx Priority Overnight',
+    'STANDARD_OVERNIGHT': 'FedEx Standard Overnight',
+    'SMART_POST': 'FedEx Smart Post',
+    'FEDEX_EXPRESS_SAVER': 'FedEx Express Saver',
+};
+
+// Carrier name mapping
+const CARRIER_DISPLAY_NAMES: Record<string, string> = {
+    'USPS': 'USPS',
+    'UPSDAP': 'UPS',
+    'FedExDefault': 'FedEx',
+};
+
+const getServiceDisplayName = (service: string): string => {
+    return SERVICE_DISPLAY_NAMES[service] || "Standard";
+};
+
+const getCarrierDisplayName = (carrier: string): string => {
+    return CARRIER_DISPLAY_NAMES[carrier] || carrier;
+};
+
 // Lazy-initialize Notion client
 let notionInstance: Client | null = null;
 const getNotion = () => {
@@ -166,9 +206,11 @@ export class NotionService {
                 orderDate,
                 transactionId,
                 shippingAddress,
+                shipmentData,
+                isLocalPickup,
             } = req.body;
 
-            logger.info("Creating Notion order", { orderId });
+            logger.info("Creating Notion order", { orderId, hasShipmentData: !!shipmentData });
 
             const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
             if (!databaseId) {
@@ -231,6 +273,9 @@ export class NotionService {
                             name: "Pending",
                         },
                     },
+                    "Local Pickup": {
+                        checkbox: isLocalPickup || false,
+                    },
                     "Items ordered": {
                         rich_text: [
                             {
@@ -286,6 +331,52 @@ export class NotionService {
                     },
                 },
             });
+
+            // Add shipment tracking data if available
+            if (shipmentData && shipmentData.trackingNumber) {
+                logger.info("Adding shipment tracking data to Notion order", {
+                    orderId,
+                    trackingNumber: shipmentData.trackingNumber,
+                    shipmentId: shipmentData.shipmentId,
+                    carrier: shipmentData.carrier,
+                    service: shipmentData.service,
+                    mappedCarrier: getCarrierDisplayName(shipmentData.carrier),
+                    mappedService: getServiceDisplayName(shipmentData.service)
+                });
+
+                await notion.pages.update({
+                    page_id: response.id,
+                    properties: {
+                        "Tracking Info": {
+                            rich_text: [
+                                {
+                                    text: {
+                                        content: shipmentData.trackingNumber,
+                                    },
+                                },
+                            ],
+                        },
+                        "Tracking Carrier": {
+                            select: {
+                                name: getCarrierDisplayName(shipmentData.carrier) || "Unknown",
+                            },
+                        },
+                        "Carrier Type": {
+                            select: {
+                                name: getServiceDisplayName(shipmentData.service) || "Standard",
+                            },
+                        },
+                        "Tracking Label": {
+                            url: shipmentData.labelUrl || null,
+                        },
+                    },
+                });
+
+                logger.info("Shipment tracking data added successfully", {
+                    orderId,
+                    pageId: response.id,
+                });
+            }
 
             logger.info("Notion order created successfully", {
                 orderId,
