@@ -70,9 +70,9 @@ export const ItemView: React.FC<ItemViewProps> = ({
         {item.itemType === ItemType.coffee && (
           <CoffeeBagDetail item={item as CoffeeBagItem} onBack={onBack} />
         )}
-        {(item.itemType === ItemType.apparel ||
+        {(item.itemType === ItemType.accessories ||
+          item.itemType === ItemType.apparel ||
           item.itemType === ItemType.drinkware ||
-          item.itemType === ItemType.accessories ||
           item.itemType === ItemType.stickers) && (
             <MerchDetail item={item as MerchItem} onBack={onBack} />
           )}

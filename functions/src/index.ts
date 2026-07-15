@@ -5,7 +5,7 @@ import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
-import { initializeApp, getApps } from "firebase-admin/app";
+import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
@@ -26,7 +26,9 @@ let firestoreDb: FirebaseFirestore.Firestore | null = null;
 const getFirestoreDb = () => {
   if (!firestoreDb) {
     if (!getApps().length) {
-      initializeApp();
+      initializeApp({
+        credential: applicationDefault()
+      });
     }
     firestoreDb = getFirestore();
   }
@@ -124,8 +126,7 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
@@ -141,8 +142,7 @@ app.options('*', cors({
     }
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Create Payment Intent for embedded checkout

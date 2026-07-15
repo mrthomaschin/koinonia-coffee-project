@@ -119,7 +119,7 @@ deploy_frontend() {
     fi
     
     print_info "Building React app for production..."
-    npm run build
+    REACT_APP_BACKEND_URL=https://us-central1-koinonia-coffee-project.cloudfunctions.net/api npm run build
     
     print_info "Deploying to Firebase Hosting..."
     firebase deploy --only hosting
@@ -205,19 +205,9 @@ deploy_all() {
     # Verify secrets before deployment
     verify_secrets
     
-    # Temporarily move .env.local (it overrides .env.production)
-    if [ -f ".env.local" ]; then
-        mv .env.local .env.local.tmp
-    fi
-    
-    # Build frontend (uses .env.production)
+    # Build frontend with explicit production environment variable
     print_info "Building React app for production..."
-    npm run build
-    
-    # Restore .env.local
-    if [ -f ".env.local.tmp" ]; then
-        mv .env.local.tmp .env.local
-    fi
+    REACT_APP_BACKEND_URL=https://us-central1-koinonia-coffee-project.cloudfunctions.net/api npm run build
     
     print_info ""
     print_section "Deploying to Firebase"

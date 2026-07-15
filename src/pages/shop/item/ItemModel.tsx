@@ -1,10 +1,10 @@
 export enum ItemType {
-    apparel,
-    drinkware,
     accessories,
-    stickers,
-    coffee,
+    apparel,
     brewTools,
+    coffee,
+    drinkware,
+    stickers,
 }
 
 export interface InventoryVariant {

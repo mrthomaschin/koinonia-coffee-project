@@ -169,6 +169,7 @@ class NotionService {
           name: item.name,
           quantity: item.quantity,
           hasVariants: hasVariants,
+          itemType: item.itemType,
         });
 
         // Log variant details if present

@@ -133,11 +133,11 @@ export class ShopViewModel {
                 return items.filter(item => item.itemType === ItemType.coffee);
             case FilterBy.MERCH:
                 return items.filter(item =>
-                    item.itemType === ItemType.apparel ||
-                    item.itemType === ItemType.drinkware ||
                     item.itemType === ItemType.accessories ||
-                    item.itemType === ItemType.stickers ||
-                    item.itemType === ItemType.brewTools
+                    item.itemType === ItemType.apparel ||
+                    item.itemType === ItemType.brewTools ||
+                    item.itemType === ItemType.drinkware ||
+                    item.itemType === ItemType.stickers
                 );
             default:
                 return items;

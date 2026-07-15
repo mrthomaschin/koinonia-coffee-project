@@ -5,12 +5,12 @@ import { NotionInventoryItem } from '../../services/notionService';
 
 const mapItemType = (notionType: string): ItemType => {
   const typeMap: { [key: string]: ItemType } = {
-    'Coffee': ItemType.coffee,
-    'Apparel': ItemType.apparel,
-    'Drinkware': ItemType.drinkware,
     'Accessories': ItemType.accessories,
-    'Stickers': ItemType.stickers,
+    'Apparel': ItemType.apparel,
     'Brew Tools': ItemType.brewTools,
+    'Coffee': ItemType.coffee,
+    'Drinkware': ItemType.drinkware,
+    'Stickers': ItemType.stickers,
   };
   return typeMap[notionType] || ItemType.accessories;
 };

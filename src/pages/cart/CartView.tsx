@@ -159,7 +159,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 quantity: item.quantity,
                 price: item.variantPrice || viewModel.getItemPrice(item),
                 sku: item.variantSku || item.item.sku,
-                image: item.item.firebaseImageUrls[0],
+                image: item.item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png',
                 selections: {
                     ...item.selections,
                     sku: item.variantSku || item.item.sku
@@ -208,11 +208,12 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         const itemPrice = viewModel.getItemPrice(cartItem);
         const itemTotal = itemPrice * cartItem.quantity;
         const pendingQty = getPendingQuantity(index);
+        const imageUrl = cartItem.item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png';
 
         return (
             <div key={index} className="cart-item">
                 <div className="cart-item-image">
-                    <img src={cartItem.item.firebaseImageUrls[0]} alt={cartItem.item.name} />
+                    <img src={imageUrl} alt={cartItem.item.name} />
                 </div>
 
                 <div className="cart-item-details">
