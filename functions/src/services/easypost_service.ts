@@ -26,6 +26,33 @@ export interface Address {
     email?: string;
 }
 
+export interface ShipmentStatus {
+    status: string; // pre_transit, in_transit, out_for_delivery, delivered, etc.
+    trackingNumber: string;
+    trackingUrl?: string;
+    estimatedDelivery?: string;
+}
+
+export async function getShipmentStatus(shipmentId: string): Promise<ShipmentStatus | null> {
+    try {
+        const client = getEasyPostClient();
+        const shipment = await client.Shipment.retrieve(shipmentId);
+
+        return {
+            status: shipment.status || 'unknown',
+            trackingNumber: shipment.tracking_code || '',
+            trackingUrl: shipment.tracker?.public_url || '',
+            estimatedDelivery: shipment.tracker?.est_delivery_date || '',
+        };
+    } catch (error) {
+        logger.error('Error retrieving shipment status', {
+            shipmentId,
+            error: (error as Error).message,
+        });
+        return null;
+    }
+}
+
 export interface Parcel {
     length: number;
     width: number;

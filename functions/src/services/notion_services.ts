@@ -2,6 +2,7 @@ import { Client } from "@notionhq/client";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
 
+import { getShipmentStatus } from "./easypost_service";
 const logger = createLogger("notion");
 
 // Service name to display name mapping
@@ -356,6 +357,15 @@ export class NotionService {
                                 },
                             ],
                         },
+                        "Shipment ID": {
+                            rich_text: [
+                                {
+                                    text: {
+                                        content: shipmentData.shipmentId,
+                                    },
+                                },
+                            ],
+                        },
                         "Tracking Carrier": {
                             select: {
                                 name: getCarrierDisplayName(shipmentData.carrier) || "Unknown",
@@ -401,6 +411,7 @@ export class NotionService {
             const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
             const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
             const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
+            const outForDeliveryTemplateId = process.env.EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID;
             const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
 
             if (!databaseId) {
@@ -448,6 +459,7 @@ export class NotionService {
                 // Extract order data
                 const fulfillmentProp = properties["Fulfillment"];
                 const shippedEmailSentProp = properties["Shipped Email Sent"];
+                const outForDeliveryEmailSentProp = properties["Out For Delivery Email Sent"];
                 const deliveredEmailSentProp = properties["Delivered Email Sent"];
                 const emailProp = properties["Email"];
                 const customerProp = properties["Customer"];
@@ -456,10 +468,12 @@ export class NotionService {
                 const shippingAddressProp = properties["Shipping address"];
                 const trackingCarrierProp = properties["Tracking Carrier"];
                 const trackingInfoProp = properties["Tracking Info"];
+                const shipmentIdProp = properties["Shipment ID"];
 
                 if (
                     fulfillmentProp?.type !== "status" ||
                     shippedEmailSentProp?.type !== "checkbox" ||
+                    outForDeliveryEmailSentProp?.type !== "checkbox" ||
                     deliveredEmailSentProp?.type !== "checkbox" ||
                     emailProp?.type !== "email" ||
                     customerProp?.type !== "title" ||
@@ -468,9 +482,10 @@ export class NotionService {
                     continue;
                 }
 
-                const fulfillmentStatus = (fulfillmentProp.status as any)?.name;
                 const shippedEmailSent = shippedEmailSentProp.checkbox;
+                const outForDeliveryEmailSent = outForDeliveryEmailSentProp.checkbox;
                 const deliveredEmailSent = deliveredEmailSentProp.checkbox;
+                const fulfillmentStatus = fulfillmentProp?.type === "status" ? (fulfillmentProp.status as any)?.name : "";
                 const customerEmail = emailProp.email as string;
                 const customerFullName = (customerProp.title as any)[0]?.plain_text || "Customer";
                 const customerName = getFirstName(customerFullName);
@@ -483,6 +498,8 @@ export class NotionService {
                     (trackingCarrierProp.select as any)?.name || "" : "";
                 const trackingInfo = trackingInfoProp?.type === "rich_text" ?
                     (trackingInfoProp.rich_text as any)[0]?.plain_text || "" : "";
+                const shipmentId = shipmentIdProp?.type === "rich_text" ?
+                    (shipmentIdProp.rich_text as any)[0]?.plain_text || "" : "";
 
                 if (!customerEmail) {
                     logger.warn(`Order ${orderId} has no email address, skipping`);
@@ -493,9 +510,19 @@ export class NotionService {
                 // Parse items for HTML rendering
                 const itemsHtml: string = parseItemsToHtml(itemsOrdered);
 
-                // Check if we need to send "Shipped" notification
-                if (fulfillmentStatus === "Shipped" && !shippedEmailSent && shippedTemplateId) {
-                    logger.info(`Sending shipped notification for order ${orderId}`);
+                // Check EasyPost shipment status instead of Notion fulfillment status
+                let easyPostStatus = 'unknown';
+                if (shipmentId) {
+                    const shipmentStatus = await getShipmentStatus(shipmentId);
+                    if (shipmentStatus) {
+                        easyPostStatus = shipmentStatus.status;
+                        logger.info(`EasyPost status for order ${orderId}: ${easyPostStatus}`);
+                    }
+                }
+
+                // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
+                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent && shippedTemplateId) {
+                    logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendShippedNotification({
@@ -512,17 +539,22 @@ export class NotionService {
                             trackingInfo,
                         });
 
-                        // Mark as sent in Notion
+                        // Mark shipped email as sent and update fulfillment status in Notion
                         await notion.pages.update({
                             page_id: page.id,
                             properties: {
                                 "Shipped Email Sent": {
                                     checkbox: true,
                                 },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Shipped",
+                                    },
+                                },
                             },
                         });
 
-                        logger.info(`✅ Shipped notification sent for order ${orderId}`);
+                        logger.info(`✅ Shipped notification sent and Notion updated for order ${orderId}`);
                         results.emailsSent++;
                     } catch (error) {
                         const errorMsg = `Failed to send shipped notification for ${orderId}: ${(error as Error).message}`;
@@ -531,9 +563,56 @@ export class NotionService {
                     }
                 }
 
-                // Check if we need to send "Delivered" notification
-                if (fulfillmentStatus === "Delivered" && !deliveredEmailSent && deliveredTemplateId) {
-                    logger.info(`Sending delivered notification for order ${orderId}`);
+                // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
+                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent && outForDeliveryTemplateId) {
+                    logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
+
+                    try {
+                        await sendOutForDeliveryNotification({
+                            serviceId: emailjsServiceId,
+                            templateId: outForDeliveryTemplateId,
+                            publicKey: emailjsPublicKey,
+                            privateKey: emailjsPrivateKey,
+                            toEmail: customerEmail,
+                            customerName,
+                            orderId,
+                            itemsHtml,
+                            trackingCarrier,
+                            trackingInfo,
+                            deliveryDate: new Date().toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                            }),
+                        });
+
+                        // Mark out for delivery email as sent in Notion
+                        await notion.pages.update({
+                            page_id: page.id,
+                            properties: {
+                                "Out For Delivery Email Sent": {
+                                    checkbox: true,
+                                },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Out for delivery",
+                                    },
+                                },
+                            },
+                        });
+
+                        logger.info(`✅ Out for delivery notification sent for order ${orderId}`);
+                        results.emailsSent++;
+                    } catch (error) {
+                        const errorMsg = `Failed to send out for delivery notification for ${orderId}: ${(error as Error).message}`;
+                        logger.error(errorMsg);
+                        results.errors.push(errorMsg);
+                    }
+                }
+
+                // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
+                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent && deliveredTemplateId) {
+                    logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendDeliveredNotification({
@@ -552,17 +631,22 @@ export class NotionService {
                             }),
                         });
 
-                        // Mark as sent in Notion
+                        // Mark delivered email as sent and update fulfillment status in Notion
                         await notion.pages.update({
                             page_id: page.id,
                             properties: {
                                 "Delivered Email Sent": {
                                     checkbox: true,
                                 },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Delivered",
+                                    },
+                                },
                             },
                         });
 
-                        logger.info(`✅ Delivered notification sent for order ${orderId}`);
+                        logger.info(`✅ Delivered notification sent and Notion updated for order ${orderId}`);
                         results.emailsSent++;
                     } catch (error) {
                         const errorMsg = `Failed to send delivered notification for ${orderId}: ${(error as Error).message}`;
@@ -596,6 +680,7 @@ export class NotionService {
             const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
             const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
             const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
+            const outForDeliveryTemplateId = process.env.EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID;
             const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
 
             if (!databaseId) {
@@ -637,6 +722,7 @@ export class NotionService {
                 // Extract order data
                 const fulfillmentProp = properties["Fulfillment"];
                 const shippedEmailSentProp = properties["Shipped Email Sent"];
+                const outForDeliveryEmailSentProp = properties["Out For Delivery Email Sent"];
                 const deliveredEmailSentProp = properties["Delivered Email Sent"];
                 const emailProp = properties["Email"];
                 const customerProp = properties["Customer"];
@@ -645,10 +731,12 @@ export class NotionService {
                 const shippingAddressProp = properties["Shipping address"];
                 const trackingCarrierProp = properties["Tracking Carrier"];
                 const trackingInfoProp = properties["Tracking Info"];
+                const shipmentIdProp = properties["Shipment ID"];
 
                 if (
                     fulfillmentProp?.type !== "status" ||
                     shippedEmailSentProp?.type !== "checkbox" ||
+                    outForDeliveryEmailSentProp?.type !== "checkbox" ||
                     deliveredEmailSentProp?.type !== "checkbox" ||
                     emailProp?.type !== "email" ||
                     customerProp?.type !== "title" ||
@@ -657,9 +745,10 @@ export class NotionService {
                     continue;
                 }
 
-                const fulfillmentStatus = (fulfillmentProp.status as any)?.name;
                 const shippedEmailSent = shippedEmailSentProp.checkbox;
+                const outForDeliveryEmailSent = outForDeliveryEmailSentProp.checkbox;
                 const deliveredEmailSent = deliveredEmailSentProp.checkbox;
+                const fulfillmentStatus = fulfillmentProp?.type === "status" ? (fulfillmentProp.status as any)?.name : "";
                 const customerEmail = emailProp.email as string;
                 const customerFullName = (customerProp.title as any)[0]?.plain_text || "Customer";
                 const customerName = getFirstName(customerFullName);
@@ -672,6 +761,8 @@ export class NotionService {
                     (trackingCarrierProp.select as any)?.name || "" : "";
                 const trackingInfo = trackingInfoProp?.type === "rich_text" ?
                     (trackingInfoProp.rich_text as any)[0]?.plain_text || "" : "";
+                const shipmentId = shipmentIdProp?.type === "rich_text" ?
+                    (shipmentIdProp.rich_text as any)[0]?.plain_text || "" : "";
 
                 if (!customerEmail) {
                     logger.warn(`Order ${orderId} has no email address, skipping`);
@@ -681,9 +772,19 @@ export class NotionService {
                 // Parse items for HTML rendering
                 const itemsHtml: string = parseItemsToHtml(itemsOrdered);
 
-                // Check if we need to send "Shipped" notification
-                if (fulfillmentStatus === "Shipped" && !shippedEmailSent && shippedTemplateId) {
-                    logger.info(`Sending shipped notification for order ${orderId}`);
+                // Check EasyPost shipment status instead of Notion fulfillment status
+                let easyPostStatus = 'unknown';
+                if (shipmentId) {
+                    const shipmentStatus = await getShipmentStatus(shipmentId);
+                    if (shipmentStatus) {
+                        easyPostStatus = shipmentStatus.status;
+                        logger.info(`EasyPost status for order ${orderId}: ${easyPostStatus}`);
+                    }
+                }
+
+                // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
+                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent && shippedTemplateId) {
+                    logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendShippedNotification({
@@ -700,25 +801,74 @@ export class NotionService {
                             trackingInfo,
                         });
 
-                        // Mark as sent in Notion
+                        // Mark shipped email as sent and update fulfillment status in Notion
                         await notion.pages.update({
                             page_id: page.id,
                             properties: {
                                 "Shipped Email Sent": {
                                     checkbox: true,
                                 },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Shipped",
+                                    },
+                                },
                             },
                         });
 
-                        logger.info(`✅ Shipped notification sent for order ${orderId}`);
+                        logger.info(`✅ Shipped notification sent and Notion updated for order ${orderId}`);
                     } catch (error) {
                         logger.error(`Failed to send shipped notification for ${orderId}:`, error);
                     }
                 }
 
-                // Check if we need to send "Delivered" notification
-                if (fulfillmentStatus === "Delivered" && !deliveredEmailSent && deliveredTemplateId) {
-                    logger.info(`Sending delivered notification for order ${orderId}`);
+                // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
+                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent && outForDeliveryTemplateId) {
+                    logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
+
+                    try {
+                        await sendOutForDeliveryNotification({
+                            serviceId: emailjsServiceId,
+                            templateId: outForDeliveryTemplateId,
+                            publicKey: emailjsPublicKey,
+                            privateKey: emailjsPrivateKey,
+                            toEmail: customerEmail,
+                            customerName,
+                            orderId,
+                            itemsHtml,
+                            trackingCarrier,
+                            trackingInfo,
+                            deliveryDate: new Date().toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                            }),
+                        });
+
+                        // Mark out for delivery email as sent in Notion
+                        await notion.pages.update({
+                            page_id: page.id,
+                            properties: {
+                                "Out For Delivery Email Sent": {
+                                    checkbox: true,
+                                },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Out for delivery",
+                                    },
+                                },
+                            },
+                        });
+
+                        logger.info(`✅ Out for delivery notification sent for order ${orderId}`);
+                    } catch (error) {
+                        logger.error(`Failed to send out for delivery notification for ${orderId}:`, error);
+                    }
+                }
+
+                // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
+                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent && deliveredTemplateId) {
+                    logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendDeliveredNotification({
@@ -737,17 +887,22 @@ export class NotionService {
                             }),
                         });
 
-                        // Mark as sent in Notion
+                        // Mark delivered email as sent and update fulfillment status in Notion
                         await notion.pages.update({
                             page_id: page.id,
                             properties: {
                                 "Delivered Email Sent": {
                                     checkbox: true,
                                 },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Delivered",
+                                    },
+                                },
                             },
                         });
 
-                        logger.info(`✅ Delivered notification sent for order ${orderId}`);
+                        logger.info(`✅ Delivered notification sent and Notion updated for order ${orderId}`);
                     } catch (error) {
                         logger.error(`Failed to send delivered notification for ${orderId}:`, error);
                     }
@@ -871,6 +1026,60 @@ async function sendDeliveredNotification(params: {
             delivery_date: deliveryDate,
             delivery_location: "Front door",
             review_url: "https://koinoniacoffeeproject.com/reviews",
+        },
+    };
+
+    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(emailData),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
+    }
+}
+
+async function sendOutForDeliveryNotification(params: {
+    serviceId: string;
+    templateId: string;
+    publicKey: string;
+    privateKey: string;
+    toEmail: string;
+    customerName: string;
+    orderId: string;
+    itemsHtml: string;
+    trackingCarrier: string;
+    trackingInfo: string;
+    deliveryDate: string;
+}): Promise<void> {
+    const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, trackingCarrier, trackingInfo, deliveryDate } = params;
+
+    // Generate tracking URL based on carrier
+    let trackingUrl = "https://tools.usps.com/go/TrackConfirmAction";
+    if (trackingCarrier === "UPS") {
+        trackingUrl = "https://www.ups.com/track";
+    } else if (trackingCarrier === "Fedex") {
+        trackingUrl = "https://www.fedex.com/fedextrack/";
+    }
+
+    const emailData = {
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+        accessToken: privateKey,
+        template_params: {
+            to_email: toEmail,
+            customer_name: customerName,
+            order_id: orderId,
+            items_html: itemsHtml,
+            carrier: trackingCarrier || "USPS",
+            tracking_number: trackingInfo || "Available soon",
+            delivery_date: deliveryDate,
+            tracking_url: trackingUrl,
         },
     };
 

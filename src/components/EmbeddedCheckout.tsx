@@ -269,8 +269,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           shouldPurchase: deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup'
         });
 
+        let currentShippingAddress = '';
+
         if (deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup') {
           logger.log('[shipment] Starting shipment purchase process');
+
           try {
             const addressData = await elements?.getElement('address', { mode: 'shipping' })?.getValue();
             const toAddress = addressData?.value?.address;
@@ -288,7 +291,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 toAddress.country
               ].filter(Boolean).join(', ');
 
+              logger.log('[shipment] Formatted address', { formattedAddress });
               setShippingAddress(formattedAddress);
+
+              // Pass formatted address directly to avoid timing issues with state updates
+              currentShippingAddress = formattedAddress;
 
               logger.log('[shipment] Calling purchase-shipment endpoint', {
                 endpoint: `${backendUrl}/purchase-shipment`,
@@ -332,7 +339,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   customerName,
                   customerPhone,
                   shipmentData,
-                  shippingAddress
+                  currentShippingAddress
                 );
               } else {
                 logger.error('[shipment] Purchase shipment API call failed', {
@@ -340,17 +347,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   statusText: response.statusText
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
               }
             } else {
               logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
             }
           } catch (shipmentError) {
             logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
           }
         } else {
           logger.log('[shipment] Shipment purchase conditions not met, skipping', {
@@ -358,7 +365,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             selectedShippingId: selectedShipping.id
           });
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, shippingAddress);
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
         }
       }
     } catch (err) {
