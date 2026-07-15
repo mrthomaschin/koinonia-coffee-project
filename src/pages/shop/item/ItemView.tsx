@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Item, ItemType } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
@@ -91,7 +91,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
           <div className="carousel-container">
             <div className="carousel-scroll-container">
               <img
-                src={ICONS.shopPlaceholder}
+                src={item.firebaseImageUrls && item.firebaseImageUrls.length > 0 ? item.firebaseImageUrls[0] : ICONS.shopPlaceholder}
                 alt={item.name}
                 className="detail-image"
               />

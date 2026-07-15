@@ -159,7 +159,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 quantity: item.quantity,
                 price: item.variantPrice || viewModel.getItemPrice(item),
                 sku: item.variantSku || item.item.sku,
-                image: item.item.images[0],
+                image: item.item.firebaseImageUrls[0],
                 selections: {
                     ...item.selections,
                     sku: item.variantSku || item.item.sku
@@ -212,7 +212,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         return (
             <div key={index} className="cart-item">
                 <div className="cart-item-image">
-                    <img src={cartItem.item.images[0]} alt={cartItem.item.name} />
+                    <img src={cartItem.item.firebaseImageUrls[0]} alt={cartItem.item.name} />
                 </div>
 
                 <div className="cart-item-details">

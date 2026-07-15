@@ -100,18 +100,6 @@ export class NotionService {
             }
 
             if (images.length === 0) {
-                const imagesProperty = properties["Images"]?.files || [];
-                images = imagesProperty.map((file: any) => {
-                    if (file.type === "external") {
-                        return file.external.url;
-                    } else if (file.type === "file") {
-                        return file.file.url;
-                    }
-                    return "";
-                }).filter((url: string) => url);
-            }
-
-            if (images.length === 0) {
                 images = ["/assets/images/shop_placeholder.png"];
             }
 
@@ -148,7 +136,7 @@ export class NotionService {
                 name,
                 description,
                 price,
-                images,
+                firebaseImageUrls: images,
                 itemType,
                 createdAt,
                 quantity,

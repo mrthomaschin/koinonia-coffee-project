@@ -1,7 +1,6 @@
 import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize } from './item/merch/MerchItem';
 import { Item, ItemType } from './item/ItemModel';
-import { ASSETS, ICONS } from '../../util/constants';
 import { saveInventoryCache, loadInventoryCache } from '../../services/cacheService';
 
 export const generateSlug = (name: string): string => {
@@ -39,6 +38,7 @@ export const sampleItems: Item[] = [
     'Ethiopia Yirgacheffe',
     'A bright and floral coffee with notes of bergamot and jasmine. Grown in the highlands of Yirgacheffe, this coffee showcases the unique terroir of Ethiopia.',
     10.00,
+    [],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.light,
@@ -51,6 +51,7 @@ export const sampleItems: Item[] = [
     'Koin Blend',
     'A well-balanced medium roast with chocolate and caramel notes. Sourced from smallholder farmers in the Colombian highlands.',
     0.00,
+    [],
     new Date(),
     [CoffeeBagWeight._200g, CoffeeBagWeight._5lb],
     RoastLevel.mediumLight,
@@ -63,6 +64,7 @@ export const sampleItems: Item[] = [
     'Koinonia Signature Tee',
     'Premium Cotton Tee with our signature logos on the front and back. Comfortable and stylish for everyday wear.',
     30.00,
+    [],
     ItemType.apparel,
     new Date(),
     [MerchSize.S, MerchSize.M, MerchSize.L, MerchSize.XL],
@@ -74,6 +76,7 @@ export const sampleItems: Item[] = [
     'Koinonia Circle Sticker',
     '',
     2.50,
+    [],
     ItemType.stickers,
     new Date(),
     [],
@@ -85,6 +88,7 @@ export const sampleItems: Item[] = [
     'Logo Sticker',
     '',
     2.50,
+    [],
     ItemType.stickers,
     new Date(),
     [],
@@ -96,6 +100,7 @@ export const sampleItems: Item[] = [
     'Koinonia Letter Sticker',
     '',
     3.00,
+    [],
     ItemType.stickers,
     new Date(),
     [],
@@ -107,6 +112,7 @@ export const sampleItems: Item[] = [
     'Koinonia Letter Sticker 2',
     '',
     3.00,
+    [],
     ItemType.stickers,
     new Date(),
     [],
@@ -118,6 +124,7 @@ export const sampleItems: Item[] = [
     'Sticker Pack',
     'Can\'t decide on a sticker? Why not get all of them!',
     7.00,
+    [],
     ItemType.stickers,
     new Date(),
     [],

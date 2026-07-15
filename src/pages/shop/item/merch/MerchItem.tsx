@@ -8,11 +8,12 @@ export enum MerchSize {
 }
 
 export class MerchItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, variants?: InventoryVariant[] | null) {
+    constructor(id: string, name: string, description: string, price: number, firebaseImageUrls: string[], itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, variants?: InventoryVariant[] | null) {
         this.sku = id;
         this.name = name;
         this.description = description;
         this.price = price;
+        this.firebaseImageUrls = firebaseImageUrls;
         this.itemType = itemType;
         this.createdAt = createdAt;
         this.availableSizes = availableSizes;
@@ -25,6 +26,7 @@ export class MerchItem implements Item {
     name: string;
     description: string;
     price: number;
+    firebaseImageUrls: string[];
     itemType: ItemType;
     createdAt: Date;
     availableSizes: MerchSize[];

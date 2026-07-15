@@ -36,6 +36,7 @@ export interface NotionInventoryItem {
   name: string;
   description: string;
   price: number;
+  firebaseImageUrls: string[];
   itemType: string;
   createdAt: string;
   quantity: number;

@@ -22,6 +22,7 @@ export interface Item {
     name: string;
     description: string;
     price: number;
+    firebaseImageUrls: string[];
     itemType: ItemType;
     createdAt: Date;
     quantity: number;

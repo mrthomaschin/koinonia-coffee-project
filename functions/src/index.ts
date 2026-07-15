@@ -178,6 +178,14 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
 
+// Test endpoint for order status check (manual trigger)
+app.post("/test-order-status-check", async (req: Request, res: Response) => NotionService.handleTestOrderStatus(req, res));
+
+// Export as a separate function for direct access (matches documentation)
+export const testOrderStatusCheck = onRequest(async (req: Request, res: Response) => {
+  NotionService.handleTestOrderStatus(req, res);
+});
+
 // Scheduled function to check for order status updates and send notifications
 // Runs every 10 minutes
 const schedulerOptions: any = {
