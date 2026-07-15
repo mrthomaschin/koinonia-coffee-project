@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Item, ItemType } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
@@ -51,6 +51,66 @@ export const ItemView: React.FC<ItemViewProps> = ({
   const item = itemProp || viewModelItem;
   const onBack = onBackProp || viewModelHandleBack;
 
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const images = item?.firebaseImageUrls && item.firebaseImageUrls.length > 0
+    ? item.firebaseImageUrls
+    : [ICONS.shopPlaceholder];
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [item]);
+
+  const resetAutoPlayTimer = () => {
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+    }
+    autoPlayTimerRef.current = setTimeout(() => {
+      handleNext();
+    }, 10000);
+  };
+
+  useEffect(() => {
+    if (images.length > 1) {
+      resetAutoPlayTimer();
+      return () => {
+        if (autoPlayTimerRef.current) {
+          clearTimeout(autoPlayTimerRef.current);
+        }
+      };
+    }
+  }, [images.length]);
+
+  const scrollToImage = (index: number) => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = index * scrollContainerRef.current.offsetWidth;
+      scrollContainerRef.current.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+      setCurrentImageIndex(index);
+      resetAutoPlayTimer();
+    }
+  };
+
+  const handlePrev = () => {
+    const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : images.length - 1;
+    scrollToImage(newIndex);
+  };
+
+  const handleNext = () => {
+    const newIndex = currentImageIndex < images.length - 1 ? currentImageIndex + 1 : 0;
+    scrollToImage(newIndex);
+  };
+
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const scrollPosition = scrollContainerRef.current.scrollLeft;
+      const containerWidth = scrollContainerRef.current.offsetWidth;
+      const newIndex = Math.round(scrollPosition / containerWidth);
+      setCurrentImageIndex(newIndex);
+    }
+  };
+
   if (!item) {
     return (
       <div className="shop-page" style={{ minHeight: availableHeight }}>
@@ -89,13 +149,45 @@ export const ItemView: React.FC<ItemViewProps> = ({
       <div className="detail-container">
         <div className="detail-image-section">
           <div className="carousel-container">
-            <div className="carousel-scroll-container">
-              <img
-                src={item.firebaseImageUrls && item.firebaseImageUrls.length > 0 ? item.firebaseImageUrls[0] : ICONS.shopPlaceholder}
-                alt={item.name}
-                className="detail-image"
-              />
+            <button
+              className="carousel-button carousel-prev"
+              onClick={handlePrev}
+              disabled={images.length <= 1}
+            >
+              ‹
+            </button>
+            <div
+              className="carousel-scroll-container"
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+            >
+              {images.map((imageUrl, index) => (
+                <img
+                  key={index}
+                  src={imageUrl}
+                  alt={`${item.name} - Image ${index + 1}`}
+                  className="detail-image"
+                />
+              ))}
             </div>
+            <button
+              className="carousel-button carousel-next"
+              onClick={handleNext}
+              disabled={images.length <= 1}
+            >
+              ›
+            </button>
+            {images.length > 1 && (
+              <div className="carousel-indicators">
+                {images.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`carousel-dot ${index === currentImageIndex ? 'active' : ''}`}
+                    onClick={() => scrollToImage(index)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
