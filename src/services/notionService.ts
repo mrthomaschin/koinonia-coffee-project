@@ -36,7 +36,6 @@ export interface NotionInventoryItem {
   name: string;
   description: string;
   price: number;
-  images: string[];
   itemType: string;
   createdAt: string;
   quantity: number;

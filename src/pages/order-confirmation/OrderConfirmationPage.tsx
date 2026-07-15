@@ -196,7 +196,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   variations.push(cartItem.selections.size);
                 }
 
-                const imageUrl = cartItem.item.images && cartItem.item.images.length > 0 ? cartItem.item.images[0] : undefined;
+                const imageUrl = undefined;
                 logger.log(`📸 Item "${cartItem.item.name}" image:`, imageUrl);
 
                 return {

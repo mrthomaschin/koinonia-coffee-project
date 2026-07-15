@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Item, ItemType } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
@@ -51,48 +51,6 @@ export const ItemView: React.FC<ItemViewProps> = ({
   const item = itemProp || viewModelItem;
   const onBack = onBackProp || viewModelHandleBack;
 
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [lastInteractionTime, setLastInteractionTime] = useState(Date.now());
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const images = item?.images || [];
-
-  const scrollToIndex = (index: number) => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const imageWidth = container.offsetWidth;
-    container.scrollTo({
-      left: imageWidth * index,
-      behavior: 'smooth'
-    });
-  };
-
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % images.length);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [images.length, lastInteractionTime]);
-
-  useEffect(() => {
-    scrollToIndex(currentImageIndex);
-  }, [currentImageIndex]);
-
-  const handlePrevImage = () => {
-    setLastInteractionTime(Date.now());
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
-
-  const handleNextImage = () => {
-    setLastInteractionTime(Date.now());
-    setCurrentImageIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const handleDotClick = (index: number) => {
-    setLastInteractionTime(Date.now());
-    setCurrentImageIndex(index);
-  };
-
   if (!item) {
     return (
       <div className="shop-page" style={{ minHeight: availableHeight }}>
@@ -131,36 +89,13 @@ export const ItemView: React.FC<ItemViewProps> = ({
       <div className="detail-container">
         <div className="detail-image-section">
           <div className="carousel-container">
-            <div className="carousel-scroll-container" ref={scrollContainerRef}>
-              {images.map((image, index) => (
-                <img
-                  key={index}
-                  src={image}
-                  alt={`${item.name} - Image ${index + 1}`}
-                  className="detail-image"
-                />
-              ))}
+            <div className="carousel-scroll-container">
+              <img
+                src={ICONS.shopPlaceholder}
+                alt={item.name}
+                className="detail-image"
+              />
             </div>
-            {images.length > 1 && (
-              <>
-                <button className="carousel-button carousel-prev" onClick={handlePrevImage}>
-                  ‹
-                </button>
-                <button className="carousel-button carousel-next" onClick={handleNextImage}>
-                  ›
-                </button>
-                <div className="carousel-indicators">
-                  {images.map((_, index) => (
-                    <button
-                      key={index}
-                      className={`carousel-dot ${index === currentImageIndex ? 'active' : ''}`}
-                      onClick={() => handleDotClick(index)}
-                      aria-label={`Go to image ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
           </div>
         </div>
 
