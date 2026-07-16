@@ -17,7 +17,7 @@ export const ICONS = {
   secondary: '/assets/logos/koinoniacp_secondary-black.svg',
   instagramIcon: '/assets/icons/icons8-instagram-96.png',
   emailIcon: '/assets/icons/icons8-mail-50.svg',
-  heroImage: '/assets/images/DSCF3464.jpg',
+  heroImage: 'https://firebasestorage.googleapis.com/v0/b/koinonia-coffee-project.firebasestorage.app/o/products%2FDSCF3464.jpg?alt=media&token=c31db4d4-a0b4-41ac-ba33-81f729615366',
   shopPlaceholder: '/assets/images/shop_placeholder.png',
   v60: '/assets/icons/v60.png',
   chemex: '/assets/icons/chemex.png',

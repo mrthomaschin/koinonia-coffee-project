@@ -1,5 +1,5 @@
 import { Item, ItemType } from './item/ItemModel';
-import { sampleItems, setGlobalItems } from './shopData';
+import { sampleItems, setGlobalItems, getGlobalItems } from './shopData';
 import { notionService } from '../../services/notionService';
 import { convertNotionItemsToItems } from './notionItemMapper';
 import { createLogger } from '../../util/logger';
@@ -36,6 +36,13 @@ export class ShopViewModel {
         this._isLoading = false;
         this._error = null;
         this._useNotion = useNotion;
+
+        // Initialize with cached data immediately if available
+        const cachedItems = getGlobalItems();
+        if (cachedItems && cachedItems.length > 0) {
+            this._items = cachedItems;
+            logger.log(`Initialized with ${cachedItems.length} cached items`);
+        }
     }
 
     async loadInventory(): Promise<void> {
@@ -44,25 +51,37 @@ export class ShopViewModel {
             return;
         }
 
-        this._isLoading = true;
-        this._error = null;
+        // If we already have items from cache or initialization, just refresh in background
+        const hasInitialData = this._items.length > 0;
+        if (!hasInitialData) {
+            this._isLoading = true;
+            this._error = null;
+        }
 
+        // Always fetch fresh data in background
         try {
             const notionItems = await notionService.getInventory();
             if (!notionItems || notionItems.length === 0) {
                 logger.warn('Received empty inventory from Notion, falling back to sample data');
-                this._error = 'No inventory available. Using sample data.';
-                this._items = sampleItems;
+                if (!hasInitialData) {
+                    this._error = 'No inventory available. Using sample data.';
+                    this._items = sampleItems;
+                }
                 setGlobalItems(sampleItems);
             } else {
                 this._items = convertNotionItemsToItems(notionItems);
                 // Register items globally so item detail pages can find them
                 setGlobalItems(this._items);
+                this._error = null; // Clear any previous error
+                logger.log(`Refreshed with ${this._items.length} items from Notion`);
             }
         } catch (error) {
             logger.error('Failed to load inventory from Notion, falling back to sample data:', error);
-            this._error = 'Failed to load inventory. Using sample data.';
-            this._items = sampleItems;
+            // Only show error and update items if we don't have initial data
+            if (!hasInitialData) {
+                this._error = 'Failed to load inventory. Using sample data.';
+                this._items = sampleItems;
+            }
             setGlobalItems(sampleItems);
         } finally {
             this._isLoading = false;

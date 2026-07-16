@@ -19,6 +19,12 @@ import Menu from './pages/menu/Menu';
 import CartView from './pages/cart/CartView';
 import OrderConfirmationPage from './pages/order-confirmation/OrderConfirmationPage';
 import trackingService from './services/trackingService';
+import { getGlobalItems } from './pages/shop/shopData';
+import { notionService } from './services/notionService';
+import { convertNotionItemsToItems } from './pages/shop/notionItemMapper';
+import { createLogger } from './util/logger';
+
+const logger = createLogger('App');
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -144,6 +150,35 @@ const MainContent: React.FC = () => {
 const App: React.FC = () => {
   useEffect(() => {
     trackingService.initialize();
+  }, []);
+
+  useEffect(() => {
+    // Load inventory data immediately on app initialization if no cache exists
+    const loadInventoryImmediately = async () => {
+      try {
+        // Check if we already have cached data
+        const cachedItems = getGlobalItems();
+        if (cachedItems && cachedItems.length > 0) {
+          logger.log('Inventory already cached, skipping preload');
+          return;
+        }
+
+        logger.log('Loading inventory data immediately on app init...');
+        const notionItems = await notionService.getInventory();
+        if (notionItems && notionItems.length > 0) {
+          const items = convertNotionItemsToItems(notionItems);
+          // This will automatically cache the items via setGlobalItems
+          const { setGlobalItems } = await import('./pages/shop/shopData');
+          setGlobalItems(items);
+          logger.log(`Loaded ${items.length} inventory items - ready for instant shop access`);
+        }
+      } catch (error) {
+        logger.error('Failed to load inventory on app init:', error);
+        // Silently fail - shop will handle loading on its own
+      }
+    };
+
+    loadInventoryImmediately();
   }, []);
 
   return (

@@ -18,17 +18,12 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
   const [viewModel] = useState(() => new ShopViewModel());
   const [sortBy, setSortBy] = useState<SortBy>(viewModel.sortBy);
   const [filterBy, setFilterBy] = useState<FilterBy>(viewModel.filterBy);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [inventoryLoaded, setInventoryLoaded] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
-      setIsLoading(true);
       await viewModel.loadInventory();
-      setIsLoading(false);
       setError(viewModel.error);
-      setInventoryLoaded(true);
     };
     loadData();
   }, [viewModel]);
@@ -37,7 +32,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
     viewModel.sortBy = sortBy;
     viewModel.filterBy = filterBy;
     return viewModel.filteredAndSortedItems;
-  }, [viewModel, sortBy, filterBy, inventoryLoaded]);
+  }, [viewModel, sortBy, filterBy]);
 
   const handleItemClick = (item: Item) => {
     const slug = generateSlug(item.name);
@@ -53,26 +48,6 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
     setFilterBy(newFilterBy);
     viewModel.setFilterBy(newFilterBy);
   };
-
-  if (isLoading) {
-    return (
-      <div className="shop-page" style={{ minHeight: availableHeight }}>
-        <div className="shop-header">
-          <h1 className="shop-title">Products</h1>
-        </div>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-          fontSize: '18px',
-          color: '#666'
-        }}>
-          Loading items...
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="shop-page" style={{ minHeight: availableHeight }}>
