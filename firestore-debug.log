@@ -18,3 +18,5 @@ Dev App Server is now running.
 
 Jul 16, 2026 1:35:10 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
+*** shutting down gRPC server since JVM is shutting down
+*** server shut down

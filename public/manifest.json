@@ -1,0 +1,24 @@
+{
+  "name": "Koinonia Coffee Project",
+  "short_name": "Koinonia Coffee",
+  "description": "Cultivating community, one cup at a time.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2F2B39",
+  "theme_color": "#2F2B39",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/logos/logo_square.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/logos/logo_square.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
