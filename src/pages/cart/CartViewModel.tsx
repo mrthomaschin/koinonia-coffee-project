@@ -1,6 +1,7 @@
-import { Item } from "../shop/item/ItemModel";
+import { Item, ItemType } from "../shop/item/ItemModel";
 import { CoffeeBagWeight } from "../shop/item/coffee_bag/CoffeeBagItem";
 import trackingService from "../../services/trackingService";
+import { TaxCodes } from "../../constants/TaxCodes";
 
 export interface CartItemSelection {
     weight?: CoffeeBagWeight;
@@ -16,6 +17,7 @@ export interface CartItem {
     selections: CartItemSelection;
     variantPrice?: number;
     variantSku?: string;
+    taxCode?: string;
 }
 
 export class CartViewModel {
@@ -30,6 +32,23 @@ export class CartViewModel {
 
     getItemPrice(cartItem: CartItem): number {
         return cartItem.variantPrice ?? cartItem.item.price;
+    }
+
+    private getTaxCode(item: Item): string {
+        // Map item types to tax codes
+        switch (item.itemType) {
+            case ItemType.coffee:
+                return TaxCodes.COFFEE;
+            case ItemType.apparel:
+                return TaxCodes.APPAREL;
+            case ItemType.drinkware:
+                return TaxCodes.DRINKWARE;
+            case ItemType.accessories:
+            case ItemType.brewTools:
+            case ItemType.stickers:
+            default:
+                return TaxCodes.MERCH;
+        }
     }
 
     updateQuantity(index: number, newQuantity: number): void {
@@ -75,6 +94,7 @@ export class CartViewModel {
             this.cartItems[existingIndex].quantity = newQuantity;
             this.cartItems[existingIndex].variantPrice = variantPrice;
             this.cartItems[existingIndex].variantSku = variantSku;
+            this.cartItems[existingIndex].taxCode = this.getTaxCode(item);
             trackingService.trackAddToCart(
                 variantSku,
                 item.name,
@@ -87,7 +107,7 @@ export class CartViewModel {
                 return { success: false, message: `Only ${availableQuantity} available in stock` };
             }
 
-            this.cartItems.push({ item, quantity, selections, variantPrice, variantSku });
+            this.cartItems.push({ item, quantity, selections, variantPrice, variantSku, taxCode: this.getTaxCode(item) });
             trackingService.trackAddToCart(
                 variantSku,
                 item.name,

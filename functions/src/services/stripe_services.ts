@@ -56,6 +56,111 @@ export class StripeService {
         }
     }
 
+    static async calculateTax(req: Request, res: Response): Promise<void> {
+        try {
+            const { lineItems, currency = "usd", shippingAddress } = req.body;
+
+            logger.info("Calculating tax", { lineItems, currency, shippingAddress });
+
+            if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
+                res.status(400).json({ error: "Missing required fields: lineItems" });
+                return;
+            }
+
+            if (!shippingAddress) {
+                res.status(400).json({ error: "Missing required field: shippingAddress" });
+                return;
+            }
+
+            // Calculate total amount from line items
+            const totalAmount = lineItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+
+            // Try Stripe Tax API first with line items
+            try {
+                const stripeLineItems = lineItems.map((item: any) => ({
+                    amount: Math.round(item.amount),
+                    reference: item.reference || "product",
+                    tax_code: item.tax_code || "txcd_10000000", // Use tax code from line item
+                }));
+
+                const taxCalculation = await getStripe().tax.calculations.create({
+                    currency,
+                    line_items: stripeLineItems,
+                    customer_details: {
+                        address: {
+                            line1: shippingAddress.line1,
+                            line2: shippingAddress.line2 || "",
+                            city: shippingAddress.city,
+                            state: shippingAddress.state,
+                            postal_code: shippingAddress.postal_code,
+                            country: shippingAddress.country || "US",
+                        },
+                        address_source: "shipping",
+                    },
+                });
+
+                const taxAmount = taxCalculation.tax_amount_exclusive;
+                const totalWithTax = taxCalculation.amount_total;
+
+                logger.info("Tax calculated using Stripe Tax", {
+                    taxAmount,
+                    totalWithTax,
+                    taxBreakdown: taxCalculation.tax_breakdown,
+                    taxabilityReason: taxCalculation.tax_breakdown[0]?.taxability_reason
+                });
+
+                // Accept Stripe Tax result even if tax is 0 (could be legitimately exempt)
+                // Only fall back on actual API errors
+                res.json({
+                    taxAmount: taxAmount / 100,
+                    totalAmount: totalWithTax / 100,
+                    taxBreakdown: taxCalculation.tax_breakdown,
+                    source: 'stripe_tax',
+                });
+                return;
+            } catch (stripeTaxError) {
+                logger.warn("Stripe Tax API failed, using fallback rates", { error: (stripeTaxError as Error).message });
+            }
+
+            // Fallback tax calculation using state tax rates
+            const stateTaxRates: { [key: string]: number } = {
+                'AL': 0.04, 'AK': 0.00, 'AZ': 0.056, 'AR': 0.065, 'CA': 0.0725,
+                'CO': 0.029, 'CT': 0.0635, 'DE': 0.00, 'FL': 0.06, 'GA': 0.04,
+                'HI': 0.04, 'ID': 0.06, 'IL': 0.0625, 'IN': 0.07, 'IA': 0.06,
+                'KS': 0.065, 'KY': 0.06, 'LA': 0.0445, 'ME': 0.055, 'MD': 0.06,
+                'MA': 0.0625, 'MI': 0.06, 'MN': 0.06875, 'MS': 0.07, 'MO': 0.04225,
+                'MT': 0.00, 'NE': 0.055, 'NV': 0.0685, 'NH': 0.00, 'NJ': 0.06625,
+                'NM': 0.05125, 'NY': 0.04, 'NC': 0.0475, 'ND': 0.05, 'OH': 0.0575,
+                'OK': 0.045, 'OR': 0.00, 'PA': 0.06, 'RI': 0.07, 'SC': 0.06,
+                'SD': 0.045, 'TN': 0.07, 'TX': 0.0625, 'UT': 0.0595, 'VT': 0.06,
+                'VA': 0.053, 'WA': 0.065, 'WV': 0.06, 'WI': 0.05, 'WY': 0.04,
+                'DC': 0.06,
+            };
+
+            const state = shippingAddress.state?.toUpperCase() || 'CA';
+            const taxRate = stateTaxRates[state] || 0.0725;
+            const taxAmount = Math.round(totalAmount * taxRate);
+            const totalWithTax = totalAmount + taxAmount;
+
+            logger.info("Tax calculated using fallback rates", {
+                state,
+                taxRate,
+                taxAmount,
+                totalWithTax
+            });
+
+            res.json({
+                taxAmount: taxAmount / 100,
+                totalAmount: totalWithTax / 100,
+                taxRate: taxRate * 100,
+                source: 'fallback',
+            });
+        } catch (error: unknown) {
+            logger.error("Error calculating tax", { error: (error as Error).message });
+            res.status(500).json({ error: (error as Error).message });
+        }
+    }
+
     static async createCheckoutSession(req: Request, res: Response): Promise<void> {
         try {
             const { lineItems, successUrl, cancelUrl } = req.body;

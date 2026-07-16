@@ -54,8 +54,9 @@ export class EmailService {
         shippingAddress: string;
         trackingCarrier: string;
         trackingInfo: string;
+        estimatedDelivery?: string;
     }): Promise<void> {
-        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo } = params;
+        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo, estimatedDelivery } = params;
 
         // Generate tracking URL based on carrier
         let trackingUrl = "https://tools.usps.com/go/TrackConfirmAction";
@@ -79,7 +80,7 @@ export class EmailService {
                 carrier: trackingCarrier || "USPS",
                 tracking_info: trackingInfo || "Tracking information will be updated soon",
                 tracking_number: trackingInfo || "Available soon",
-                estimated_delivery: "3-5 business days",
+                estimated_delivery: estimatedDelivery || "3-5 business days",
                 tracking_url: trackingUrl,
             },
         };
@@ -298,11 +299,13 @@ export class EmailService {
 
                 // Check EasyPost shipment status instead of Notion fulfillment status
                 let easyPostStatus = 'unknown';
+                let estimatedDelivery = '';
                 if (shipmentId) {
                     const shipmentStatus = await getShipmentStatus(shipmentId);
                     if (shipmentStatus) {
                         easyPostStatus = shipmentStatus.status;
-                        logger.info(`EasyPost status for order ${orderId}: ${easyPostStatus}`);
+                        estimatedDelivery = shipmentStatus.estimatedDelivery || '';
+                        logger.info(`EasyPost status for order ${orderId}: ${easyPostStatus}, estimated delivery: ${estimatedDelivery}`);
                     }
                 }
 
@@ -323,6 +326,7 @@ export class EmailService {
                             shippingAddress,
                             trackingCarrier,
                             trackingInfo,
+                            estimatedDelivery,
                         });
 
                         // Mark shipped email as sent and update fulfillment status in Notion

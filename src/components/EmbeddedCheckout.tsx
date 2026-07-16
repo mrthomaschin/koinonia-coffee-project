@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import ShippingSelector, { ShippingOption, DEFAULT_SHIPPING_OPTIONS } from './ShippingSelector';
 import { mapEasyPostRates, filterAllowedServices } from '../util/EasyPostMapper';
 import { EasyPostRate } from '../models/ShippingModels';
+import { TaxCodes } from '../constants/TaxCodes';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
@@ -44,7 +45,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('shipping');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
-  const [shippingAddress, setShippingAddress] = useState<string>('');
+  const [taxAmount, setTaxAmount] = useState(0);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -54,6 +55,106 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
     };
   }, [debounceTimer]);
+
+  // Listen to element changes to get tax amount
+  useEffect(() => {
+    if (!elements) return;
+
+    const element = elements.getElement('payment');
+    if (!element) return;
+
+    const handleChange = (event: any) => {
+      if (event.value && event.value.taxAmount) {
+        setTaxAmount(event.value.taxAmount / 100); // Convert from cents to dollars
+      }
+    };
+
+    element.on('change', handleChange);
+
+    return () => {
+      element.off('change', handleChange);
+    };
+  }, [elements]);
+
+  // Calculate tax when shipping address changes
+  const calculateTaxForAddress = async (address: any) => {
+    if (!address || !address.line1 || !address.city || !address.state || !address.postal_code) {
+      setTaxAmount(0);
+      return;
+    }
+
+    try {
+      logger.log('[tax] Calculating tax for address', { address, totalAmount });
+
+      // Get cart items from localStorage to send proper line items with tax codes
+      const cartItemsStr = localStorage.getItem('checkout_cart_items');
+      let lineItems = [];
+
+      if (cartItemsStr) {
+        try {
+          const cartItems = JSON.parse(cartItemsStr);
+          lineItems = cartItems.map((item: any) => {
+            const price = item.variantPrice || item.item.price;
+            const amount = Math.round(price * 100); // Convert to cents
+
+            // Use pre-calculated tax code from cart item, fallback to default
+            const taxCode = item.taxCode || TaxCodes.DEFAULT;
+
+            return {
+              amount: amount * item.quantity,
+              reference: item.item.sku,
+              tax_code: taxCode,
+            };
+          });
+        } catch (e) {
+          logger.error('[tax] Error parsing cart items', e);
+        }
+      }
+
+      // Fallback to single line item if cart items not available
+      if (lineItems.length === 0) {
+        lineItems = [{
+          amount: Math.round(totalAmount * 100),
+          reference: 'order_total',
+          tax_code: TaxCodes.DEFAULT,
+        }];
+      }
+
+      const response = await fetch(`${backendUrl}/calculate-tax`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lineItems,
+          currency: 'usd',
+          shippingAddress: {
+            line1: address.line1,
+            line2: address.line2 || '',
+            city: address.city,
+            state: address.state,
+            postal_code: address.postal_code,
+            country: address.country || 'US',
+          },
+        }),
+      });
+
+      logger.log('[tax] Tax calculation response status', { status: response.status });
+
+      if (response.ok) {
+        const data = await response.json();
+        logger.log('[tax] Tax calculated successfully', { taxAmount: data.taxAmount, source: data.source });
+        setTaxAmount(data.taxAmount);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        logger.error('[tax] Tax calculation failed', { error: errorData });
+        setTaxAmount(0);
+      }
+    } catch (error) {
+      logger.error('[tax] Error calculating tax:', error);
+      setTaxAmount(0);
+    }
+  };
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -183,14 +284,19 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       const isAddressValid = validateAddress(address);
 
       if (!isAddressValid) {
-        setShippingOptions([]);
+        // Show default options only when address is explicitly invalid
+        setShippingOptions(DEFAULT_SHIPPING_OPTIONS);
         setIsLoadingShipping(false);
+        setTaxAmount(0);
         return;
       }
 
-      // Clear shipping options and show loading while waiting for API
-      setShippingOptions([]);
+      // Set loading state immediately to prevent message flicker
       setIsLoadingShipping(true);
+      setShippingOptions([]);
+
+      // Calculate tax for the address
+      await calculateTaxForAddress(address);
 
       // Clear any existing debounce timer
       if (debounceTimer) {
@@ -210,9 +316,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         clearTimeout(debounceTimer);
         setDebounceTimer(null);
       }
-      // Reset to default options when address is incomplete
-      setShippingOptions(DEFAULT_SHIPPING_OPTIONS);
+      // Clear options when address is incomplete (don't show defaults)
+      setShippingOptions([]);
       setIsLoadingShipping(false);
+      setTaxAmount(0);
     }
 
     if (onAddressChange) {
@@ -292,7 +399,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               ].filter(Boolean).join(', ');
 
               logger.log('[shipment] Formatted address', { formattedAddress });
-              setShippingAddress(formattedAddress);
 
               // Pass formatted address directly to avoid timing issues with state updates
               currentShippingAddress = formattedAddress;
@@ -374,7 +480,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     }
   };
 
-  const displayTotal = totalAmount + selectedShipping.price;
+  const displayTotal = totalAmount + selectedShipping.price + taxAmount;
 
   return (
     <form onSubmit={handleSubmit} className="embedded-checkout-form">
@@ -396,6 +502,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <div className="shipping-row">
             <span>Shipping:</span>
             <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
+          </div>
+          <div className="tax-row">
+            <span>Tax:</span>
+            <span>${taxAmount.toFixed(2)}</span>
           </div>
           <div className="total-row">
             <span>Total:</span>
@@ -461,6 +571,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
             onClick={() => {
               setDeliveryMethod('pickup');
+              setTaxAmount(0); // Reset tax for local pickup
               onShippingChange({ id: 'local-pickup', label: 'Local Pickup', price: 0, description: 'Pick up at our location - Free' });
             }}
           >
@@ -470,6 +581,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
             onClick={() => {
               setDeliveryMethod('shipping');
+              // Tax will be calculated when address is completed
             }}
           >
             <span>Shipping</span>
@@ -540,7 +652,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => void;
   onCancel: () => void;
 }
 
@@ -562,8 +674,9 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     // Handle address change if needed for parent component
   };
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any) => {
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData);
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => {
+    logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress);
   };
   const options = {
     clientSecret,

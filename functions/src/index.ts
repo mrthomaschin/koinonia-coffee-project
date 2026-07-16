@@ -149,6 +149,9 @@ app.options('*', cors({
 // Create Payment Intent for embedded checkout
 app.post("/create-payment-intent", StripeService.createPaymentIntent);
 
+// Calculate tax for embedded checkout
+app.post("/calculate-tax", StripeService.calculateTax);
+
 // Keep the existing checkout session endpoint for backward compatibility
 app.post("/create-checkout-session", StripeService.createCheckoutSession);
 

@@ -62,9 +62,9 @@ const ShippingSelector: React.FC<ShippingSelectorProps> = ({
     <div className="shipping-selector">
       <h3 className="shipping-title">Shipping Method</h3>
       {!showShippingOptions ? (
-        <div className="loading-shipping">Enter your shipping address to see shipping options</div>
+        <div key="enter-address" className="loading-shipping">Enter your shipping address to see shipping options</div>
       ) : isLoading ? (
-        <div className="loading-shipping">Loading shipping options...</div>
+        <div key="loading" className="loading-shipping">Loading shipping options...</div>
       ) : (
         <div className="shipping-options">
           {options.map((option: ShippingOption) => (

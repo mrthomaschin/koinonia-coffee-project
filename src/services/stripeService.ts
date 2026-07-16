@@ -75,6 +75,7 @@ class StripeService {
           lineItems,
           successUrl: `${window.location.origin}/order-confirmation?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/cart`,
+          automatic_tax: { enabled: true },
         }),
       });
 

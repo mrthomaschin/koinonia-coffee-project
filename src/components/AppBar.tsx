@@ -38,8 +38,56 @@ const AppBar: React.FC = () => {
 
         <div className="app-bar-spacer" />
 
+        <nav className="app-bar-nav-desktop">
+          {navItems.map(({ label, page }) => (
+            <div
+              key={page}
+              className="nav-item"
+              onMouseEnter={() => setHoveredItem(page)}
+              onMouseLeave={() => setHoveredItem(null)}
+              onClick={() => handleNavClick(page)}
+            >
+              <span className="nav-label">{label}</span>
+              <div
+                className="nav-underline"
+                style={{
+                  width: (currentPage === page || hoveredItem === page) ? '40px' : '0'
+                }}
+              />
+            </div>
+          ))}
+
+          <button
+            className="cart-icon-button"
+            onClick={() => handleNavClick(PAGES.CART)}
+            aria-label="Shopping Cart"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="9" cy="21" r="1" />
+              <circle cx="20" cy="21" r="1" />
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+            </svg>
+            {cartItemCount > 0 && (
+              <span className="cart-badge">{cartItemCount}</span>
+            )}
+          </button>
+
+          <button className="contact-us-button" onClick={() => handleNavClick(PAGES.CONTACT)}>
+            CONTACT US
+          </button>
+        </nav>
+
         <button
-          className="cart-icon-button"
+          className="cart-icon-button cart-icon-mobile"
           onClick={() => handleNavClick(PAGES.CART)}
           aria-label="Shopping Cart"
         >
@@ -61,30 +109,6 @@ const AppBar: React.FC = () => {
             <span className="cart-badge">{cartItemCount}</span>
           )}
         </button>
-
-        <nav className="app-bar-nav-desktop">
-          {navItems.map(({ label, page }) => (
-            <div
-              key={page}
-              className="nav-item"
-              onMouseEnter={() => setHoveredItem(page)}
-              onMouseLeave={() => setHoveredItem(null)}
-              onClick={() => handleNavClick(page)}
-            >
-              <span className="nav-label">{label}</span>
-              <div
-                className="nav-underline"
-                style={{
-                  width: (currentPage === page || hoveredItem === page) ? '40px' : '0'
-                }}
-              />
-            </div>
-          ))}
-
-          <button className="contact-us-button" onClick={() => handleNavClick(PAGES.CONTACT)}>
-            CONTACT US
-          </button>
-        </nav>
 
         <button
           className="app-bar-menu-button"

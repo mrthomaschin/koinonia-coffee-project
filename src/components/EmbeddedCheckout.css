@@ -68,6 +68,7 @@
 
 .subtotal-row,
 .shipping-row,
+.tax-row,
 .total-row {
   display: flex;
   justify-content: space-between;

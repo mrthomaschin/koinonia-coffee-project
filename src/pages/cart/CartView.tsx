@@ -111,6 +111,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         setIsLoadingCheckout(true);
         try {
             const totalAmount = subtotal;
+
+            // Store cart items for tax calculation in embedded checkout
+            localStorage.setItem('checkout_cart_items', JSON.stringify(viewModel.cartItems));
+
             const { clientSecret: secret } = await stripeService.createPaymentIntent(
                 totalAmount,
                 {
@@ -142,6 +146,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         shipmentData?: any,
         shippingAddress?: string
     ) => {
+        logger.log('CartView handleCheckoutSuccess called with shippingAddress:', shippingAddress);
         setShowCheckout(false);
         setClientSecret(null);
 

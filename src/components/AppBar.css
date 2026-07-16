@@ -133,6 +133,10 @@
   padding: 8px;
 }
 
+.cart-icon-mobile {
+  display: none;
+}
+
 .menu-icon {
   font-size: 28px;
   color: #2F2B39;
@@ -223,5 +227,9 @@
 
   .app-bar-menu-button {
     display: block;
+  }
+
+  .cart-icon-mobile {
+    display: flex;
   }
 }
