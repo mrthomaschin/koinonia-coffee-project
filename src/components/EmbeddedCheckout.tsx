@@ -499,7 +499,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <span>Subtotal:</span>
             <span>${totalAmount.toFixed(2)}</span>
           </div>
-          <div className="shipping-row">
+          <div className={`shipping-row ${deliveryMethod !== 'shipping' ? 'hidden' : ''}`}>
             <span>Shipping:</span>
             <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
           </div>
@@ -589,23 +589,25 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         </div>
       </div>
 
-      <div className={`shipping-sections-container ${deliveryMethod === 'shipping' ? 'expanded' : 'collapsed'}`}>
-        <div className="address-section">
-          <h3>Shipping Address</h3>
-          <AddressElement
-            options={{ mode: 'shipping' }}
-            onChange={handleAddressChange}
+      {deliveryMethod === 'shipping' && (
+        <div className="shipping-sections-container expanded">
+          <div className="address-section">
+            <h3>Shipping Address</h3>
+            <AddressElement
+              options={{ mode: 'shipping' }}
+              onChange={handleAddressChange}
+            />
+          </div>
+
+          <ShippingSelector
+            onShippingChange={onShippingChange}
+            selectedShipping={selectedShipping}
+            shippingOptions={shippingOptions}
+            isLoading={isLoadingShipping}
+            showShippingOptions={shippingAddressComplete}
           />
         </div>
-
-        <ShippingSelector
-          onShippingChange={onShippingChange}
-          selectedShipping={selectedShipping}
-          shippingOptions={shippingOptions}
-          isLoading={isLoadingShipping}
-          showShippingOptions={shippingAddressComplete}
-        />
-      </div>
+      )}
 
       <div className="address-section">
         <h3>Billing Address</h3>
