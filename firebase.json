@@ -21,7 +21,6 @@
     {
       "source": "functions",
       "codebase": "default",
-      "disallowLegacyRuntimeConfig": true,
       "ignore": [
         "node_modules",
         ".git",
@@ -32,7 +31,6 @@
         ".env.local"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" install --legacy-peer-deps",
         "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
