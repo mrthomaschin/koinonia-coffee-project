@@ -220,21 +220,9 @@ export class EmailService {
 
             const notion = getNotion();
 
-            // Query orders updated in the last 15 minutes
-            const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-
+            // Query all orders (filter in code to catch old deliveries)
             const response = await notion.databases.query({
                 database_id: databaseId,
-                filter: {
-                    and: [
-                        {
-                            timestamp: "last_edited_time",
-                            last_edited_time: {
-                                after: fifteenMinutesAgo,
-                            },
-                        },
-                    ],
-                },
             });
 
             logger.info(`Found ${response.results.length} recently updated orders`);

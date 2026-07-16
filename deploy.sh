@@ -112,11 +112,9 @@ deploy_frontend() {
     # Check environment configuration
     check_env_file
     
-    # Install dependencies if needed
-    if [ ! -d "node_modules" ]; then
-        print_info "Installing frontend dependencies..."
-        npm install
-    fi
+    # Install dependencies and sync lock file
+    print_info "Installing frontend dependencies and syncing lock file..."
+    npm install
     
     print_info "Building React app for production..."
     REACT_APP_BACKEND_URL=https://us-central1-koinonia-coffee-project.cloudfunctions.net/api npm run build
@@ -139,13 +137,11 @@ deploy_functions() {
     # Verify secrets before deploying functions
     verify_secrets
     
-    # Install dependencies if needed
-    if [ ! -d "functions/node_modules" ]; then
-        print_info "Installing functions dependencies..."
-        cd functions
-        npm install
-        cd ..
-    fi
+    # Install dependencies and sync lock file
+    print_info "Installing functions dependencies and syncing lock file..."
+    cd functions
+    npm install
+    cd ..
     
     print_info "Building TypeScript functions..."
     cd functions
@@ -183,18 +179,14 @@ deploy_all() {
     # Check environment configuration
     check_env_file
     
-    # Install all dependencies
-    if [ ! -d "node_modules" ]; then
-        print_info "Installing frontend dependencies..."
-        npm install
-    fi
+    # Install all dependencies and sync lock files
+    print_info "Installing frontend dependencies and syncing lock file..."
+    npm install
     
-    if [ ! -d "functions/node_modules" ]; then
-        print_info "Installing functions dependencies..."
-        cd functions
-        npm install
-        cd ..
-    fi
+    print_info "Installing functions dependencies and syncing lock file..."
+    cd functions
+    npm install
+    cd ..
     
     # Build functions first
     print_info "Building TypeScript functions..."

@@ -261,9 +261,9 @@ export const testOrderStatusCheck = onRequest(async (req: Request, res: Response
 });
 
 // Scheduled function to check for order status updates and send notifications
-// Runs every 10 minutes
+// Runs every 60 minutes
 const schedulerOptions: any = {
-  schedule: "every 10 minutes",
+  schedule: "every 60 minutes",
   timeZone: "America/Los_Angeles",
 };
 
