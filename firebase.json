@@ -32,7 +32,6 @@
         ".env.local"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" install --include=optional",
         "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
