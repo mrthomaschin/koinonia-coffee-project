@@ -46,12 +46,12 @@ if [ ! -f ".env.local" ]; then
 # This file overrides .env for local development
 
 # Stripe Publishable Key (use test key for local dev)
-REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_test_key_here
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_51TOWwb7JelEL98U2mLY4zaPXmuDGrALz1VcnRyR0fxSNmOjDGGyf1RoVP6mJTcUtHmfr9MLCptuiKcYAktzQQ5xu00s0gFfxTb
 
 # Backend URL - Local Firebase Functions Emulator
 REACT_APP_BACKEND_URL=http://127.0.0.1:5001/koinonia-coffee-project/us-central1/api
 EOF
-    print_warning "Please update .env.local with your Stripe test key!"
+    print_info "✓ Created .env.local with test Stripe key"
 fi
 
 # Check for functions/.env.local file (used by emulator)
