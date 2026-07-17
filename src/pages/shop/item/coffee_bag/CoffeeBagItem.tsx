@@ -42,7 +42,7 @@ export class CoffeeBagItem implements Item {
     createdAt: Date;
 
     shippingWeight?: number;
-    weights?: string[];
+    weights: string[];
     roastLevel: RoastLevel;
     origin: string;
     tastingNotes: string[];

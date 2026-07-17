@@ -14,7 +14,7 @@ interface CoffeeBagDetailProps {
 
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
-  // Convert weights string array to CoffeeBagWeight array for initial selection
+  // Convert string weights to CoffeeBagWeight enum for UI
   const availableWeights = (item.weights || [])
     .map(w => w === '200g' ? CoffeeBagWeight._200g : w === '5lb' ? CoffeeBagWeight._5lb : null)
     .filter((w): w is CoffeeBagWeight => w !== null);
@@ -122,7 +122,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
               <button
                 key={weight}
                 className={`weight-button ${selectedWeight === weight ? 'selected' : ''}`}
-                onClick={() => setSelectedWeight(weight as CoffeeBagWeight)}
+                onClick={() => setSelectedWeight(weight)}
               >
                 {weight}{(() => {
                   switch (weight) {

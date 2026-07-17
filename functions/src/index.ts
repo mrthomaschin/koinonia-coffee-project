@@ -321,6 +321,6 @@ export const syncInventoryCache = onSchedule(
 const apiOptions: any = {};
 // Only add secrets in production (not in emulator)
 if (process.env.FUNCTIONS_EMULATOR !== "true") {
-  apiOptions.secrets = ["EASYPOST_API_KEY"];
+  apiOptions.secrets = ["EASYPOST_API_KEY", "STRIPE_SECRET_KEY"];
 }
 export const api = onRequest(apiOptions, app);

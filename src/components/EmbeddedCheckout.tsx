@@ -36,6 +36,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(true);
+  const [elementsMounted, setElementsMounted] = useState({
+    shipping: false,
+    billing: false,
+    payment: false
+  });
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -63,7 +68,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   useEffect(() => {
     if (stripe && elements) {
       setStripeLoading(false);
-      logger.log('[stripe] Stripe and elements are ready');
+      logger.log('[stripe] Stripe and elements are ready', {
+        hasStripe: !!stripe,
+        hasElements: !!elements,
+        stripeKey: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY?.substring(0, 10) + '...'
+      });
     }
   }, [stripe, elements]);
 
@@ -677,8 +686,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <AddressElement
               options={{ mode: 'shipping' }}
               onChange={handleAddressChange}
-              onReady={() => logger.log('[stripe] Shipping address element ready')}
+              onReady={() => {
+                logger.log('[stripe] Shipping address element ready');
+                setElementsMounted(prev => ({ ...prev, shipping: true }));
+              }}
             />
+            {!elementsMounted.shipping && <div className="debug-info">Shipping address loading...</div>}
           </div>
 
           <ShippingSelector
@@ -695,8 +708,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         <h3>Billing Address</h3>
         <AddressElement
           options={{ mode: 'billing' }}
-          onReady={() => logger.log('[stripe] Billing address element ready')}
+          onReady={() => {
+            logger.log('[stripe] Billing address element ready');
+            setElementsMounted(prev => ({ ...prev, billing: true }));
+          }}
         />
+        {!elementsMounted.billing && <div className="debug-info">Billing address loading...</div>}
       </div>
 
       <div className="payment-element-container">
@@ -708,8 +725,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               }
             },
           }}
-          onReady={() => logger.log('[stripe] Payment element ready')}
+          onReady={() => {
+            logger.log('[stripe] Payment element ready');
+            setElementsMounted(prev => ({ ...prev, payment: true }));
+          }}
         />
+        {!elementsMounted.payment && <div className="debug-info">Payment element loading...</div>}
       </div>
 
       {errorMessage && (

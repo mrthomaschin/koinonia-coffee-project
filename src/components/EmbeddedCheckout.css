@@ -257,6 +257,16 @@
   text-align: center;
 }
 
+.debug-info {
+  padding: 0.5rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
 .checkout-actions {
   display: flex;
   gap: 1rem;
