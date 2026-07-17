@@ -12,6 +12,7 @@ export interface InventoryVariant {
     size?: string;
     color?: string;
     weight?: string;
+    shippingWeight?: number;
     quantity: number;
     price: number;
     isSoldOut?: boolean;
@@ -29,6 +30,8 @@ export interface Item {
     itemType: ItemType;
     createdAt: Date;
     quantity: number;
+    shippingWeight?: number;
+    weights?: string[];
     variants?: InventoryVariant[] | null;
     ltoEndDate?: Date | null;
     ltoUnlimitedPurchases?: boolean;

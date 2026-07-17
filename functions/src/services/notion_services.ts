@@ -141,6 +141,7 @@ export class NotionService {
             }
 
             const weights = properties["Weights"]?.multi_select?.map((w: any) => w.name) || [];
+            const shippingWeight = properties["Shipping Weight"]?.number || 0;
             const roastLevel = properties["Roast Level"]?.select?.name || "";
             const origin = properties["Origin"]?.rich_text?.[0]?.plain_text || "";
             const tastingNotes = properties["Tasting Notes"]?.multi_select?.map((n: any) => n.name) || [];
@@ -177,11 +178,15 @@ export class NotionService {
                         const ltoEndDate = variantProps["LTO End Date"]?.date?.start || null;
                         const ltoUnlimitedPurchases = variantProps["LTO Unlimited Purchases"]?.checkbox || false;
 
+                        // Use variant shipping weight from Notion, fallback to parent shipping weight
+                        const variantShippingWeight = variantProps["Shipping Weight"]?.number || shippingWeight || 200;
+
                         return {
                             sku: variantSku,
                             size: variantProps["Variant Size"]?.select?.name || "",
                             color: variantProps["Variant Color"]?.select?.name || "",
                             weight: variantProps["Variant Weight"]?.select?.name || "",
+                            shippingWeight: variantShippingWeight,
                             quantity: quantity,
                             price: variantProps["Price"]?.number || 0,
                             isSoldOut: quantity <= 0,
@@ -204,6 +209,7 @@ export class NotionService {
                 createdAt,
                 quantity,
                 weights,
+                shippingWeight,
                 roastLevel,
                 origin,
                 tastingNotes,

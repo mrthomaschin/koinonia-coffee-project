@@ -34,6 +34,7 @@ export interface InventoryVariant {
   size?: string;
   color?: string;
   weight?: string;
+  shippingWeight?: number;
   quantity: number;
   price: number;
   isSoldOut?: boolean;
@@ -51,6 +52,7 @@ export interface NotionInventoryItem {
   createdAt: string;
   quantity: number;
   // Coffee-specific
+  shippingWeight?: number;
   weights?: string[];
   roastLevel?: string;
   origin?: string;
@@ -141,22 +143,22 @@ class NotionService {
     logger.warn('updateFulfillmentStatus not yet implemented on backend');
   }
 
-  async getInventory(bypassCache: boolean = false): Promise<NotionInventoryItem[]> {
+  async getInventory(bypassCache: boolean = false, forceRefresh: boolean = false): Promise<NotionInventoryItem[]> {
     try {
       const cached = this.getCachedInventory();
-      if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS && !bypassCache) {
+      if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS && !bypassCache && !forceRefresh) {
         logger.log(`✅ Returning ${cached.items.length} inventory items from local cache`);
         return cached.items;
       }
 
-      // Clear local cache if bypassing
-      if (bypassCache) {
+      // Clear local cache if bypassing or forcing refresh
+      if (bypassCache || forceRefresh) {
         this.clearCachedInventory();
       }
 
       logger.log('📦 Fetching inventory from backend');
 
-      const response = await fetch(`${this.backendUrl}/get-inventory?bypass=${bypassCache}`, {
+      const response = await fetch(`${this.backendUrl}/get-inventory?bypass=${bypassCache ? 'true' : 'false'}&force=${forceRefresh ? 'true' : 'false'}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -183,6 +185,7 @@ class NotionService {
           quantity: item.quantity,
           hasVariants: hasVariants,
           itemType: item.itemType,
+          shippingWeight: item.shippingWeight,
         });
 
         // Log variant details if present

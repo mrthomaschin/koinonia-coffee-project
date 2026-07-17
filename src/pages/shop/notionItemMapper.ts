@@ -1,5 +1,5 @@
 import { Item, ItemType } from './item/ItemModel';
-import { CoffeeBagItem, CoffeeBagWeight, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
+import { CoffeeBagItem, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize } from './item/merch/MerchItem';
 import { NotionInventoryItem } from '../../services/notionService';
 
@@ -13,14 +13,6 @@ const mapItemType = (notionType: string): ItemType => {
     'Stickers': ItemType.stickers,
   };
   return typeMap[notionType] || ItemType.accessories;
-};
-
-const mapCoffeeBagWeight = (weightStr: string): CoffeeBagWeight | null => {
-  const weightMap: { [key: string]: CoffeeBagWeight } = {
-    '200g': CoffeeBagWeight._200g,
-    '5lb': CoffeeBagWeight._5lb,
-  };
-  return weightMap[weightStr] || null;
 };
 
 const mapRoastLevel = (roastStr: string): RoastLevel => {
@@ -57,9 +49,9 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
   }));
 
   if (itemType === ItemType.coffee) {
-    const weights = (notionItem.weights || [])
-      .map(mapCoffeeBagWeight)
-      .filter((w): w is CoffeeBagWeight => w !== null);
+    // Shipping weight is a number (grams) from Notion, fallback to 0 if not present
+    const shippingWeight = notionItem.shippingWeight || 0;
+    const weights = notionItem.weights || [];
 
     const roastLevel = mapRoastLevel(notionItem.roastLevel || 'Medium');
 
@@ -70,6 +62,7 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       notionItem.price,
       notionItem.firebaseImageUrls || [],
       createdAt,
+      shippingWeight,
       weights,
       roastLevel,
       notionItem.origin || '',
@@ -97,7 +90,8 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       notionItem.quantity,
       convertedVariants || null,
       ltoEndDate,
-      ltoUnlimitedPurchases
+      ltoUnlimitedPurchases,
+      notionItem.shippingWeight
     );
   }
 };

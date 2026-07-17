@@ -6,6 +6,7 @@ import ShippingSelector, { ShippingOption, DEFAULT_SHIPPING_OPTIONS } from './Sh
 import { mapEasyPostRates, filterAllowedServices } from '../util/EasyPostMapper';
 import { EasyPostRate } from '../models/ShippingModels';
 import { TaxCodes } from '../constants/TaxCodes';
+import { calculateParcel, formatParcelForEasyPost } from '../util/shipping';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
@@ -46,6 +47,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [taxAmount, setTaxAmount] = useState(0);
+  const [currentAddress, setCurrentAddress] = useState<any>(null);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -55,6 +57,29 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
     };
   }, [debounceTimer]);
+
+  // Recalculate shipping rates when cart items change and address is complete
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'checkout_cart_items' && currentAddress && shippingAddressComplete && deliveryMethod === 'shipping') {
+        logger.log('[shipping] Cart items changed (storage event), recalculating shipping rates');
+        fetchShippingRatesFromEasyPost(currentAddress);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAddress, shippingAddressComplete, deliveryMethod]);
+
+  // Recalculate shipping rates on mount if address is complete
+  useEffect(() => {
+    if (currentAddress && shippingAddressComplete && deliveryMethod === 'shipping') {
+      logger.log('[shipping] EmbeddedCheckout mounted, recalculating shipping rates');
+      fetchShippingRatesFromEasyPost(currentAddress);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen to element changes to get tax amount
   useEffect(() => {
@@ -219,12 +244,46 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         email: customerEmail || undefined,
       };
 
+      // Get cart items to calculate parcel dimensions and weight
+      let cartItems = [];
+      try {
+        const cartItemsStr = localStorage.getItem('checkout_cart_items');
+        if (cartItemsStr) {
+          cartItems = JSON.parse(cartItemsStr);
+        }
+      } catch (storageError) {
+        logger.error('[shipping] localStorage access failed (possibly Safari ITP):', storageError);
+      }
+
+      logger.log('[shipping] Cart items for parcel calculation:', {
+        cartItemsCount: cartItems.length,
+        cartItems: cartItems.map((item: any) => ({
+          sku: item.item?.sku,
+          variantSku: item.variantSku,
+          shippingWeight: item.item?.shippingWeight,
+          variants: item.item?.variants?.map((v: any) => ({
+            sku: v.sku,
+            shippingWeight: v.shippingWeight,
+          })),
+          quantity: item.quantity,
+        })),
+      });
+
+      // Calculate parcel based on cart items
+      const parcel = cartItems.length > 0 ? calculateParcel(cartItems) : null;
+      const formattedParcel = parcel ? formatParcelForEasyPost(parcel) : null;
+
+      logger.log('[shipping] Fetching rates with parcel data', {
+        hasCartItems: cartItems.length > 0,
+        parcel: formattedParcel,
+      });
+
       const response = await fetch(`${backendUrl}/get-shipping-rates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ toAddress }),
+        body: JSON.stringify({ toAddress, parcel: formattedParcel }),
       });
 
       if (!response.ok) {
@@ -290,6 +349,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         setTaxAmount(0);
         return;
       }
+
+      // Store current address for cart change recalculation
+      setCurrentAddress(address);
 
       // Set loading state immediately to prevent message flicker
       setIsLoadingShipping(true);

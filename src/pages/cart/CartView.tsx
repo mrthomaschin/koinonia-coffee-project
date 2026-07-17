@@ -126,7 +126,28 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
             // Store cart items for tax calculation in embedded checkout
             try {
-                localStorage.setItem('checkout_cart_items', JSON.stringify(viewModel.cartItems));
+                // Include item shippingWeight and variants array with shippingWeight for shipping calculation
+                const cartItemsWithVariants = viewModel.cartItems.map(item => ({
+                    ...item,
+                    item: {
+                        ...item.item,
+                        shippingWeight: item.item.shippingWeight,
+                        variants: item.item.variants?.map(v => ({
+                            sku: v.sku,
+                            shippingWeight: v.shippingWeight,
+                        })),
+                    },
+                }));
+                localStorage.setItem('checkout_cart_items', JSON.stringify(cartItemsWithVariants));
+                logger.log('[checkout] Stored cart items with shipping weights:', {
+                    items: cartItemsWithVariants.map(item => ({
+                        sku: item.item.sku,
+                        shippingWeight: item.item.shippingWeight,
+                        variantSku: item.variantSku,
+                        hasVariants: !!item.item.variants,
+                        quantity: item.quantity,
+                    })),
+                });
             } catch (storageError) {
                 logger.error('localStorage access failed (possibly Safari ITP):', storageError);
                 // Continue without localStorage - checkout will use fallback

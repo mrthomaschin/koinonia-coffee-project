@@ -26,8 +26,9 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
     const color = selectedColor || undefined;
 
     // Find the matching variant for the selected size/color
-    let variantSku = item.sku;
+    let variantSku: string | undefined = undefined;
     let variantPrice = item.price;
+    let variantShippingWeight: number | undefined = undefined;
 
     if (item.variants && item.variants.length > 0) {
       const variant = item.variants.find(v => {
@@ -38,6 +39,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
       if (variant) {
         variantSku = variant.sku;
         variantPrice = variant.price > 0 ? variant.price : item.price;
+        variantShippingWeight = variant.shippingWeight;
       }
     }
 
@@ -45,7 +47,8 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
       size,
       color,
       variantSku,
-      variantPrice
+      variantPrice,
+      variantShippingWeight
     });
     forceUpdate();
 

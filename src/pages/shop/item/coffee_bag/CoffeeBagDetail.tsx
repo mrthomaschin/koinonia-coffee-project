@@ -14,13 +14,18 @@ interface CoffeeBagDetailProps {
 
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
-  const [selectedWeight, setSelectedWeight] = useState<CoffeeBagWeight>(item.weight[0]);
+  // Convert weights string array to CoffeeBagWeight array for initial selection
+  const availableWeights = (item.weights || [])
+    .map(w => w === '200g' ? CoffeeBagWeight._200g : w === '5lb' ? CoffeeBagWeight._5lb : null)
+    .filter((w): w is CoffeeBagWeight => w !== null);
+  const [selectedWeight, setSelectedWeight] = useState<CoffeeBagWeight>(availableWeights[0] || CoffeeBagWeight._200g);
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddToCart = () => {
     // Find the matching variant for the selected weight
-    let variantSku = item.sku;
+    let variantSku: string | undefined = undefined;
     let variantPrice = item.price;
+    let variantShippingWeight: number | undefined = undefined;
 
     if (item.variants && item.variants.length > 0 && selectedWeight) {
       const weightStr = selectedWeight === CoffeeBagWeight._200g ? '200g' : '5lb';
@@ -28,13 +33,15 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       if (variant) {
         variantSku = variant.sku;
         variantPrice = variant.price > 0 ? variant.price : item.price;
+        variantShippingWeight = variant.shippingWeight;
       }
     }
 
     const result = cart.addItem(item, quantity, {
       weight: selectedWeight,
       variantSku,
-      variantPrice
+      variantPrice,
+      variantShippingWeight
     });
     forceUpdate();
 
@@ -104,7 +111,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       <div className="option-group">
         <label className="option-label">Weight</label>
         <div className="weight-options">
-          {Object.values(CoffeeBagWeight).filter(v => typeof v === 'number' && item.weight.includes(v)).map((weight) => {
+          {availableWeights.map((weight) => {
             const weightStr = weight === CoffeeBagWeight._200g ? '200g' : '5lb';
             const variant = item.variants?.find(v => v.weight === weightStr);
             // Only show weight if it has an active variant

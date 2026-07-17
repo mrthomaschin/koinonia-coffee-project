@@ -14,7 +14,7 @@ export enum RoastLevel {
 }
 
 export class CoffeeBagItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, firebaseImageUrls: string[], createdAt: Date, weight: CoffeeBagWeight[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean) {
+    constructor(id: string, name: string, description: string, price: number, firebaseImageUrls: string[], createdAt: Date, shippingWeight: number, weights: string[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean) {
         this.sku = id;
         this.name = name;
         this.description = description;
@@ -22,7 +22,8 @@ export class CoffeeBagItem implements Item {
         this.firebaseImageUrls = firebaseImageUrls;
         this.itemType = ItemType.coffee;
         this.createdAt = createdAt;
-        this.weight = weight;
+        this.shippingWeight = shippingWeight;
+        this.weights = weights;
         this.roastLevel = roastLevel;
         this.origin = origin;
         this.tastingNotes = tastingNotes;
@@ -40,7 +41,8 @@ export class CoffeeBagItem implements Item {
     itemType: ItemType;
     createdAt: Date;
 
-    weight: CoffeeBagWeight[];
+    shippingWeight?: number;
+    weights?: string[];
     roastLevel: RoastLevel;
     origin: string;
     tastingNotes: string[];

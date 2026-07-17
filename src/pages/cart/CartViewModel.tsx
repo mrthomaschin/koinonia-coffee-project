@@ -10,6 +10,7 @@ export interface CartItemSelection {
     color?: string;
     variantSku?: string;
     variantPrice?: number;
+    variantShippingWeight?: number;
 }
 
 export interface CartItem {
@@ -62,10 +63,18 @@ export class CartViewModel {
 
     addItem(item: Item, quantity: number = 1, selections: CartItemSelection = {}): { success: boolean; message: string } {
         // Use variant SKU and price from selections if provided (passed from detail page)
-        let variantSku = selections.variantSku || item.sku;
+        // Only set variantSku if there's an actual variant selection, not for non-variant items
+        let variantSku = selections.variantSku || undefined;
         let variantPrice = selections.variantPrice || item.price;
         let availableQuantity = item.quantity;
         let itemForLTOCheck = item;
+
+        console.log('[CartViewModel] addItem called:', {
+            itemSku: item.sku,
+            variantSku,
+            selections,
+            hasVariants: !!item.variants,
+        });
 
         // If variant SKU provided, get variant quantity and LTO properties
         if (selections.variantSku && item.variants && item.variants.length > 0) {
@@ -103,7 +112,7 @@ export class CartViewModel {
             this.cartItems[existingIndex].variantSku = variantSku;
             this.cartItems[existingIndex].taxCode = this.getTaxCode(item);
             trackingService.trackAddToCart(
-                variantSku,
+                variantSku || item.sku,
                 item.name,
                 variantPrice,
                 quantity
@@ -112,7 +121,7 @@ export class CartViewModel {
         } else {
             this.cartItems.push({ item, quantity, selections, variantPrice, variantSku, taxCode: this.getTaxCode(item) });
             trackingService.trackAddToCart(
-                variantSku,
+                variantSku || item.sku,
                 item.name,
                 variantPrice,
                 quantity
