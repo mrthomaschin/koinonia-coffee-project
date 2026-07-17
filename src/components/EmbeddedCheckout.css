@@ -5,6 +5,7 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
 }
 
 .embedded-checkout-form {
@@ -12,6 +13,7 @@
   flex-direction: column;
   gap: 1.5rem;
   position: relative;
+  overflow: visible;
 }
 
 .close-btn {
@@ -196,6 +198,8 @@
 
 .address-section {
   margin: 1.5rem 0;
+  min-height: 200px;
+  width: 100%;
 }
 
 .shipping-sections-container {
@@ -244,6 +248,15 @@
   font-size: 0.9rem;
 }
 
+.loading-message {
+  padding: 1rem;
+  background: #f0f0f0;
+  border-radius: 8px;
+  color: #666;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 .checkout-actions {
   display: flex;
   gap: 1rem;
@@ -284,6 +297,28 @@
 .pay-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Stripe Elements styling - Mobile fixes */
+.address-section,
+.payment-element-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5rem 0;
+}
+
+/* Ensure direct children have proper dimensions */
+.address-section > div,
+.payment-element-container > div {
+  width: 100%;
+}
+
+/* Only target iframes within our specific containers */
+.address-section iframe,
+.payment-element-container iframe {
+  width: 100%;
+  border: none;
+  display: block;
 }
 
 @media (max-width: 768px) {

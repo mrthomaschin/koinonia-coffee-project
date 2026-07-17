@@ -35,6 +35,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -57,6 +58,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
     };
   }, [debounceTimer]);
+
+  // Track when Stripe is ready
+  useEffect(() => {
+    if (stripe && elements) {
+      setStripeLoading(false);
+      logger.log('[stripe] Stripe and elements are ready');
+    }
+  }, [stripe, elements]);
 
   // Recalculate shipping rates when cart items change and address is complete
   useEffect(() => {
@@ -94,10 +103,16 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
     };
 
+    const handleReady = () => {
+      logger.log('[stripe] Payment element ready');
+    };
+
     element.on('change', handleChange);
+    element.on('ready', handleReady);
 
     return () => {
       element.off('change', handleChange);
+      element.off('ready', handleReady);
     };
   }, [elements]);
 
@@ -576,6 +591,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         </div>
       </div>
 
+      {stripeLoading && (
+        <div className="loading-message">Loading payment form...</div>
+      )}
+
       <div className="customer-info-section">
         <h3>Contact Information</h3>
         <div className="form-group">
@@ -658,6 +677,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <AddressElement
               options={{ mode: 'shipping' }}
               onChange={handleAddressChange}
+              onReady={() => logger.log('[stripe] Shipping address element ready')}
             />
           </div>
 
@@ -673,19 +693,24 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       <div className="address-section">
         <h3>Billing Address</h3>
-        <AddressElement options={{ mode: 'billing' }} />
+        <AddressElement
+          options={{ mode: 'billing' }}
+          onReady={() => logger.log('[stripe] Billing address element ready')}
+        />
       </div>
 
-      <PaymentElement
-        options={{
-          fields: {
-            billingDetails: {
-              address: 'never',
-            }
-          },
-          paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
-        }}
-      />
+      <div className="payment-element-container">
+        <PaymentElement
+          options={{
+            fields: {
+              billingDetails: {
+                address: 'never',
+              }
+            },
+          }}
+          onReady={() => logger.log('[stripe] Payment element ready')}
+        />
+      </div>
 
       {errorMessage && (
         <div className="error-message">
@@ -755,6 +780,16 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
         fontFamily: 'system-ui, sans-serif',
         spacingUnit: '4px',
         borderRadius: '8px',
+        fontSizeBase: '16px',
+      },
+      rules: {
+        '.Input': {
+          fontSize: '16px',
+          padding: '12px',
+        },
+        '.Label': {
+          fontSize: '14px',
+        },
       },
     },
   };
