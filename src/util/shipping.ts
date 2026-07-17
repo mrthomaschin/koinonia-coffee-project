@@ -37,14 +37,14 @@ const BOX_SIZES = {
         length: 6,
         width: 4,
         height: 2,
-        maxWeightOunces: 16, // 1 lb
+        maxWeightOunces: 12, // Fits 1 bag of coffee snug (7 oz + 4 oz box)
         boxWeightOunces: 4, // ~113g box weight
     },
     MEDIUM: {
         length: 8,
         width: 6,
         height: 3,
-        maxWeightOunces: 48, // 3 lbs - fits multiple 200g bags
+        maxWeightOunces: 28, // Fits 3 bags of coffee snug (21 oz + 6 oz box)
         boxWeightOunces: 6, // ~170g box weight
     },
     LARGE: {
