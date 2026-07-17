@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getItemBySlug } from '../shopData';
 import { Item } from './ItemModel';
 import { CartViewModel } from '../../cart/CartViewModel';
 import { createLogger } from '../../../util/logger';

@@ -15,6 +15,9 @@ export interface InventoryVariant {
     quantity: number;
     price: number;
     isSoldOut?: boolean;
+    active?: boolean;
+    ltoEndDate?: Date | null;
+    ltoUnlimitedPurchases?: boolean;
 }
 
 export interface Item {
@@ -27,4 +30,6 @@ export interface Item {
     createdAt: Date;
     quantity: number;
     variants?: InventoryVariant[] | null;
+    ltoEndDate?: Date | null;
+    ltoUnlimitedPurchases?: boolean;
 }

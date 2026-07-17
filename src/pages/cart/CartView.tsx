@@ -9,6 +9,7 @@ import EmbeddedCheckout from '../../components/EmbeddedCheckout';
 import { ShippingOption } from '../../components/ShippingSelector';
 import './Cart.css';
 import { createLogger } from '../../util/logger';
+import { allowsUnlimitedPurchases } from '../../util/limitedTimeOffer';
 
 const logger = createLogger('CartView');
 
@@ -63,7 +64,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         availableQuantity = variant.quantity;
                     }
                 }
-                if (newQuantity > 0 && newQuantity > availableQuantity && availableQuantity > 0) {
+                // Only validate stock if trying to increase quantity (and not removing item)
+                if (newQuantity > cartItem.quantity && newQuantity > availableQuantity && !allowsUnlimitedPurchases(cartItem.item)) {
                     showToast(`${cartItem.item.name}: Only ${availableQuantity} available in stock`, 'error');
                     hasErrors = true;
                 } else {
@@ -101,6 +103,16 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const handleContinueShopping = useCallback(() => {
         navigate('/shop');
     }, [navigate]);
+
+    const handleClearCart = useCallback(() => {
+        if (window.confirm('Are you sure you want to clear your cart?')) {
+            viewModel.clearCart();
+            setPendingQuantities({});
+            setUpdateTrigger(prev => prev + 1);
+            forceUpdate();
+            showToast('Cart cleared', 'success');
+        }
+    }, [viewModel, forceUpdate, showToast]);
 
     const handleCheckout = useCallback(async () => {
         if (hasAnyChanges) {
@@ -324,6 +336,12 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                                 Update Cart
                             </button>
                         )}
+                        <button
+                            className="clear-cart-btn"
+                            onClick={handleClearCart}
+                        >
+                            Clear Cart
+                        </button>
                         <button
                             className="checkout-btn"
                             onClick={handleCheckout}

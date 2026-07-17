@@ -75,12 +75,6 @@ export class NotionService {
 
         const response = await notion.databases.query({
             database_id: databaseId,
-            filter: {
-                property: "Active",
-                checkbox: {
-                    equals: true,
-                },
-            },
             sorts: [
                 {
                     property: "Index",
@@ -112,7 +106,9 @@ export class NotionService {
                 }
                 variants.get(parentSKU)!.push(properties);
             } else if (!isVariant) {
-                if (sku) {
+                // Only include parent items that are active
+                const isActive = properties["Active"]?.checkbox !== false;
+                if (sku && isActive) {
                     parentItems.set(sku, properties);
                 }
             }
@@ -150,26 +146,52 @@ export class NotionService {
             const tastingNotes = properties["Tasting Notes"]?.multi_select?.map((n: any) => n.name) || [];
             const sizes = properties["Sizes"]?.multi_select?.map((s: any) => s.name) || [];
             const colors = properties["Colors"]?.multi_select?.map((c: any) => c.name) || [];
+            const ltoEndDate = properties["LTO End Date"]?.date?.start || null;
+            const ltoUnlimitedPurchases = properties["LTO Unlimited Purchases"]?.checkbox || false;
 
             const itemVariants = variants.get(sku);
             let variantInventory = null;
 
             if (itemVariants && itemVariants.length > 0) {
-                variantInventory = itemVariants.map((variantProps: any) => {
-                    // Quantity is always a formula that returns a number
-                    const quantity = variantProps["Quantity"]?.formula?.number || 0;
-                    const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
-
-                    return {
-                        sku: variantSku,
-                        size: variantProps["Variant Size"]?.select?.name || "",
-                        color: variantProps["Variant Color"]?.select?.name || "",
-                        weight: variantProps["Variant Weight"]?.select?.name || "",
-                        quantity: quantity,
-                        price: variantProps["Price"]?.number || 0,
-                        isSoldOut: quantity <= 0,
-                    };
+                logger.info(`📦 Variants for ${name} (${sku})`, {
+                    totalVariants: itemVariants.length,
+                    variants: itemVariants.map((v: any) => ({
+                        sku: v["SKU"]?.rich_text?.[0]?.plain_text,
+                        weight: v["Variant Weight"]?.select?.name,
+                        active: v["Active"]?.checkbox
+                    }))
                 });
+
+                variantInventory = itemVariants
+                    .filter((variantProps: any) => {
+                        const active = variantProps["Active"]?.checkbox !== false;
+                        const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+                        const variantWeight = variantProps["Variant Weight"]?.select?.name || "";
+                        logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, keep=${active}`);
+                        return active;
+                    })
+                    .map((variantProps: any) => {
+                        // Quantity is always a formula that returns a number
+                        const quantity = variantProps["Quantity"]?.formula?.number || 0;
+                        const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+                        const ltoEndDate = variantProps["LTO End Date"]?.date?.start || null;
+                        const ltoUnlimitedPurchases = variantProps["LTO Unlimited Purchases"]?.checkbox || false;
+
+                        return {
+                            sku: variantSku,
+                            size: variantProps["Variant Size"]?.select?.name || "",
+                            color: variantProps["Variant Color"]?.select?.name || "",
+                            weight: variantProps["Variant Weight"]?.select?.name || "",
+                            quantity: quantity,
+                            price: variantProps["Price"]?.number || 0,
+                            isSoldOut: quantity <= 0,
+                            active: variantProps["Active"]?.checkbox !== false,
+                            ltoEndDate,
+                            ltoUnlimitedPurchases,
+                        };
+                    });
+
+                logger.info(`✅ Filtered variants for ${name}: ${variantInventory?.length || 0} active variants`);
             }
 
             return {
@@ -188,6 +210,8 @@ export class NotionService {
                 sizes,
                 colors,
                 variants: variantInventory,
+                ltoEndDate,
+                ltoUnlimitedPurchases,
             };
         }).filter((item: any) => item !== null);
 

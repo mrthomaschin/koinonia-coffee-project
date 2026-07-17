@@ -5,6 +5,7 @@ import { useCart } from '../../../../contexts/CartContext';
 import { getCoffeeDataById } from './CoffeeData';
 import './CoffeeBagDetail.css';
 import { ItemType } from '../ItemModel';
+import { allowsUnlimitedPurchases } from '../../../../util/limitedTimeOffer';
 
 interface CoffeeBagDetailProps {
   item: CoffeeBagItem;
@@ -59,17 +60,17 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   };
 
   const isSoldOut = () => {
-    // If variants exist, check the selected variant's isSoldOut flag
+    // If variants exist, check the selected variant's isSoldOut flag (unless LTO unlimited purchases is enabled)
     if (item.variants && item.variants.length > 0 && selectedWeight) {
       const weightStr = selectedWeight === CoffeeBagWeight._200g ? '200g' : '5lb';
       const variant = item.variants.find(v => v.weight === weightStr);
       if (variant) {
-        return variant.isSoldOut === true;
+        return variant.isSoldOut === true && !allowsUnlimitedPurchases(item);
       }
     }
 
-    // Fall back to overall item quantity
-    return item.quantity === 0;
+    // Fall back to overall item quantity (unless LTO unlimited purchases is enabled)
+    return item.quantity === 0 && !allowsUnlimitedPurchases(item);
   };
 
   const renderMetadata = (coffeeItem: CoffeeBagItem) => (
@@ -103,24 +104,32 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       <div className="option-group">
         <label className="option-label">Weight</label>
         <div className="weight-options">
-          {Object.values(CoffeeBagWeight).filter(v => typeof v === 'number' && item.weight.includes(v)).map((weight) => (
-            <button
-              key={weight}
-              className={`weight-button ${selectedWeight === weight ? 'selected' : ''}`}
-              onClick={() => setSelectedWeight(weight as CoffeeBagWeight)}
-            >
-              {weight}{(() => {
-                switch (weight) {
-                  case CoffeeBagWeight._200g:
-                    return 'g';
-                  case CoffeeBagWeight._5lb:
-                    return 'lb';
-                  default:
-                    return '';
-                }
-              })()}
-            </button>
-          ))}
+          {Object.values(CoffeeBagWeight).filter(v => typeof v === 'number' && item.weight.includes(v)).map((weight) => {
+            const weightStr = weight === CoffeeBagWeight._200g ? '200g' : '5lb';
+            const variant = item.variants?.find(v => v.weight === weightStr);
+            // Only show weight if it has an active variant
+            if (!variant || variant.active === false) {
+              return null;
+            }
+            return (
+              <button
+                key={weight}
+                className={`weight-button ${selectedWeight === weight ? 'selected' : ''}`}
+                onClick={() => setSelectedWeight(weight as CoffeeBagWeight)}
+              >
+                {weight}{(() => {
+                  switch (weight) {
+                    case CoffeeBagWeight._200g:
+                      return 'g';
+                    case CoffeeBagWeight._5lb:
+                      return 'lb';
+                    default:
+                      return '';
+                  }
+                })()}
+              </button>
+            );
+          })}
         </div>
       </div>
 

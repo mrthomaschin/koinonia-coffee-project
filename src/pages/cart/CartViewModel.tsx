@@ -2,6 +2,7 @@ import { Item, ItemType } from "../shop/item/ItemModel";
 import { CoffeeBagWeight } from "../shop/item/coffee_bag/CoffeeBagItem";
 import trackingService from "../../services/trackingService";
 import { TaxCodes } from "../../constants/TaxCodes";
+import { allowsUnlimitedPurchases } from "../../util/limitedTimeOffer";
 
 export interface CartItemSelection {
     weight?: CoffeeBagWeight;
@@ -63,31 +64,37 @@ export class CartViewModel {
         // Use variant SKU and price from selections if provided (passed from detail page)
         let variantSku = selections.variantSku || item.sku;
         let variantPrice = selections.variantPrice || item.price;
-
-        // For stock checking: if variant SKU provided, try to find variant quantity, otherwise use parent quantity
         let availableQuantity = item.quantity;
+        let itemForLTOCheck = item;
+
+        // If variant SKU provided, get variant quantity and LTO properties
         if (selections.variantSku && item.variants && item.variants.length > 0) {
             const variant = item.variants.find(v => v.sku === selections.variantSku);
             if (variant) {
                 availableQuantity = variant.quantity;
+                itemForLTOCheck = variant as Item;
             }
         }
 
-        // Only check stock if we have a quantity requirement (parent items might have 0 quantity)
-        // Variants are assumed to be in stock if they're being added
-        if (!selections.variantSku && availableQuantity === 0) {
-            return { success: false, message: 'Item is out of stock' };
+        // Check stock limits only if unlimited purchases is not enabled
+        if (!allowsUnlimitedPurchases(itemForLTOCheck)) {
+            if (availableQuantity === 0) {
+                return { success: false, message: 'Item is out of stock' };
+            }
+            if (quantity > availableQuantity) {
+                return { success: false, message: `Only ${availableQuantity} available in stock` };
+            }
         }
 
         const existingIndex = this.cartItems.findIndex(
-            ci => ci.item.sku === variantSku &&
+            ci => ci.variantSku === variantSku &&
                 JSON.stringify(ci.selections) === JSON.stringify(selections)
         );
 
         if (existingIndex >= 0) {
             const newQuantity = this.cartItems[existingIndex].quantity + quantity;
 
-            if (newQuantity > availableQuantity && availableQuantity > 0) {
+            if (!allowsUnlimitedPurchases(itemForLTOCheck) && newQuantity > availableQuantity) {
                 return { success: false, message: `Only ${availableQuantity} available in stock` };
             }
 
@@ -103,10 +110,6 @@ export class CartViewModel {
             );
             return { success: true, message: 'Quantity updated in cart' };
         } else {
-            if (quantity > availableQuantity && availableQuantity > 0) {
-                return { success: false, message: `Only ${availableQuantity} available in stock` };
-            }
-
             this.cartItems.push({ item, quantity, selections, variantPrice, variantSku, taxCode: this.getTaxCode(item) });
             trackingService.trackAddToCart(
                 variantSku,
@@ -133,5 +136,9 @@ export class CartViewModel {
 
     getTotalItems(): number {
         return this.cartItems.reduce((total, cartItem) => total + cartItem.quantity, 0);
+    }
+
+    clearCart(): void {
+        this.cartItems = [];
     }
 }

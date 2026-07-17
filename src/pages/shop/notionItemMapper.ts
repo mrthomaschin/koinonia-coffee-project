@@ -47,6 +47,14 @@ const mapMerchSize = (sizeStr: string): MerchSize | null => {
 export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item | null => {
   const itemType = mapItemType(notionItem.itemType);
   const createdAt = new Date(notionItem.createdAt);
+  const ltoEndDate = notionItem.ltoEndDate ? new Date(notionItem.ltoEndDate) : null;
+  const ltoUnlimitedPurchases = notionItem.ltoUnlimitedPurchases || false;
+
+  // Convert variant LTO date strings to Date objects
+  const convertedVariants = notionItem.variants?.map((variant: any) => ({
+    ...variant,
+    ltoEndDate: variant.ltoEndDate ? new Date(variant.ltoEndDate) : null,
+  }));
 
   if (itemType === ItemType.coffee) {
     const weights = (notionItem.weights || [])
@@ -67,7 +75,9 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       notionItem.origin || '',
       notionItem.tastingNotes || [],
       notionItem.quantity,
-      notionItem.variants
+      convertedVariants || null,
+      ltoEndDate,
+      ltoUnlimitedPurchases
     );
   } else {
     const sizes = (notionItem.sizes || [])
@@ -85,7 +95,9 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       sizes,
       notionItem.colors || [],
       notionItem.quantity,
-      notionItem.variants
+      convertedVariants || null,
+      ltoEndDate,
+      ltoUnlimitedPurchases
     );
   }
 };

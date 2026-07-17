@@ -8,6 +8,7 @@ import MerchDetail from './merch/MerchDetail';
 import './ItemView.css';
 import { useCart } from '../../../contexts/CartContext';
 import { ICONS } from '../../../util/constants';
+import { isLimitedTimeOfferAvailable, allowsUnlimitedPurchases } from '../../../util/limitedTimeOffer';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -109,6 +110,44 @@ export const ItemView: React.FC<ItemViewProps> = ({
       const newIndex = Math.round(scrollPosition / containerWidth);
       setCurrentImageIndex(newIndex);
     }
+  };
+
+  const getPurchaseStatus = (): { isSoldOut: boolean; buttonText: string } => {
+    if (!item) {
+      return {
+        isSoldOut: true,
+        buttonText: 'Sold Out',
+      };
+    }
+
+    if (isSoldOut !== undefined) {
+      return {
+        isSoldOut,
+        buttonText: isSoldOut ? 'Sold Out' : 'Add to Cart',
+      };
+    }
+
+    if (!isLimitedTimeOfferAvailable(item)) {
+      return {
+        isSoldOut: true,
+        buttonText: 'Offer Ended',
+      };
+    }
+
+    // If unlimited purchases is enabled, item is always available regardless of inventory
+    if (allowsUnlimitedPurchases(item)) {
+      return {
+        isSoldOut: false,
+        buttonText: 'Add to Cart',
+      };
+    }
+
+    // Otherwise, check inventory normally
+    const isOutOfStock = item.quantity <= 0;
+    return {
+      isSoldOut: isOutOfStock,
+      buttonText: isOutOfStock ? 'Sold Out' : 'Add to Cart',
+    };
   };
 
   if (!item) {
@@ -217,11 +256,11 @@ export const ItemView: React.FC<ItemViewProps> = ({
               <span className="detail-price">${(calculatePrice || defaultCalculatePrice)()}</span>
             </div>
             <button
-              className={`detail-add-to-cart ${isSoldOut !== undefined ? (isSoldOut ? 'out-of-stock' : '') : (item.quantity === 0 ? 'out-of-stock' : '')}`}
+              className={`detail-add-to-cart ${getPurchaseStatus().isSoldOut ? 'out-of-stock' : ''}`}
               onClick={handleAddToCart || defaultHandleAddToCart}
-              disabled={isSoldOut !== undefined ? isSoldOut : item.quantity === 0}
+              disabled={getPurchaseStatus().isSoldOut}
             >
-              {isSoldOut !== undefined ? (isSoldOut ? 'Sold Out' : 'Add to Cart') : (item.quantity === 0 ? 'Sold Out' : 'Add to Cart')}
+              {getPurchaseStatus().buttonText}
             </button>
           </div>
         </div>

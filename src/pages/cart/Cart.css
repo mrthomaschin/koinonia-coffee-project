@@ -310,6 +310,26 @@
     border-color: #2F2B39;
 }
 
+.clear-cart-btn {
+    background-color: transparent;
+    color: #8B3A3A;
+    border: 1px solid #D4A5A5;
+    padding: 13px 32px;
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 1px;
+}
+
+.clear-cart-btn:hover {
+    background-color: #8B3A3A;
+    color: #FFFFFF;
+    border-color: #8B3A3A;
+}
+
 .checkout-btn {
     background-color: #2F2B39;
     color: #FFFFFF;
@@ -362,6 +382,7 @@
     }
 
     .continue-shopping-btn-secondary,
+    .clear-cart-btn,
     .checkout-btn {
         width: 100%;
     }

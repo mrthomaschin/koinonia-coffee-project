@@ -37,6 +37,8 @@ export interface InventoryVariant {
   quantity: number;
   price: number;
   isSoldOut?: boolean;
+  ltoEndDate?: string | null;
+  ltoUnlimitedPurchases?: boolean;
 }
 
 export interface NotionInventoryItem {
@@ -58,6 +60,9 @@ export interface NotionInventoryItem {
   colors?: string[];
   // Variant inventory (for size/color/weight specific stock tracking)
   variants?: InventoryVariant[] | null;
+  // Limited Time Offer
+  ltoEndDate?: string | null;
+  ltoUnlimitedPurchases?: boolean;
 }
 
 interface CachedInventory {
