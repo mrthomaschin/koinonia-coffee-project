@@ -153,6 +153,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 // Continue without localStorage - checkout will use fallback
             }
 
+            // Clear any existing clientSecret to force fresh PaymentIntent
+            setClientSecret(null);
+
             logger.log('[checkout] Calling createPaymentIntent with amount:', totalAmount);
             const { clientSecret: secret } = await stripeService.createPaymentIntent(
                 totalAmount,
