@@ -67,23 +67,23 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
     if (item.variants && item.variants.length > 0) {
       const size = selectedSize ? MerchSize[selectedSize] : undefined;
       const color = selectedColor || undefined;
-      logger.log('Merch isSoldOut check:', {
-        itemName: item.name,
-        selectedSize,
-        selectedColor,
-        sizeMatch: size,
-        colorMatch: color,
-        allVariants: item.variants
-      });
+
       const variant = item.variants.find(v => {
         const sizeMatch = !size || v.size === size;
         const colorMatch = !color || v.color === color;
         return sizeMatch && colorMatch;
       });
-      logger.log('Found variant:', variant);
+
       if (variant) {
-        return variant.isSoldOut === true;
+        // Check if variant is explicitly sold out OR has quantity of 0
+        return variant.isSoldOut === true || variant.quantity === 0;
       }
+
+      // If no matching variant found, check if ANY variant is available
+      const hasAvailableVariant = item.variants.some(v =>
+        v.isSoldOut !== true && v.quantity > 0
+      );
+      return !hasAvailableVariant;
     }
 
     // Fall back to overall item quantity

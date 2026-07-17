@@ -1,16 +1,25 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getItemBySlug } from '../shopData';
 import { Item } from './ItemModel';
 import { CartViewModel } from '../../cart/CartViewModel';
 import { createLogger } from '../../../util/logger';
+import { useInventory } from '../../../contexts/InventoryContext';
+import { generateSlug } from '../shopData';
 
 const logger = createLogger('ItemViewModel');
 
 export const useItemDetailViewModel = (itemProp?: Item, cart?: CartViewModel) => {
     const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
-    const routedItem = slug ? getItemBySlug(slug) : undefined;
+    const { items } = useInventory();
+
+    // Look up item by slug using inventory context items
+    const routedItem = useMemo(() => {
+        if (!slug) return undefined;
+        return items.find(item => generateSlug(item.name) === slug);
+    }, [slug, items]);
+
     const item = itemProp || routedItem;
 
     const [isDetailsDropdownOpen, setIsDetailsDropdownOpen] = useState(false);

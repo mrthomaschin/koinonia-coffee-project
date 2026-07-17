@@ -21,12 +21,22 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const preloadImages = (items: Item[]) => {
+    items.forEach(item => {
+      if (item.firebaseImageUrls && item.firebaseImageUrls.length > 0) {
+        const img = new Image();
+        img.src = item.firebaseImageUrls[0];
+      }
+    });
+  };
+
   const loadInventory = async () => {
     try {
       // Try cache first for instant display
       const cachedItems = getGlobalItems();
       if (cachedItems && cachedItems.length > 0) {
         setItems(cachedItems);
+        preloadImages(cachedItems);
         logger.log(`Loaded ${cachedItems.length} items from cache`);
       }
 
@@ -36,17 +46,19 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const convertedItems = convertNotionItemsToItems(notionItems);
         setItems(convertedItems);
         setGlobalItems(convertedItems);
+        preloadImages(convertedItems);
         logger.log(`Refreshed with ${convertedItems.length} items from Notion`);
       }
       setError(null);
     } catch (err) {
       logger.error('Failed to load inventory:', err);
       setError('Failed to load inventory');
-      
+
       // Fallback to cached items if available
       const cachedItems = getGlobalItems();
       if (cachedItems && cachedItems.length > 0) {
         setItems(cachedItems);
+        preloadImages(cachedItems);
       }
     } finally {
       setIsLoading(false);

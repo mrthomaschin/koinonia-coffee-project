@@ -15,11 +15,15 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
   renderExtraDetails,
   renderTags
 }) => {
+  const imageUrl = item.firebaseImageUrls && item.firebaseImageUrls.length > 0
+    ? item.firebaseImageUrls[0]
+    : "/assets/images/shop_placeholder.png";
+
   return (
     <div className="item-preview" onClick={() => onClick(item)}>
       <div className="preview-image-container">
         <img
-          src={item.firebaseImageUrls && item.firebaseImageUrls.length > 0 ? item.firebaseImageUrls[0] : "/assets/images/shop_placeholder.png"}
+          src={imageUrl}
           alt={item.name}
           className="preview-image"
           loading="lazy"
