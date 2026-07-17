@@ -11,7 +11,13 @@ import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '');
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '').then(stripe => {
+  logger.log('[stripe] Stripe.js loaded', { hasStripe: !!stripe });
+  return stripe;
+}).catch(error => {
+  logger.error('[stripe] Stripe.js failed to load', error);
+  return null;
+});
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
 interface CheckoutFormProps {
@@ -773,6 +779,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
     DEFAULT_SHIPPING_OPTIONS[0] // Default to local pickup
   );
@@ -784,6 +791,16 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   const handleAddressChange = (address: any) => {
     // Handle address change if needed for parent component
   };
+
+  // Check if Stripe loaded successfully
+  useEffect(() => {
+    stripePromise.then(stripe => {
+      if (!stripe) {
+        setStripeLoadError('Stripe.js failed to load. Please refresh the page.');
+        logger.error('[stripe] Stripe.js is null after loading');
+      }
+    });
+  }, []);
 
   const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
@@ -817,6 +834,11 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
 
   return (
     <div className="embedded-checkout-container">
+      {stripeLoadError && (
+        <div className="error-message">
+          {stripeLoadError}
+        </div>
+      )}
       <Elements stripe={stripePromise} options={options}>
         <CheckoutForm
           onSuccess={handleSuccess}
