@@ -63,6 +63,24 @@ public/
 
 This project includes a complete Stripe checkout integration powered by Firebase Functions. See [STRIPE_DEPLOYMENT_GUIDE.md](./STRIPE_DEPLOYMENT_GUIDE.md) for complete setup, configuration, and deployment instructions.
 
+### Apple Pay Integration
+
+The checkout supports Apple Pay as a payment method. To enable Apple Pay in production:
+
+1. **Register and verify your domain** in the [Stripe Dashboard](https://dashboard.stripe.com/settings/payment_methods/apple_pay/domains)
+   - Add your production domain (e.g., `yourdomain.com`)
+   - Stripe will automatically handle domain verification through their domain association service
+   - No manual file upload is required with Stripe's current verification process
+
+2. **HTTPS requirement**: Apple Pay only works over HTTPS. This is automatically satisfied when deployed to Firebase Hosting.
+
+3. **Testing Apple Pay**:
+   - In development, Apple Pay may not work due to domain verification requirements
+   - Test with Stripe test cards like `4242 4242 4242 4242` for card payments
+   - For Apple Pay testing, deploy to a verified domain or use Stripe's test mode with a verified test domain
+
+For more details, see [Stripe's Apple Pay documentation](https://stripe.com/docs/payments/apple-pay).
+
 ### Quick Start (Local Development - Free)
 
 1. **Get your Stripe API keys** from [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys)

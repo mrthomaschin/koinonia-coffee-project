@@ -99,6 +99,8 @@ class StripeService {
 
   async createPaymentIntent(amount: number, metadata?: Record<string, string>): Promise<{ clientSecret: string; paymentIntentId: string }> {
     try {
+      logger.log('[stripeService] Creating payment intent', { amount, metadata, backendUrl: this.backendUrl });
+
       const response = await fetch(`${this.backendUrl}/create-payment-intent`, {
         method: 'POST',
         headers: {
@@ -111,16 +113,20 @@ class StripeService {
         }),
       });
 
+      logger.log('[stripeService] Payment intent response status', { status: response.status });
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        logger.error('[stripeService] Payment intent creation failed', { status: response.status, errorData });
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      logger.log('[stripeService] Payment intent created successfully', { hasClientSecret: !!data.clientSecret });
 
       return data;
     } catch (error) {
-      logger.error('Error creating payment intent:', error);
+      logger.error('[stripeService] Error creating payment intent:', error);
       throw error;
     }
   }

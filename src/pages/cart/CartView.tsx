@@ -113,8 +113,14 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             const totalAmount = subtotal;
 
             // Store cart items for tax calculation in embedded checkout
-            localStorage.setItem('checkout_cart_items', JSON.stringify(viewModel.cartItems));
+            try {
+                localStorage.setItem('checkout_cart_items', JSON.stringify(viewModel.cartItems));
+            } catch (storageError) {
+                logger.error('localStorage access failed (possibly Safari ITP):', storageError);
+                // Continue without localStorage - checkout will use fallback
+            }
 
+            logger.log('[checkout] Calling createPaymentIntent with amount:', totalAmount);
             const { clientSecret: secret } = await stripeService.createPaymentIntent(
                 totalAmount,
                 {
@@ -127,10 +133,11 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 }
             );
 
+            logger.log('[checkout] Payment intent created successfully');
             setClientSecret(secret);
             setShowCheckout(true);
         } catch (error) {
-            logger.error('Error creating payment intent:', error);
+            logger.error('[checkout] Error creating payment intent:', error);
             showToast('Failed to initialize checkout. Please try again.', 'error');
         } finally {
             setIsLoadingCheckout(false);

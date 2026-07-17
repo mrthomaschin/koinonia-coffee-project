@@ -87,11 +87,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       logger.log('[tax] Calculating tax for address', { address, totalAmount });
 
       // Get cart items from localStorage to send proper line items with tax codes
-      const cartItemsStr = localStorage.getItem('checkout_cart_items');
       let lineItems = [];
-
-      if (cartItemsStr) {
-        try {
+      try {
+        const cartItemsStr = localStorage.getItem('checkout_cart_items');
+        if (cartItemsStr) {
           const cartItems = JSON.parse(cartItemsStr);
           lineItems = cartItems.map((item: any) => {
             const price = item.variantPrice || item.item.price;
@@ -106,9 +105,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               tax_code: taxCode,
             };
           });
-        } catch (e) {
-          logger.error('[tax] Error parsing cart items', e);
         }
+      } catch (storageError) {
+        logger.error('[tax] localStorage access failed (possibly Safari ITP):', storageError);
+        // Continue with fallback line item
       }
 
       // Fallback to single line item if cart items not available
@@ -620,7 +620,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             billingDetails: {
               address: 'never',
             }
-          }
+          },
+          paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
         }}
       />
 

@@ -34,8 +34,10 @@ export class StripeService {
             const paymentIntent = await getStripe().paymentIntents.create({
                 amount: Math.round(amount),
                 currency,
+                payment_method_types: ['card', 'apple_pay', 'google_pay'],
                 automatic_payment_methods: {
                     enabled: true,
+                    allow_redirects: 'never',
                 },
                 metadata: metadata || {},
                 shipping: shippingOptions ? {
