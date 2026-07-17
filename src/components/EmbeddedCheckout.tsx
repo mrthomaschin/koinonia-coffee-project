@@ -798,9 +798,15 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
       if (!stripe) {
         setStripeLoadError('Stripe.js failed to load. Please refresh the page.');
         logger.error('[stripe] Stripe.js is null after loading');
+      } else {
+        logger.log('[stripe] Stripe.js loaded successfully', {
+          hasClientSecret: !!clientSecret,
+          clientSecretLength: clientSecret?.length,
+          clientSecretPrefix: clientSecret?.substring(0, 10) + '...'
+        });
       }
     });
-  }, []);
+  }, [clientSecret]);
 
   const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
