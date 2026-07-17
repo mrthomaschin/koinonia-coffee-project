@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Item, ItemType } from './item/ItemModel';
 import { CoffeeBagItem } from './item/coffee_bag/CoffeeBagItem';
@@ -7,7 +7,8 @@ import CoffeeBagPreview from './item/coffee_bag/CoffeeBagPreview';
 import MerchPreview from './item/merch/MerchPreview';
 import './Shop.css';
 import { generateSlug } from './shopData';
-import ShopViewModel, { SortBy, FilterBy } from './ShopViewModel';
+import { SortBy, FilterBy } from './ShopViewModel';
+import { useInventory } from '../../contexts/InventoryContext';
 
 interface ShopProps {
   availableHeight: number;
@@ -15,24 +16,47 @@ interface ShopProps {
 
 const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
   const navigate = useNavigate();
-  const [viewModel] = useState(() => new ShopViewModel());
-  const [sortBy, setSortBy] = useState<SortBy>(viewModel.sortBy);
-  const [filterBy, setFilterBy] = useState<FilterBy>(viewModel.filterBy);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadData = async () => {
-      await viewModel.loadInventory();
-      setError(viewModel.error);
-    };
-    loadData();
-  }, [viewModel]);
+  const { items, isLoading, error } = useInventory();
+  const [sortBy, setSortBy] = useState<SortBy>(SortBy.DEFAULT);
+  const [filterBy, setFilterBy] = useState<FilterBy>(FilterBy.ALL);
 
   const sortedItems = useMemo(() => {
-    viewModel.sortBy = sortBy;
-    viewModel.filterBy = filterBy;
-    return viewModel.filteredAndSortedItems;
-  }, [viewModel, sortBy, filterBy]);
+    // Filter items
+    let filteredItems = items;
+    switch (filterBy) {
+      case FilterBy.BEANS:
+        filteredItems = items.filter(item => item.itemType === ItemType.coffee);
+        break;
+      case FilterBy.MERCH:
+        filteredItems = items.filter(item =>
+          item.itemType === ItemType.accessories ||
+          item.itemType === ItemType.apparel ||
+          item.itemType === ItemType.brewTools ||
+          item.itemType === ItemType.drinkware ||
+          item.itemType === ItemType.stickers
+        );
+        break;
+      default:
+        filteredItems = items;
+    }
+
+    // Sort items
+    const sortedItems = [...filteredItems];
+    switch (sortBy) {
+      case SortBy.NEWEST:
+        return sortedItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      case SortBy.NAME_A_TO_Z:
+        return sortedItems.sort((a, b) => a.name.localeCompare(b.name));
+      case SortBy.NAME_Z_TO_A:
+        return sortedItems.sort((a, b) => b.name.localeCompare(a.name));
+      case SortBy.PRICE_LOW_TO_HIGH:
+        return sortedItems.sort((a, b) => a.price - b.price);
+      case SortBy.PRICE_HIGH_TO_LOW:
+        return sortedItems.sort((a, b) => b.price - a.price);
+      default:
+        return sortedItems;
+    }
+  }, [items, sortBy, filterBy]);
 
   const handleItemClick = (item: Item) => {
     const slug = generateSlug(item.name);
@@ -41,13 +65,30 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
   const handleSortChange = (newSortBy: SortBy) => {
     setSortBy(newSortBy);
-    viewModel.setSortBy(newSortBy);
   };
 
   const handleFilterChange = (newFilterBy: FilterBy) => {
     setFilterBy(newFilterBy);
-    viewModel.setFilterBy(newFilterBy);
   };
+
+  if (isLoading) {
+    return (
+      <div className="shop-page" style={{ minHeight: availableHeight }}>
+        <div className="shop-header">
+          <h1 className="shop-title">Products</h1>
+        </div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '200px',
+          color: '#666'
+        }}>
+          Loading products...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="shop-page" style={{ minHeight: availableHeight }}>
