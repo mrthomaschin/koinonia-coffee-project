@@ -82,6 +82,15 @@ check_env_file() {
     return 0
 }
 
+# Function to remove .env.local to prevent test keys in production
+remove_env_local() {
+    if [ -f ".env.local" ]; then
+        print_warning "Found .env.local file - removing to prevent test keys in production"
+        rm .env.local
+        print_info "✓ Removed .env.local - production will use .env.production"
+    fi
+}
+
 # Function to verify required secrets are set (for functions deployment)
 verify_secrets() {
     print_info "Verifying Firebase secrets for Stripe..."
@@ -109,6 +118,9 @@ DEPLOY_TARGET=${1:-all}
 deploy_frontend() {
     print_section "Deploying Frontend to Firebase Hosting"
     
+    # Remove .env.local to prevent test keys in production
+    remove_env_local
+    
     # Check environment configuration
     check_env_file
     
@@ -133,6 +145,9 @@ deploy_frontend() {
 
 deploy_functions() {
     print_section "Deploying Firebase Functions (Stripe Payment Server)"
+    
+    # Remove .env.local to prevent test keys in production
+    remove_env_local
     
     # Verify secrets before deploying functions
     verify_secrets
@@ -172,6 +187,9 @@ deploy_all() {
     print_info "   • Backend (Stripe API) → Firebase Functions"
     print_info "   • Firestore rules & indexes → Firebase Firestore"
     print_info ""
+    
+    # Remove .env.local to prevent test keys in production
+    remove_env_local
     
     # Verify Firebase configuration once for both deployments
     verify_firebase_config
