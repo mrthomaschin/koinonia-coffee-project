@@ -495,6 +495,20 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               // Pass formatted address directly to avoid timing issues with state updates
               currentShippingAddress = formattedAddress;
 
+              // Recalculate parcel for box size determination
+              let formattedParcel = null;
+              try {
+                const cartItemsStr = localStorage.getItem('checkout_cart_items');
+                if (cartItemsStr) {
+                  const cartItems = JSON.parse(cartItemsStr);
+                  const parcel = cartItems.length > 0 ? calculateParcel(cartItems) : null;
+                  formattedParcel = parcel ? formatParcelForEasyPost(parcel) : null;
+                  logger.log('[shipment] Recalculated parcel for purchase', { formattedParcel });
+                }
+              } catch (storageError) {
+                logger.error('[shipment] Failed to recalculate parcel:', storageError);
+              }
+
               logger.log('[shipment] Calling purchase-shipment endpoint', {
                 endpoint: `${backendUrl}/purchase-shipment`,
                 rateId: selectedShipping.id
@@ -516,6 +530,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   },
                   rateId: selectedShipping.id,
                   shipmentId: shipmentId,
+                  parcel: formattedParcel,
                 }),
               });
 

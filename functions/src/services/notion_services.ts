@@ -411,9 +411,10 @@ export class NotionService {
                 shippingAddress,
                 shipmentData,
                 isLocalPickup,
+                shippingBox,
             } = req.body;
 
-            logger.info("Creating Notion order", { orderId, hasShipmentData: !!shipmentData, shippingAddress });
+            logger.info("Creating Notion order", { orderId, hasShipmentData: !!shipmentData, shippingAddress, shippingBox });
 
 
             const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
@@ -535,6 +536,28 @@ export class NotionService {
                     },
                 },
             });
+
+            // Add shipping box if provided
+            if (shippingBox) {
+                logger.info("Adding shipping box to Notion order", { orderId, shippingBox });
+                await notion.pages.update({
+                    page_id: response.id,
+                    properties: {
+                        "Shipping Box": {
+                            rich_text: [
+                                {
+                                    text: {
+                                        content: shippingBox,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                });
+                logger.info("Shipping box added successfully", { orderId });
+            } else {
+                logger.info("No shipping box provided, skipping", { orderId });
+            }
 
             // Add shipment tracking data if available
             if (shipmentData && shipmentData.trackingNumber) {

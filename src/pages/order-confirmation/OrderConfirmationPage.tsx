@@ -123,6 +123,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     transactionId: orderId,
                     shippingAddress: shippingAddress,
                     shipmentData: shipmentData,
+                    shippingBox: shipmentData?.boxSize || '',
                     isLocalPickup: isLocalPickup
                   });
                   logger.log('✅ Notion order created successfully!');
@@ -131,15 +132,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 }
               }
 
-              // Mark email as sent BEFORE sending emails to prevent race conditions
-              try {
-                await notionService.markOrderConfirmedEmailSent(orderId);
-                logger.log('✅ Order confirmed email marked as sent');
-              } catch (markError) {
-                logger.error('❌ Failed to mark order confirmed email as sent:', markError);
-              }
-
-              // Send emails (only if we successfully marked it as sent)
+              // Send emails AFTER order is created
               try {
                 logger.log('📧 Sending purchase notification email...');
                 await sendPurchaseNotification({
@@ -168,15 +161,16 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   orderId: orderId
                 });
                 logger.log('✅ Customer confirmation sent successfully!');
+
+                // Mark email as sent AFTER successfully sending emails
+                try {
+                  await notionService.markOrderConfirmedEmailSent(orderId);
+                  logger.log('✅ Order confirmed email marked as sent');
+                } catch (markError) {
+                  logger.error('❌ Failed to mark order confirmed email as sent:', markError);
+                }
               } catch (emailError) {
                 logger.error('❌ Failed to send emails:', emailError);
-                // Uncheck the box so next attempt can try again
-                try {
-                  await notionService.uncheckOrderConfirmedEmailSent(orderId);
-                  logger.log('✅ Unchecked order confirmed email due to send failure');
-                } catch (uncheckError) {
-                  logger.error('❌ Failed to uncheck order confirmed email:', uncheckError);
-                }
               }
             }
           } catch (emailError) {
@@ -270,6 +264,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                       transactionId: sessionId,
                       shippingAddress: (data as any).shipping_address || '',
                       shipmentData: shipmentData,
+                      shippingBox: shipmentData?.boxSize || '',
                       isLocalPickup: isLocalPickup
                     });
                     logger.log('✅ Notion order created successfully!');
@@ -278,15 +273,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   }
                 }
 
-                // Mark email as sent BEFORE sending emails to prevent race conditions
-                try {
-                  await notionService.markOrderConfirmedEmailSent(orderId);
-                  logger.log('✅ Order confirmed email marked as sent');
-                } catch (markError) {
-                  logger.error('❌ Failed to mark order confirmed email as sent:', markError);
-                }
-
-                // Send emails (only if we successfully marked it as sent)
+                // Send emails AFTER order is created
                 try {
                   logger.log('📧 Sending purchase notification email...');
                   await sendPurchaseNotification({
@@ -313,15 +300,16 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     orderId: orderId
                   });
                   logger.log('✅ Customer confirmation sent successfully!');
+
+                  // Mark email as sent AFTER successfully sending emails
+                  try {
+                    await notionService.markOrderConfirmedEmailSent(orderId);
+                    logger.log('✅ Order confirmed email marked as sent');
+                  } catch (markError) {
+                    logger.error('❌ Failed to mark order confirmed email as sent:', markError);
+                  }
                 } catch (emailError) {
                   logger.error('❌ Failed to send emails:', emailError);
-                  // Uncheck the box so next attempt can try again
-                  try {
-                    await notionService.uncheckOrderConfirmedEmailSent(orderId);
-                    logger.log('✅ Unchecked order confirmed email due to send failure');
-                  } catch (uncheckError) {
-                    logger.error('❌ Failed to uncheck order confirmed email:', uncheckError);
-                  }
                 }
               }
             } catch (emailError) {

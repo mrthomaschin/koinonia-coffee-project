@@ -239,12 +239,23 @@ app.post("/purchase-shipment", async (req: Request, res: Response): Promise<void
       hasLabelUrl: !!result.labelUrl
     });
 
+    // Use actual parcel dimensions as box size description
+    let boxSize = '';
+    if (parcel) {
+      const { length, width, height } = parcel;
+      boxSize = `${length}"x${width}"x${height}"`;
+      logger.info('Using parcel dimensions as box size', { boxSize });
+    } else {
+      logger.info('No parcel provided, cannot determine box size');
+    }
+
     res.json({
       trackingNumber: result.trackingNumber,
       labelUrl: result.labelUrl,
       shipmentId: result.shipmentId,
       carrier: result.carrier,
       service: result.service,
+      boxSize: boxSize,
     });
 
     logger.info('Response sent successfully', {
