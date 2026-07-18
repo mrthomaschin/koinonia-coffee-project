@@ -36,7 +36,6 @@ export class StripeService {
                 currency,
                 automatic_payment_methods: {
                     enabled: true,
-                    allow_redirects: 'never',
                 },
                 metadata: metadata || {},
                 shipping: shippingOptions ? {
