@@ -182,6 +182,15 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
 
+// Check if order confirmed email was sent
+app.get("/check-order-confirmed-email-sent", async (req: Request, res: Response) => NotionService.handleCheckOrderConfirmedEmailSent(req, res));
+
+// Mark order confirmed email as sent
+app.post("/mark-order-confirmed-email-sent", async (req: Request, res: Response) => NotionService.handleMarkOrderConfirmedEmailSent(req, res));
+
+// Uncheck order confirmed email as sent
+app.post("/uncheck-order-confirmed-email-sent", async (req: Request, res: Response) => NotionService.handleUncheckOrderConfirmedEmailSent(req, res));
+
 // Get shipping rates from EasyPost
 app.post("/get-shipping-rates", getShippingRates);
 
@@ -321,6 +330,12 @@ export const syncInventoryCache = onSchedule(
 const apiOptions: any = {};
 // Only add secrets in production (not in emulator)
 if (process.env.FUNCTIONS_EMULATOR !== "true") {
-  apiOptions.secrets = ["EASYPOST_API_KEY", "STRIPE_SECRET_KEY"];
+  apiOptions.secrets = [
+    "EASYPOST_API_KEY",
+    "STRIPE_SECRET_KEY",
+    "NOTION_TOKEN",
+    "NOTION_ONLINE_ORDERS_DATABASE_ID",
+    "NOTION_INVENTORY_DATABASE_ID"
+  ];
 }
 export const api = onRequest(apiOptions, app);

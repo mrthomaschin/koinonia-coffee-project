@@ -102,54 +102,83 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             const shipmentData = (state as any).orderData?.shipmentData || null;
             const isLocalPickup = (state as any).orderData?.isLocalPickup || false;
 
-            // Create Notion database entry
-            logger.log('� Creating Notion order entry...');
-            try {
-              await notionService.createOrder({
-                customerName: customerName,
-                customerEmail: customerEmail,
-                customerPhone: customerPhone,
-                orderId: orderId,
-                items: purchaseItems,
-                totalAmount: state.orderData.total,
-                orderDate: new Date(state.orderData.timestamp).toLocaleString(),
-                transactionId: orderId,
-                shippingAddress: shippingAddress,
-                shipmentData: shipmentData,
-                isLocalPickup: isLocalPickup
-              });
-              logger.log('✅ Notion order created successfully!');
-            } catch (notionError) {
-              logger.error('❌ Failed to create Notion order:', notionError);
+            // Check if order confirmed email was already sent
+            const { emailSent, orderExists } = await notionService.checkOrderConfirmedEmailSent(orderId);
+
+            if (orderExists && emailSent) {
+              logger.log('ℹ️ Order exists and email already sent, skipping email sending');
+            } else {
+              // Create Notion database entry (only if order doesn't exist)
+              if (!orderExists) {
+                logger.log('📝 Creating Notion order entry...');
+                try {
+                  await notionService.createOrder({
+                    customerName: customerName,
+                    customerEmail: customerEmail,
+                    customerPhone: customerPhone,
+                    orderId: orderId,
+                    items: purchaseItems,
+                    totalAmount: state.orderData.total,
+                    orderDate: state.orderData.timestamp,
+                    transactionId: orderId,
+                    shippingAddress: shippingAddress,
+                    shipmentData: shipmentData,
+                    isLocalPickup: isLocalPickup
+                  });
+                  logger.log('✅ Notion order created successfully!');
+                } catch (notionError) {
+                  logger.error('❌ Failed to create Notion order:', notionError);
+                }
+              }
+
+              // Mark email as sent BEFORE sending emails to prevent race conditions
+              try {
+                await notionService.markOrderConfirmedEmailSent(orderId);
+                logger.log('✅ Order confirmed email marked as sent');
+              } catch (markError) {
+                logger.error('❌ Failed to mark order confirmed email as sent:', markError);
+              }
+
+              // Send emails (only if we successfully marked it as sent)
+              try {
+                logger.log('📧 Sending purchase notification email...');
+                await sendPurchaseNotification({
+                  customerEmail: customerEmail,
+                  customerName: customerName,
+                  customerPhone: customerPhone,
+                  items: purchaseItems,
+                  totalAmount: state.orderData.total,
+                  orderDate: state.orderData.timestamp,
+                  sessionId: orderId
+                });
+                logger.log('✅ Purchase notification sent successfully!');
+
+                // Send customer confirmation email
+                logger.log('📧 Sending customer confirmation email...');
+                await sendCustomerConfirmation({
+                  customerEmail: customerEmail,
+                  customerName: customerName,
+                  customerPhone: customerPhone,
+                  items: purchaseItems,
+                  subtotal: subtotal,
+                  shipping: 8.99,
+                  tax: state.orderData.total - subtotal - 8.99,
+                  totalAmount: state.orderData.total,
+                  orderDate: state.orderData.timestamp,
+                  orderId: orderId
+                });
+                logger.log('✅ Customer confirmation sent successfully!');
+              } catch (emailError) {
+                logger.error('❌ Failed to send emails:', emailError);
+                // Uncheck the box so next attempt can try again
+                try {
+                  await notionService.uncheckOrderConfirmedEmailSent(orderId);
+                  logger.log('✅ Unchecked order confirmed email due to send failure');
+                } catch (uncheckError) {
+                  logger.error('❌ Failed to uncheck order confirmed email:', uncheckError);
+                }
+              }
             }
-
-            logger.log('� Sending purchase notification email...');
-            await sendPurchaseNotification({
-              customerEmail: customerEmail,
-              customerName: customerName,
-              customerPhone: customerPhone,
-              items: purchaseItems,
-              totalAmount: state.orderData.total,
-              orderDate: new Date(state.orderData.timestamp).toLocaleString(),
-              sessionId: orderId
-            });
-            logger.log('✅ Purchase notification sent successfully!');
-
-            // Send customer confirmation email
-            logger.log('📧 Sending customer confirmation email...');
-            await sendCustomerConfirmation({
-              customerEmail: customerEmail,
-              customerName: customerName,
-              customerPhone: customerPhone,
-              items: purchaseItems,
-              subtotal: subtotal,
-              shipping: 8.99,
-              tax: state.orderData.total - subtotal - 8.99,
-              totalAmount: state.orderData.total,
-              orderDate: new Date(state.orderData.timestamp).toLocaleString(),
-              orderId: orderId
-            });
-            logger.log('✅ Customer confirmation sent successfully!');
           } catch (emailError) {
             logger.error('❌ Failed to send emails:', emailError);
           }
@@ -220,52 +249,81 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               const shipmentData = (data as any).shipmentData || null;
               const isLocalPickup = (data as any).isLocalPickup || false;
 
-              // Create Notion database entry
-              logger.log('📝 Creating Notion order entry...');
-              try {
-                await notionService.createOrder({
-                  customerName: data.customer_name || 'Valued Customer',
-                  customerEmail: data.customer_email || 'N/A',
-                  customerPhone: (data as any).customer_phone || '',
-                  orderId: orderId,
-                  items: purchaseItems,
-                  totalAmount: data.amount_total / 100,
-                  orderDate: new Date().toLocaleString(),
-                  transactionId: sessionId,
-                  shippingAddress: (data as any).shipping_address || '',
-                  shipmentData: shipmentData,
-                  isLocalPickup: isLocalPickup
-                });
-                logger.log('✅ Notion order created successfully!');
-              } catch (notionError) {
-                logger.error('❌ Failed to create Notion order:', notionError);
+              // Check if order confirmed email was already sent
+              const { emailSent, orderExists } = await notionService.checkOrderConfirmedEmailSent(orderId);
+
+              if (orderExists && emailSent) {
+                logger.log('ℹ️ Order exists and email already sent, skipping email sending');
+              } else {
+                // Create Notion database entry (only if order doesn't exist)
+                if (!orderExists) {
+                  logger.log('📝 Creating Notion order entry...');
+                  try {
+                    await notionService.createOrder({
+                      customerName: data.customer_name || 'Valued Customer',
+                      customerEmail: data.customer_email || 'N/A',
+                      customerPhone: (data as any).customer_phone || '',
+                      orderId: orderId,
+                      items: purchaseItems,
+                      totalAmount: data.amount_total / 100,
+                      orderDate: new Date().toISOString(),
+                      transactionId: sessionId,
+                      shippingAddress: (data as any).shipping_address || '',
+                      shipmentData: shipmentData,
+                      isLocalPickup: isLocalPickup
+                    });
+                    logger.log('✅ Notion order created successfully!');
+                  } catch (notionError) {
+                    logger.error('❌ Failed to create Notion order:', notionError);
+                  }
+                }
+
+                // Mark email as sent BEFORE sending emails to prevent race conditions
+                try {
+                  await notionService.markOrderConfirmedEmailSent(orderId);
+                  logger.log('✅ Order confirmed email marked as sent');
+                } catch (markError) {
+                  logger.error('❌ Failed to mark order confirmed email as sent:', markError);
+                }
+
+                // Send emails (only if we successfully marked it as sent)
+                try {
+                  logger.log('📧 Sending purchase notification email...');
+                  await sendPurchaseNotification({
+                    customerEmail: data.customer_email || 'N/A',
+                    customerName: data.customer_name,
+                    items: purchaseItems,
+                    totalAmount: data.amount_total / 100,
+                    orderDate: new Date().toISOString(),
+                    sessionId: sessionId
+                  });
+                  logger.log('✅ Purchase notification sent successfully!');
+
+                  // Send customer confirmation email
+                  logger.log('📧 Sending customer confirmation email...');
+                  await sendCustomerConfirmation({
+                    customerEmail: data.customer_email,
+                    customerName: data.customer_name || 'Valued Customer',
+                    items: purchaseItems,
+                    subtotal: subtotal,
+                    shipping: 8.99, // TODO: Get actual shipping from session
+                    tax: (data.amount_total / 100) - subtotal - 8.99,
+                    totalAmount: data.amount_total / 100,
+                    orderDate: new Date().toISOString(),
+                    orderId: orderId
+                  });
+                  logger.log('✅ Customer confirmation sent successfully!');
+                } catch (emailError) {
+                  logger.error('❌ Failed to send emails:', emailError);
+                  // Uncheck the box so next attempt can try again
+                  try {
+                    await notionService.uncheckOrderConfirmedEmailSent(orderId);
+                    logger.log('✅ Unchecked order confirmed email due to send failure');
+                  } catch (uncheckError) {
+                    logger.error('❌ Failed to uncheck order confirmed email:', uncheckError);
+                  }
+                }
               }
-
-              logger.log('📧 Sending purchase notification email...');
-              await sendPurchaseNotification({
-                customerEmail: data.customer_email || 'N/A',
-                customerName: data.customer_name,
-                items: purchaseItems,
-                totalAmount: data.amount_total / 100,
-                orderDate: new Date().toLocaleString(),
-                sessionId: sessionId
-              });
-              logger.log('✅ Purchase notification sent successfully!');
-
-              // Send customer confirmation email
-              logger.log('📧 Sending customer confirmation email...');
-              await sendCustomerConfirmation({
-                customerEmail: data.customer_email,
-                customerName: data.customer_name || 'Valued Customer',
-                items: purchaseItems,
-                subtotal: subtotal,
-                shipping: 8.99, // TODO: Get actual shipping from session
-                tax: (data.amount_total / 100) - subtotal - 8.99,
-                totalAmount: data.amount_total / 100,
-                orderDate: new Date().toLocaleString(),
-                orderId: orderId
-              });
-              logger.log('✅ Customer confirmation sent successfully!');
             } catch (emailError) {
               logger.error('❌ Failed to send emails:', emailError);
             }

@@ -530,7 +530,7 @@ export class NotionService {
                     },
                     "Order created": {
                         date: {
-                            start: new Date(orderDate).toISOString(),
+                            start: orderDate,
                         },
                     },
                 },
@@ -605,6 +605,175 @@ export class NotionService {
         }
     }
 
+    static async handleCheckOrderConfirmedEmailSent(req: Request, res: Response): Promise<void> {
+        try {
+            const { orderId } = req.query;
+            if (!orderId || typeof orderId !== 'string') {
+                res.status(400).json({ error: "Order ID is required" });
+                return;
+            }
+
+            const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+            if (!databaseId) {
+                res.status(500).json({ error: "NOTION_ONLINE_ORDERS_DATABASE_ID not configured" });
+                return;
+            }
+
+            const notion = getNotion();
+
+            // Query for the order by Order #
+            const response = await notion.databases.query({
+                database_id: databaseId,
+                filter: {
+                    property: "Order #",
+                    rich_text: {
+                        equals: orderId,
+                    },
+                },
+            });
+
+            if (response.results.length === 0) {
+                // Order doesn't exist yet, so email hasn't been sent
+                res.json({ emailSent: false, orderExists: false });
+                return;
+            }
+
+            const page = response.results[0];
+            if (!("properties" in page)) {
+                res.json({ emailSent: false, orderExists: true });
+                return;
+            }
+
+            const orderConfirmedEmailSentProp = page.properties["Order Confirmed Email Sent"];
+            if (orderConfirmedEmailSentProp?.type === "checkbox") {
+                res.json({ emailSent: orderConfirmedEmailSentProp.checkbox, orderExists: true });
+            } else {
+                res.json({ emailSent: false, orderExists: true });
+            }
+        } catch (error: unknown) {
+            logger.error("Error checking order confirmed email status", {
+                error: (error as Error).message,
+            });
+            res.status(500).json({ error: (error as Error).message });
+        }
+    }
+
+    static async handleMarkOrderConfirmedEmailSent(req: Request, res: Response): Promise<void> {
+        try {
+            const { orderId } = req.body;
+            if (!orderId) {
+                res.status(400).json({ error: "Order ID is required" });
+                return;
+            }
+
+            const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+            if (!databaseId) {
+                res.status(500).json({ error: "NOTION_ONLINE_ORDERS_DATABASE_ID not configured" });
+                return;
+            }
+
+            const notion = getNotion();
+
+            // Query for the order by Order #
+            const response = await notion.databases.query({
+                database_id: databaseId,
+                filter: {
+                    property: "Order #",
+                    rich_text: {
+                        equals: orderId,
+                    },
+                },
+            });
+
+            if (response.results.length === 0) {
+                res.status(404).json({ error: "Order not found" });
+                return;
+            }
+
+            const page = response.results[0];
+            if (!("properties" in page)) {
+                res.status(400).json({ error: "Invalid page structure" });
+                return;
+            }
+
+            // Update the Order Confirmed Email Sent checkbox
+            await notion.pages.update({
+                page_id: page.id,
+                properties: {
+                    "Order Confirmed Email Sent": {
+                        checkbox: true,
+                    },
+                },
+            });
+
+            logger.info("Order confirmed email marked as sent", { orderId });
+            res.json({ success: true });
+        } catch (error: unknown) {
+            logger.error("Error marking order confirmed email as sent", {
+                error: (error as Error).message,
+            });
+            res.status(500).json({ error: (error as Error).message });
+        }
+    }
+
+    static async handleUncheckOrderConfirmedEmailSent(req: Request, res: Response): Promise<void> {
+        try {
+            const { orderId } = req.body;
+            if (!orderId) {
+                res.status(400).json({ error: "Order ID is required" });
+                return;
+            }
+
+            const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+            if (!databaseId) {
+                res.status(500).json({ error: "NOTION_ONLINE_ORDERS_DATABASE_ID not configured" });
+                return;
+            }
+
+            const notion = getNotion();
+
+            // Query for the order by Order #
+            const response = await notion.databases.query({
+                database_id: databaseId,
+                filter: {
+                    property: "Order #",
+                    rich_text: {
+                        equals: orderId,
+                    },
+                },
+            });
+
+            if (response.results.length === 0) {
+                res.status(404).json({ error: "Order not found" });
+                return;
+            }
+
+            const page = response.results[0];
+            if (!("properties" in page)) {
+                res.status(400).json({ error: "Invalid page structure" });
+                return;
+            }
+
+            // Update the Order Confirmed Email Sent checkbox to false
+            await notion.pages.update({
+                page_id: page.id,
+                properties: {
+                    "Order Confirmed Email Sent": {
+                        checkbox: false,
+                    },
+                },
+            });
+
+            logger.info("Order confirmed email unchecked", { orderId });
+            res.json({ success: true });
+        } catch (error: unknown) {
+            logger.error("Error unchecking order confirmed email", {
+                error: (error as Error).message,
+            });
+            res.status(500).json({ error: (error as Error).message });
+        }
+    }
+
     static async handleTestOrderStatus(req: Request, res: Response): Promise<void> {
         try {
             logger.info("Starting order status check...");
@@ -649,6 +818,7 @@ export class NotionService {
 
                 // Extract order data
                 const fulfillmentProp = properties["Fulfillment"];
+                const orderConfirmedEmailSentProp = properties["Order Confirmed Email Sent"];
                 const shippedEmailSentProp = properties["Shipped Email Sent"];
                 const outForDeliveryEmailSentProp = properties["Out For Delivery Email Sent"];
                 const deliveredEmailSentProp = properties["Delivered Email Sent"];
@@ -663,6 +833,7 @@ export class NotionService {
 
                 if (
                     fulfillmentProp?.type !== "status" ||
+                    orderConfirmedEmailSentProp?.type !== "checkbox" ||
                     shippedEmailSentProp?.type !== "checkbox" ||
                     outForDeliveryEmailSentProp?.type !== "checkbox" ||
                     deliveredEmailSentProp?.type !== "checkbox" ||

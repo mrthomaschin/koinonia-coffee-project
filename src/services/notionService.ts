@@ -160,6 +160,79 @@ class NotionService {
     }
   }
 
+  async checkOrderConfirmedEmailSent(orderId: string): Promise<{ emailSent: boolean; orderExists: boolean }> {
+    try {
+      logger.log('🔍 Checking if order confirmed email was sent for order:', orderId);
+
+      const response = await fetch(`${this.backendUrl}/check-order-confirmed-email-sent?orderId=${orderId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      logger.log('✅ Order confirmed email status:', result.emailSent, 'Order exists:', result.orderExists);
+      return { emailSent: result.emailSent || false, orderExists: result.orderExists || false };
+    } catch (error) {
+      logger.error('❌ Failed to check order confirmed email status:', error);
+      return { emailSent: false, orderExists: false };
+    }
+  }
+
+  async markOrderConfirmedEmailSent(orderId: string): Promise<void> {
+    try {
+      logger.log('✅ Marking order confirmed email as sent for order:', orderId);
+
+      const response = await fetch(`${this.backendUrl}/mark-order-confirmed-email-sent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      logger.log('✅ Order confirmed email marked as sent successfully');
+    } catch (error) {
+      logger.error('❌ Failed to mark order confirmed email as sent:', error);
+      throw error;
+    }
+  }
+
+  async uncheckOrderConfirmedEmailSent(orderId: string): Promise<void> {
+    try {
+      logger.log('✅ Unchecking order confirmed email for order:', orderId);
+
+      const response = await fetch(`${this.backendUrl}/uncheck-order-confirmed-email-sent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      logger.log('✅ Order confirmed email unchecked successfully');
+    } catch (error) {
+      logger.error('❌ Failed to uncheck order confirmed email:', error);
+      throw error;
+    }
+  }
+
   async updateOrderStatus(orderId: string, status: string): Promise<void> {
     logger.warn('updateOrderStatus not yet implemented on backend');
   }
