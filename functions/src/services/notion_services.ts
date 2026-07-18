@@ -149,14 +149,21 @@ const propToString = (prop: any): string => {
 };
 
 // Cache for Item Summary pages (prevents duplicate fetches)
-const itemSummaryCache = new Map<string, any>();
+const ITEM_SUMMARY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const itemSummaryCache = new Map<string, { data: any; expiresAt: number }>();
 
 async function loadItemSummaryPage(relatedPageId: string) {
-    if (itemSummaryCache.has(relatedPageId)) return itemSummaryCache.get(relatedPageId);
+    const cached = itemSummaryCache.get(relatedPageId);
+    if (cached && Date.now() < cached.expiresAt) {
+        return cached.data;
+    }
 
     const notion = getNotion();
     const page = await notion.pages.retrieve({ page_id: relatedPageId });
-    itemSummaryCache.set(relatedPageId, page);
+    itemSummaryCache.set(relatedPageId, {
+        data: page,
+        expiresAt: Date.now() + ITEM_SUMMARY_CACHE_TTL_MS,
+    });
     return page;
 }
 
