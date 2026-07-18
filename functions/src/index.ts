@@ -243,7 +243,7 @@ app.post("/purchase-shipment", async (req: Request, res: Response): Promise<void
     let boxSize = '';
     if (parcel) {
       const { length, width, height } = parcel;
-      boxSize = `${length}"x${width}"x${height}"`;
+      boxSize = `${length}x${width}x${height}`;
       logger.info('Using parcel dimensions as box size', { boxSize });
     } else {
       logger.info('No parcel provided, cannot determine box size');
