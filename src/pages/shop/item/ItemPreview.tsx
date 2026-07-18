@@ -45,7 +45,7 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
           </div>
         )}
 
-        <p className="preview-description">{item.description}</p>
+        <p className="preview-description">{item.summary}</p>
 
         {renderTags && (
           <div className="preview-tags">

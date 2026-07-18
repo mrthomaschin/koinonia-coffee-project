@@ -2,12 +2,11 @@ import { ICONS } from "../../../../util/constants";
 
 export interface BrewMethod {
     name: string;
-    coffee: string;
-    water: string;
+    dose: string;
+    yield: string;
     ratio: string;
     time: string;
     description: string;
-    brewMethodDescription: string;
     icon: string;
 }
 
@@ -99,12 +98,11 @@ export class Ethiopia implements Coffee {
 
 export class SingleDripper implements BrewMethod {
     name: string;
-    coffee: string;
-    water: string;
+    dose: string;
+    yield: string;
     ratio: string;
     time: string;
     description: string;
-    brewMethodDescription: string;
     icon: string;
 
     constructor(
@@ -113,27 +111,24 @@ export class SingleDripper implements BrewMethod {
         ratio: string,
         time: string,
         description: string,
-        brewMethodDescription: string,
     ) {
         this.name = "Single Dripper";
-        this.coffee = coffee;
-        this.water = water;
+        this.dose = coffee;
+        this.yield = water;
         this.ratio = ratio;
         this.time = time;
         this.description = description;
-        this.brewMethodDescription = brewMethodDescription;
         this.icon = ICONS.v60;
     }
 }
 
 export class BatchDripper implements BrewMethod {
     name: string;
-    coffee: string;
-    water: string;
+    dose: string;
+    yield: string;
     ratio: string;
     time: string;
     description: string;
-    brewMethodDescription: string;
     icon: string;
 
     constructor(
@@ -142,27 +137,24 @@ export class BatchDripper implements BrewMethod {
         ratio: string,
         time: string,
         description: string,
-        brewMethodDescription: string,
     ) {
         this.name = "Batch Dripper";
-        this.coffee = coffee;
-        this.water = water;
+        this.dose = coffee;
+        this.yield = water;
         this.ratio = ratio;
         this.time = time;
         this.description = description;
-        this.brewMethodDescription = brewMethodDescription;
         this.icon = ICONS.chemex;
     }
 }
 
 export class Espresso implements BrewMethod {
     name: string;
-    coffee: string;
-    water: string;
+    dose: string;
+    yield: string;
     ratio: string;
     time: string;
     description: string;
-    brewMethodDescription: string;
     icon: string;
 
     constructor(
@@ -171,15 +163,13 @@ export class Espresso implements BrewMethod {
         ratio: string,
         time: string,
         description: string,
-        brewMethodDescription: string
     ) {
         this.name = "Espresso";
-        this.coffee = coffee;
-        this.water = water;
+        this.dose = coffee;
+        this.yield = water;
         this.ratio = ratio;
         this.time = time;
         this.description = description;
-        this.brewMethodDescription = brewMethodDescription;
         this.icon = ICONS.espresso;
     }
 }
@@ -200,7 +190,6 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '1:15',
                 '2:30-3:00',
                 'Perfect for highlighting delicate flavors and bright acidity. The slower extraction brings out clarity and complexity.',
-                'The V60 pour-over method allows for precise control over brewing variables, making it ideal for showcasing the floral and citrus notes of Ethiopian coffee.'
             ),
             new BatchDripper(
                 '60g',
@@ -208,7 +197,6 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '1:16.7',
                 '4:00-5:00',
                 'Ideal for consistent, balanced cups when brewing for multiple people. Produces a clean, well-rounded flavor profile.',
-                'The Chemex batch brewer creates a clean cup that highlights the tea-like qualities and jasmine notes of this Ethiopian coffee.'
             ),
             new Espresso(
                 '18g',
@@ -216,7 +204,6 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '1:2',
                 '25-30s',
                 'Concentrated and intense, espresso emphasizes body and sweetness. Best for showcasing chocolate and caramel notes.',
-                'As espresso, this Ethiopian coffee produces a sweet, syrupy shot with bright berry notes and a lingering floral finish.'
             )
         ]
     ),
@@ -235,7 +222,6 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '1:15',
                 '2:45-3:15',
                 'Brings out the chocolate and caramel sweetness with a smooth, balanced body.',
-                'The V60 method highlights the blend\'s complexity, emphasizing the chocolate notes from Colombian beans and the brightness from Ethiopian origins.'
             ),
             new BatchDripper(
                 '65g',
@@ -243,7 +229,6 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '1:16',
                 '4:30-5:30',
                 'Perfect for sharing, this method produces a crowd-pleasing cup with consistent flavor.',
-                'Batch brewing creates a well-balanced cup that showcases the nutty undertones and caramel sweetness of the Koin Blend.'
             ),
             new Espresso(
                 '18g',
@@ -251,7 +236,6 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '1:2.2',
                 '27-32s',
                 'Rich and full-bodied with pronounced chocolate and caramel notes. Excellent for milk-based drinks.',
-                'As espresso, the Koin Blend shines with a thick crema, chocolate body, and sweet caramel finish. Perfect for lattes and cappuccinos.'
             )
         ]
     ),

@@ -14,10 +14,11 @@ export enum RoastLevel {
 }
 
 export class CoffeeBagItem implements Item {
-    constructor(id: string, name: string, description: string, price: number, firebaseImageUrls: string[], createdAt: Date, shippingWeight: number, weights: string[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean) {
+    constructor(id: string, name: string, itemSummary: string, itemDetails: string, price: number, firebaseImageUrls: string[], createdAt: Date, shippingWeight: number, weights: string[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean, brewingMethods?: any) {
         this.sku = id;
         this.name = name;
-        this.description = description;
+        this.itemSummary = itemSummary;
+        this.itemDetails = itemDetails;
         this.price = price;
         this.firebaseImageUrls = firebaseImageUrls;
         this.itemType = ItemType.coffee;
@@ -31,11 +32,13 @@ export class CoffeeBagItem implements Item {
         this.variants = variants || null;
         this.ltoEndDate = ltoEndDate || null;
         this.ltoUnlimitedPurchases = ltoUnlimitedPurchases || false;
+        this.brewingMethods = brewingMethods || null;
     }
 
     sku: string;
     name: string;
-    description: string;
+    itemSummary: string;
+    itemDetails: string;
     price: number;
     firebaseImageUrls: string[];
     itemType: ItemType;
@@ -50,4 +53,5 @@ export class CoffeeBagItem implements Item {
     variants?: InventoryVariant[] | null;
     ltoEndDate?: Date | null;
     ltoUnlimitedPurchases?: boolean;
+    brewingMethods?: any;
 }

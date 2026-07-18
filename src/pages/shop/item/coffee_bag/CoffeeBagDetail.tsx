@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CoffeeBagItem, CoffeeBagWeight } from './CoffeeBagItem';
 import { ItemView } from '../ItemView';
 import { useCart } from '../../../../contexts/CartContext';
-import { getCoffeeDataById } from './CoffeeData';
+import { ICONS } from '../../../../util/constants';
 import './CoffeeBagDetail.css';
 import { ItemType } from '../ItemModel';
 import { allowsUnlimitedPurchases } from '../../../../util/limitedTimeOffer';
@@ -162,21 +162,43 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   );
 
   const renderBrewingMethod = () => {
-    const coffeeData = getCoffeeDataById(item.sku);
-
-    if (!coffeeData || !coffeeData.brewingMethods || coffeeData.brewingMethods.length === 0) {
+    if (!item.brewingMethods) {
       return null;
     }
 
-    const brewingMethods = coffeeData.brewingMethods.map(method => ({
-      name: method.name,
-      icon: <img src={method.icon} alt={method.name} className="brewing-icon" />,
-      coffee: method.coffee,
-      water: method.water,
-      ratio: method.ratio,
-      time: method.time,
-      description: method.description
-    }));
+    const brewingMethods = [
+      {
+        name: "Single Dripper",
+        icon: <img src={ICONS.v60} alt="Single Dripper" className="brewing-icon" />,
+        coffee: item.brewingMethods.singleDripper?.dose || "",
+        water: item.brewingMethods.singleDripper?.yield || "",
+        ratio: item.brewingMethods.singleDripper?.ratio || "",
+        time: item.brewingMethods.singleDripper?.time || "",
+        description: item.brewingMethods.singleDripper?.description || ""
+      },
+      {
+        name: "Batch Dripper",
+        icon: <img src={ICONS.chemex} alt="Batch Dripper" className="brewing-icon" />,
+        coffee: item.brewingMethods.batchDripper?.dose || "",
+        water: item.brewingMethods.batchDripper?.yield || "",
+        ratio: item.brewingMethods.batchDripper?.ratio || "",
+        time: item.brewingMethods.batchDripper?.time || "",
+        description: item.brewingMethods.batchDripper?.description || ""
+      },
+      {
+        name: "Espresso",
+        icon: <img src={ICONS.espresso} alt="Espresso" className="brewing-icon" />,
+        coffee: item.brewingMethods.espresso?.dose || "",
+        water: item.brewingMethods.espresso?.yield || "",
+        ratio: item.brewingMethods.espresso?.ratio || "",
+        time: item.brewingMethods.espresso?.time || "",
+        description: item.brewingMethods.espresso?.description || ""
+      }
+    ].filter(method => method.coffee || method.water || method.ratio || method.time || method.description);
+
+    if (brewingMethods.length === 0) {
+      return null;
+    }
 
     return (
       <div className="brewing-methods-section">

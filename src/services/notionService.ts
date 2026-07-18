@@ -45,7 +45,8 @@ export interface InventoryVariant {
 export interface NotionInventoryItem {
   sku: string;
   name: string;
-  description: string;
+  itemSummary: string;
+  itemDetails: string;
   price: number;
   firebaseImageUrls: string[];
   itemType: string;
@@ -65,6 +66,30 @@ export interface NotionInventoryItem {
   // Limited Time Offer
   ltoEndDate?: string | null;
   ltoUnlimitedPurchases?: boolean;
+  // Brewing methods (from rollup properties)
+  brewingMethods?: {
+    singleDripper: {
+      dose: string;
+      yield: string;
+      ratio: string;
+      time: string;
+      description: string;
+    };
+    batchDripper: {
+      dose: string;
+      yield: string;
+      ratio: string;
+      time: string;
+      description: string;
+    };
+    espresso: {
+      dose: string;
+      yield: string;
+      ratio: string;
+      time: string;
+      description: string;
+    };
+  };
 }
 
 interface CachedInventory {

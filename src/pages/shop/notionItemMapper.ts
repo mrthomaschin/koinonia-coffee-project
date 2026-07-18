@@ -58,7 +58,8 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
     return new CoffeeBagItem(
       notionItem.sku,
       notionItem.name,
-      notionItem.description,
+      notionItem.itemSummary || '',
+      notionItem.itemDetails,
       notionItem.price,
       notionItem.firebaseImageUrls || [],
       createdAt,
@@ -70,7 +71,8 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       notionItem.quantity,
       convertedVariants || null,
       ltoEndDate,
-      ltoUnlimitedPurchases
+      ltoUnlimitedPurchases,
+      notionItem.brewingMethods
     );
   } else {
     const sizes = (notionItem.sizes || [])
@@ -80,7 +82,8 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
     return new MerchItem(
       notionItem.sku,
       notionItem.name,
-      notionItem.description,
+      notionItem.itemSummary || '',
+      notionItem.itemDetails,
       notionItem.price,
       notionItem.firebaseImageUrls || [],
       itemType,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Item, ItemType } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
@@ -240,7 +241,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
             )}
           </div>
 
-          <p className="detail-description">{item.description}</p>
+          <p className="detail-description">{item.itemDetails}</p>
 
           {renderExtraInfo && renderExtraInfo(item)}
 
@@ -274,7 +275,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
           <span className={`dropdown-arrow ${isDetailsDropdownOpen ? 'open' : ''}`}>▼</span>
         </button>
         <div className={`dropdown-content ${isDetailsDropdownOpen ? 'open' : ''}`}>
-          {renderDetailsSection ? renderDetailsSection(item) : <p>More details about this item will be displayed here.</p>}
+          {renderDetailsSection ? renderDetailsSection(item) : item.itemSummary ? <ReactMarkdown>{item.itemSummary}</ReactMarkdown> : <p>More details about this item will be displayed here.</p>}
         </div>
       </div>
       {renderBrewingMethod && <div className="item-detail-dropdown">

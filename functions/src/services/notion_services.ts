@@ -45,6 +45,70 @@ const getCarrierDisplayName = (carrier: string): string => {
     return CARRIER_DISPLAY_NAMES[carrier] || carrier;
 };
 
+// Convert Notion blocks to markdown
+const notionBlockToMarkdown = (block: any): string => {
+    if (!block || !block.type) return "";
+
+    const blockType = block.type;
+    const content = block[blockType];
+
+    switch (blockType) {
+        case "paragraph":
+            return content.rich_text?.map((text: any) => text.plain_text).join("") || "";
+        case "heading_1":
+            return `# ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "heading_2":
+            return `## ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "heading_3":
+            return `### ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "bulleted_list_item":
+            return `- ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "numbered_list_item":
+            return `1. ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "to_do":
+            return `- [${content.checked ? "x" : " "}] ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "quote":
+            return `> ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "code":
+            return `\`\`\`${content.language || ""}\n${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}\n\`\`\``;
+        case "divider":
+            return "---";
+        case "image":
+            const imageUrl = content.external?.url || content.file?.url || "";
+            return imageUrl ? `![Image](${imageUrl})` : "";
+        case "callout":
+            return `> ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        default:
+            return content.rich_text?.map((text: any) => text.plain_text).join("") || "";
+    }
+};
+
+// Fetch all blocks from a Notion page and convert to markdown
+const fetchPageContentAsMarkdown = async (pageId: string): Promise<string> => {
+    try {
+        const notion = getNotion();
+        const blocks = [];
+        let hasMore = true;
+        let nextCursor: string | null | undefined = undefined;
+
+        while (hasMore) {
+            const response = await notion.blocks.children.list({
+                block_id: pageId,
+                start_cursor: nextCursor || undefined,
+            });
+
+            blocks.push(...response.results);
+            hasMore = response.has_more;
+            nextCursor = response.next_cursor;
+        }
+
+        return blocks.map(notionBlockToMarkdown).join("\n\n");
+    } catch (error) {
+        logger.error(`Error fetching page content for ${pageId}:`, error);
+        return "";
+    }
+};
+
 // Lazy-initialize Notion client
 let notionInstance: Client | null = null;
 const getNotion = () => {
@@ -58,6 +122,88 @@ const getNotion = () => {
     return notionInstance;
 };
 
+// Helper function to extract text/number from a Notion property object
+const propToString = (prop: any): string => {
+    if (!prop) return "";
+
+    switch (prop.type) {
+        case "formula": {
+            const f = prop.formula;
+            if (!f) return "";
+            if (f.type === "string") return f.string ?? "";
+            if (f.type === "number") return f.number != null ? String(f.number) : "";
+            if (f.type === "boolean") return f.boolean != null ? String(f.boolean) : "";
+            return "";
+        }
+        case "rich_text":
+            return (prop.rich_text ?? []).map((t: any) => t.plain_text).join("");
+        case "title":
+            return (prop.title ?? []).map((t: any) => t.plain_text).join("");
+        case "number":
+            return prop.number != null ? String(prop.number) : "";
+        case "select":
+            return prop.select?.name ?? "";
+        default:
+            return "";
+    }
+};
+
+// Cache for Item Summary pages (prevents duplicate fetches)
+const itemSummaryCache = new Map<string, any>();
+
+async function loadItemSummaryPage(relatedPageId: string) {
+    if (itemSummaryCache.has(relatedPageId)) return itemSummaryCache.get(relatedPageId);
+
+    const notion = getNotion();
+    const page = await notion.pages.retrieve({ page_id: relatedPageId });
+    itemSummaryCache.set(relatedPageId, page);
+    return page;
+}
+
+async function getItemSummaryData(properties: any, itemType: string) {
+    const relatedPageId = properties["Item Summary"]?.relation?.[0]?.id;
+    if (!relatedPageId) {
+        return {
+            itemDetails: "",
+            brewingMethods: {
+                singleDripper: { dose: "", yield: "", ratio: "", time: "", description: "" },
+                batchDripper: { dose: "", yield: "", ratio: "", time: "", description: "" },
+                espresso: { dose: "", yield: "", ratio: "", time: "", description: "" },
+            }
+        };
+    }
+
+    const itemSummaryPage = await loadItemSummaryPage(relatedPageId);
+    const p = itemSummaryPage.properties;
+
+    return {
+        itemDetails: propToString(p["Item Details"]),
+        brewingMethods: {
+            singleDripper: {
+                dose: propToString(p["SD Dose"]),
+                yield: propToString(p["SD Yield"]),
+                ratio: propToString(p["SD Ratio"]),
+                time: propToString(p["SD Time"]),
+                description: propToString(p["SD Description"]),
+            },
+            batchDripper: {
+                dose: propToString(p["MB Dose"]),
+                yield: propToString(p["MB Yield"]),
+                ratio: propToString(p["MB Ratio"]),
+                time: propToString(p["MB Time"]),
+                description: propToString(p["MB Description"]),
+            },
+            espresso: {
+                dose: propToString(p["ESP Dose"]),
+                yield: propToString(p["ESP Yield"]),
+                ratio: propToString(p["ESP Ratio"]),
+                time: propToString(p["ESP Time"]),
+                description: propToString(p["ESP Description"]),
+            },
+        }
+    };
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface InventoryCache {
     items: any[];
@@ -65,7 +211,7 @@ export interface InventoryCache {
 }
 
 export class NotionService {
-    static async fetchInventoryFromNotion(): Promise<InventoryCache> {
+    static async fetchInventoryFromNotion(forceRefresh: boolean = false): Promise<InventoryCache> {
         const databaseId = process.env.NOTION_INVENTORY_DATABASE_ID;
         if (!databaseId) {
             throw new Error("Notion inventory database ID not configured");
@@ -114,114 +260,133 @@ export class NotionService {
             }
         });
 
-        const items = Array.from(parentItems.entries()).map(([sku, properties]) => {
-            const name = properties["Name"]?.title?.[0]?.plain_text || "";
-            const description = properties["Description"]?.rich_text?.[0]?.plain_text || "";
-            const price = properties["Price"]?.number || 0;
-            const itemType = properties["Item Type"]?.select?.name || "";
-            // Quantity is always a formula that returns a number
-            const quantity = properties["Quantity"]?.formula?.number ?? 1;
-            const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
+        // Fetch markdown content for items with ItemSummary relations
+        const itemsWithMarkdown = await Promise.all(
+            Array.from(parentItems.entries()).map(async ([sku, properties]) => {
+                const name = properties["Name"]?.title?.[0]?.plain_text || "";
+                const price = properties["Price"]?.number || 0;
 
-            const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
-            const firebaseImageUrls = firebaseImageUrlsArray
-                .map((text: any) => text.plain_text)
-                .join("");
-            let images: string[] = [];
+                // Handle ItemSummary as a relation property
+                let itemSummary = "";
+                const itemSummaryRelation = properties["Item Summary"]?.relation;
+                if (itemSummaryRelation && itemSummaryRelation.length > 0) {
+                    const relatedPageId = itemSummaryRelation[0].id;
+                    if (relatedPageId) {
+                        itemSummary = await fetchPageContentAsMarkdown(relatedPageId);
+                    }
+                }
+                const itemType = properties["Item Type"]?.select?.name || "";
+                // Quantity is always a formula that returns a number
+                const quantity = properties["Quantity"]?.formula?.number ?? 1;
+                const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
 
-            if (firebaseImageUrls) {
-                images = firebaseImageUrls
-                    .split(/[,\n]/)
-                    .map((url: string) => url.trim())
-                    .filter((url: string) => url && (url.startsWith("http://") || url.startsWith("https://")));
-            }
+                const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
+                const firebaseImageUrls = firebaseImageUrlsArray
+                    .map((text: any) => text.plain_text)
+                    .join("");
+                let images: string[] = [];
 
-            if (images.length === 0) {
-                images = ["/assets/images/shop_placeholder.png"];
-            }
+                if (firebaseImageUrls) {
+                    images = firebaseImageUrls
+                        .split(/[,\n]/)
+                        .map((url: string) => url.trim())
+                        .filter((url: string) => url && (url.startsWith("http://") || url.startsWith("https://")));
+                }
 
-            const weights = properties["Weights"]?.multi_select?.map((w: any) => w.name) || [];
-            const shippingWeight = properties["Shipping Weight"]?.number || 0;
-            const roastLevel = properties["Roast Level"]?.select?.name || "";
-            const origin = properties["Origin"]?.rich_text?.[0]?.plain_text || "";
-            const tastingNotes = properties["Tasting Notes"]?.multi_select?.map((n: any) => n.name) || [];
-            const sizes = properties["Sizes"]?.multi_select?.map((s: any) => s.name) || [];
-            const colors = properties["Colors"]?.multi_select?.map((c: any) => c.name) || [];
-            const ltoEndDate = properties["LTO End Date"]?.date?.start || null;
-            const ltoUnlimitedPurchases = properties["LTO Unlimited Purchases"]?.checkbox || false;
+                if (images.length === 0) {
+                    images = ["/assets/images/shop_placeholder.png"];
+                }
 
-            const itemVariants = variants.get(sku);
-            let variantInventory = null;
+                const weights = properties["Weights"]?.multi_select?.map((w: any) => w.name) || [];
+                const shippingWeight = properties["Shipping Weight"]?.number || 0;
+                const roastLevel = properties["Roast Level"]?.select?.name || "";
+                const origin = properties["Origin"]?.rich_text?.[0]?.plain_text || "";
+                const tastingNotes = properties["Tasting Notes"]?.multi_select?.map((n: any) => n.name) || [];
+                const sizes = properties["Sizes"]?.multi_select?.map((s: any) => s.name) || [];
+                const colors = properties["Colors"]?.multi_select?.map((c: any) => c.name) || [];
+                const ltoEndDate = properties["LTO End Date"]?.date?.start || null;
+                const ltoUnlimitedPurchases = properties["LTO Unlimited Purchases"]?.checkbox || false;
 
-            if (itemVariants && itemVariants.length > 0) {
-                logger.info(`📦 Variants for ${name} (${sku})`, {
-                    totalVariants: itemVariants.length,
-                    variants: itemVariants.map((v: any) => ({
-                        sku: v["SKU"]?.rich_text?.[0]?.plain_text,
-                        weight: v["Variant Weight"]?.select?.name,
-                        active: v["Active"]?.checkbox
-                    }))
-                });
+                // Fetch item details and brewing methods from Item Summary page
+                const itemSummaryData = await getItemSummaryData(properties, itemType);
+                const itemDetails = itemSummaryData.itemDetails;
+                const brewingMethods = itemSummaryData.brewingMethods;
 
-                variantInventory = itemVariants
-                    .filter((variantProps: any) => {
-                        const active = variantProps["Active"]?.checkbox !== false;
-                        const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
-                        const variantWeight = variantProps["Variant Weight"]?.select?.name || "";
-                        logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, keep=${active}`);
-                        return active;
-                    })
-                    .map((variantProps: any) => {
-                        // Quantity is always a formula that returns a number
-                        const quantity = variantProps["Quantity"]?.formula?.number || 0;
-                        const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
-                        const ltoEndDate = variantProps["LTO End Date"]?.date?.start || null;
-                        const ltoUnlimitedPurchases = variantProps["LTO Unlimited Purchases"]?.checkbox || false;
+                const itemVariants = variants.get(sku);
+                let variantInventory = null;
 
-                        // Use variant shipping weight from Notion, fallback to parent shipping weight
-                        const variantShippingWeight = variantProps["Shipping Weight"]?.number || shippingWeight || 200;
-
-                        return {
-                            sku: variantSku,
-                            size: variantProps["Variant Size"]?.select?.name || "",
-                            color: variantProps["Variant Color"]?.select?.name || "",
-                            weight: variantProps["Variant Weight"]?.select?.name || "",
-                            shippingWeight: variantShippingWeight,
-                            quantity: quantity,
-                            price: variantProps["Price"]?.number || 0,
-                            isSoldOut: quantity <= 0,
-                            active: variantProps["Active"]?.checkbox !== false,
-                            ltoEndDate,
-                            ltoUnlimitedPurchases,
-                        };
+                if (itemVariants && itemVariants.length > 0) {
+                    logger.info(`📦 Variants for ${name} (${sku})`, {
+                        totalVariants: itemVariants.length,
+                        variants: itemVariants.map((v: any) => ({
+                            sku: v["SKU"]?.rich_text?.[0]?.plain_text,
+                            weight: v["Variant Weight"]?.select?.name,
+                            active: v["Active"]?.checkbox
+                        }))
                     });
 
-                logger.info(`✅ Filtered variants for ${name}: ${variantInventory?.length || 0} active variants`);
-            }
+                    variantInventory = itemVariants
+                        .filter((variantProps: any) => {
+                            const active = variantProps["Active"]?.checkbox !== false;
+                            const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+                            const variantWeight = variantProps["Variant Weight"]?.select?.name || "";
+                            logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, keep=${active}`);
+                            return active;
+                        })
+                        .map((variantProps: any) => {
+                            // Quantity is always a formula that returns a number
+                            const quantity = variantProps["Quantity"]?.formula?.number || 0;
+                            const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+                            const ltoEndDate = variantProps["LTO End Date"]?.date?.start || null;
+                            const ltoUnlimitedPurchases = variantProps["LTO Unlimited Purchases"]?.checkbox || false;
 
-            return {
-                sku,
-                name,
-                description,
-                price,
-                firebaseImageUrls: images,
-                itemType,
-                createdAt,
-                quantity,
-                weights,
-                shippingWeight,
-                roastLevel,
-                origin,
-                tastingNotes,
-                sizes,
-                colors,
-                variants: variantInventory,
-                ltoEndDate,
-                ltoUnlimitedPurchases,
-            };
-        }).filter((item: any) => item !== null);
+                            // Use variant shipping weight from Notion, fallback to parent shipping weight
+                            const variantShippingWeight = variantProps["Shipping Weight"]?.number || shippingWeight || 200;
 
-        return { items, lastSyncedAt: Date.now() };
+                            return {
+                                sku: variantSku,
+                                size: variantProps["Variant Size"]?.select?.name || "",
+                                color: variantProps["Variant Color"]?.select?.name || "",
+                                weight: variantProps["Variant Weight"]?.select?.name || "",
+                                shippingWeight: variantShippingWeight,
+                                quantity: quantity,
+                                price: variantProps["Price"]?.number || 0,
+                                isSoldOut: quantity <= 0,
+                                active: variantProps["Active"]?.checkbox !== false,
+                                ltoEndDate,
+                                ltoUnlimitedPurchases,
+                            };
+                        });
+
+                    logger.info(`✅ Filtered variants for ${name}: ${variantInventory?.length || 0} active variants`);
+                }
+
+                return {
+                    sku,
+                    name,
+                    itemSummary,
+                    itemDetails,
+                    price,
+                    firebaseImageUrls: images,
+                    itemType,
+                    createdAt,
+                    quantity,
+                    weights,
+                    shippingWeight,
+                    roastLevel,
+                    origin,
+                    tastingNotes,
+                    sizes,
+                    colors,
+                    variants: variantInventory,
+                    ltoEndDate,
+                    ltoUnlimitedPurchases,
+                    brewingMethods,
+                };
+            })
+        );
+
+        return { items: itemsWithMarkdown, lastSyncedAt: Date.now() };
     }
     /* eslint-enable @typescript-eslint/no-explicit-any */
 

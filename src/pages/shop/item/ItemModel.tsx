@@ -24,7 +24,8 @@ export interface InventoryVariant {
 export interface Item {
     sku: string;
     name: string;
-    description: string;
+    itemSummary: string;
+    itemDetails: string;
     price: number;
     firebaseImageUrls: string[];
     itemType: ItemType;
