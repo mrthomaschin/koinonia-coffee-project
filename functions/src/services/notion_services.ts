@@ -286,7 +286,7 @@ export class NotionService {
                 }
                 const itemType = properties["Item Type"]?.select?.name || "";
                 // Quantity is always a formula that returns a number
-                const quantity = properties["Quantity"]?.formula?.number ?? 1;
+                const quantity = properties["Quantity"]?.formula?.number ?? 0;
                 const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
 
                 const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
@@ -330,7 +330,8 @@ export class NotionService {
                         variants: itemVariants.map((v: any) => ({
                             sku: v["SKU"]?.rich_text?.[0]?.plain_text,
                             weight: v["Variant Weight"]?.select?.name,
-                            active: v["Active"]?.checkbox
+                            active: v["Active"]?.checkbox,
+                            quantity: v["Quantity"]?.formula?.number
                         }))
                     });
 
@@ -351,6 +352,8 @@ export class NotionService {
 
                             // Use variant shipping weight from Notion, fallback to parent shipping weight
                             const variantShippingWeight = variantProps["Shipping Weight"]?.number || shippingWeight || 200;
+
+                            logger.info(`📊 Mapping variant ${variantSku}: quantity=${quantity}, isSoldOut=${quantity <= 0}`);
 
                             return {
                                 sku: variantSku,
