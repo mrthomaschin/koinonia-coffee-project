@@ -21,7 +21,7 @@ const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -552,7 +552,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   customerName,
                   customerPhone,
                   shipmentData,
-                  currentShippingAddress
+                  currentShippingAddress,
+                  taxAmount
                 );
               } else {
                 logger.error('[shipment] Purchase shipment API call failed', {
@@ -560,17 +561,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   statusText: response.statusText
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
               }
             } else {
               logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
             }
           } catch (shipmentError) {
             logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
           }
         } else {
           logger.log('[shipment] Shipment purchase conditions not met, skipping', {
@@ -578,7 +579,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             selectedShippingId: selectedShipping.id
           });
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress);
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
         }
       }
     } catch (err) {
@@ -682,7 +683,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
             onClick={() => {
               setDeliveryMethod('pickup');
-              setTaxAmount(0); // Reset tax for local pickup
+              // Calculate tax for local pickup based on store location (California)
+              calculateTaxForAddress({
+                line1: '15215 Avis Ave',
+                city: 'Lawndale',
+                state: 'CA',
+                postal_code: '90260',
+                country: 'US'
+              });
               onShippingChange({ id: 'local-pickup', label: 'Local Pickup', price: 0, description: 'Pick up at our location - Free' });
             }}
           >
@@ -784,7 +792,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
   onCancel: () => void;
 }
 
@@ -823,9 +831,9 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     });
   }, [clientSecret]);
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string) => {
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress);
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax);
   };
   const options = {
     clientSecret,

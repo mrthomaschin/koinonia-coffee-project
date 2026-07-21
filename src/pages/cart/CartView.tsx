@@ -187,7 +187,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         name?: string,
         phone?: string,
         shipmentData?: any,
-        shippingAddress?: string
+        shippingAddress?: string,
+        tax?: number
     ) => {
         logger.log('CartView handleCheckoutSuccess called with shippingAddress:', shippingAddress);
         setShowCheckout(false);
@@ -200,7 +201,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         logger.log('Payment successful:', { paymentIntentId, customerEmail, customerName, customerPhone });
 
         const shippingCost = shippingOption?.price || 0;
-        const totalWithShipping = subtotal + shippingCost;
+        const taxAmount = tax || 0;
+        const totalWithShippingAndTax = subtotal + shippingCost + taxAmount;
 
         // Store order data before clearing cart
         const orderData = {
@@ -217,8 +219,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             })),
             subtotal: subtotal,
             shipping: shippingCost,
+            tax: tax,
             shippingMethod: shippingOption?.label || 'Standard Shipping',
-            total: totalWithShipping,
+            total: totalWithShippingAndTax,
             timestamp: new Date().toISOString(),
             shipmentData: shipmentData || null,
             shippingAddress: shippingAddress || null,

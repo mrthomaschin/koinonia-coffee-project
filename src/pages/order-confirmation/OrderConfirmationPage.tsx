@@ -31,6 +31,9 @@ interface EmbeddedOrderData {
     image?: string;
     selections?: any;
   }>;
+  subtotal: number;
+  shipping: number;
+  tax: number;
   total: number;
   timestamp: string;
 }
@@ -154,8 +157,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   customerPhone: customerPhone,
                   items: purchaseItems,
                   subtotal: subtotal,
-                  shipping: 8.99,
-                  tax: state.orderData.total - subtotal - 8.99,
+                  shipping: state.orderData.shipping || 0,
+                  tax: state.orderData.tax || 0,
                   totalAmount: state.orderData.total,
                   orderDate: state.orderData.timestamp,
                   orderId: orderId
@@ -288,14 +291,36 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
 
                   // Send customer confirmation email
                   logger.log('📧 Sending customer confirmation email...');
+                  const totalAmount = data.amount_total / 100;
+
+                  // Extract tax and shipping from Stripe line items
+                  let tax = 0;
+                  let shipping = 0;
+                  if (data.line_items && data.line_items.data) {
+                    data.line_items.data.forEach((item: any) => {
+                      const amount = item.amount / 100;
+                      const description = item.description?.toLowerCase() || '';
+                      if (description.includes('tax')) {
+                        tax += amount;
+                      } else if (description.includes('shipping')) {
+                        shipping += amount;
+                      }
+                    });
+                  }
+
+                  // If no explicit shipping line item, calculate from total
+                  if (shipping === 0) {
+                    shipping = totalAmount - subtotal - tax;
+                  }
+
                   await sendCustomerConfirmation({
                     customerEmail: data.customer_email,
                     customerName: data.customer_name || 'Valued Customer',
                     items: purchaseItems,
                     subtotal: subtotal,
-                    shipping: 8.99, // TODO: Get actual shipping from session
-                    tax: (data.amount_total / 100) - subtotal - 8.99,
-                    totalAmount: data.amount_total / 100,
+                    shipping: shipping,
+                    tax: tax,
+                    totalAmount: totalAmount,
                     orderDate: new Date().toISOString(),
                     orderId: orderId
                   });
