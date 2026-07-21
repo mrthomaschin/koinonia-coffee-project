@@ -61,6 +61,8 @@ const notionBlockToMarkdown = (block: any): string => {
             return `## ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
         case "heading_3":
             return `### ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
+        case "heading_4":
+            return `#### ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
         case "bulleted_list_item":
             return `- ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
         case "numbered_list_item":
@@ -102,7 +104,7 @@ const fetchPageContentAsMarkdown = async (pageId: string): Promise<string> => {
             nextCursor = response.next_cursor;
         }
 
-        return blocks.map(notionBlockToMarkdown).join("\n\n");
+        return blocks.map(notionBlockToMarkdown).join("\n\n\n");
     } catch (error) {
         logger.error(`Error fetching page content for ${pageId}:`, error);
         return "";

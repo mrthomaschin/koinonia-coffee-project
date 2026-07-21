@@ -73,12 +73,11 @@ const BOX_SIZES = {
 /**
  * Convert weight to ounces
  * Weight from Notion is always in grams (number)
- * Also handles CoffeeBagWeight enum values (200 for 200g, 5 for 5lb) for backward compatibility
- * Also handles string formats like "200g", "5lb" for backward compatibility
+ * Also handles string formats like "200g", "5lb"
  */
 export const convertWeightToOunces = (weight: string | number): number => {
     if (typeof weight === 'number') {
-        // Handle CoffeeBagWeight enum values for backward compatibility
+        // Handle numeric values (200 for 200g, 5 for 5lb) for backward compatibility
         if (weight === 200) {
             return 7; // 200g ≈ 7oz
         } else if (weight === 5) {

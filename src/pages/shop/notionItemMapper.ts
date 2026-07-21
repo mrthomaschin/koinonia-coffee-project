@@ -1,5 +1,5 @@
 import { Item, ItemType } from './item/ItemModel';
-import { CoffeeBagItem, RoastLevel } from './item/coffee_bag/CoffeeBagItem';
+import { CoffeeBagItem } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem, MerchSize } from './item/merch/MerchItem';
 import { NotionInventoryItem } from '../../services/notionService';
 
@@ -13,17 +13,6 @@ const mapItemType = (notionType: string): ItemType => {
     'Stickers': ItemType.stickers,
   };
   return typeMap[notionType] || ItemType.accessories;
-};
-
-const mapRoastLevel = (roastStr: string): RoastLevel => {
-  const roastMap: { [key: string]: RoastLevel } = {
-    'Light': RoastLevel.light,
-    'Medium-Light': RoastLevel.mediumLight,
-    'Medium': RoastLevel.medium,
-    'Medium-Dark': RoastLevel.mediumDark,
-    'Dark': RoastLevel.dark,
-  };
-  return roastMap[roastStr] || RoastLevel.medium;
 };
 
 const mapMerchSize = (sizeStr: string): MerchSize | null => {
@@ -52,8 +41,7 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
     // Shipping weight is a number (grams) from Notion, fallback to 0 if not present
     const shippingWeight = notionItem.shippingWeight || 0;
     const weights = notionItem.weights || [];
-
-    const roastLevel = mapRoastLevel(notionItem.roastLevel || 'Medium');
+    const roastLevel = notionItem.roastLevel || 'Medium';
 
     return new CoffeeBagItem(
       notionItem.sku,

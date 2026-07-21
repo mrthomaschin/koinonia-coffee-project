@@ -497,8 +497,55 @@
 }
 
 .dropdown-content p {
-  margin: 0;
+  margin: 0 0 16px 0;
   font-size: 16px;
   line-height: 1.6;
   color: #2F2B39;
+}
+
+.dropdown-content ul,
+.dropdown-content ol {
+  margin: 0 0 16px 0;
+  padding-left: 24px;
+  color: #2F2B39;
+}
+
+.dropdown-content li {
+  margin: 8px 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #2F2B39;
+}
+
+.dropdown-content ul {
+  list-style-type: disc;
+}
+
+.dropdown-content ol {
+  list-style-type: decimal;
+}
+
+.dropdown-content h1,
+.dropdown-content h2,
+.dropdown-content h3,
+.dropdown-content h4 {
+  margin: 24px 0 12px 0;
+  color: #2F2B39;
+  font-weight: 600;
+}
+
+.dropdown-content h1 {
+  font-size: 28px;
+}
+
+.dropdown-content h2 {
+  font-size: 24px;
+}
+
+.dropdown-content h3 {
+  font-size: 20px;
+}
+
+.dropdown-content h4 {
+  font-size: 18px;
 }

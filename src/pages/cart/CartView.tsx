@@ -2,7 +2,6 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartItem } from './CartViewModel';
 import { ItemType } from '../shop/item/ItemModel';
-import { CoffeeBagWeight } from '../shop/item/coffee_bag/CoffeeBagItem';
 import { useCart } from '../../contexts/CartContext';
 import { stripeService } from '../../services/stripeService';
 import EmbeddedCheckout from '../../components/EmbeddedCheckout';
@@ -249,15 +248,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         setClientSecret(null);
     }, []);
 
-    const formatWeight = (weight: CoffeeBagWeight): string => {
-        switch (weight) {
-            case CoffeeBagWeight._200g:
-                return '200g';
-            case CoffeeBagWeight._5lb:
-                return '5lb';
-            default:
-                return '';
-        }
+    const formatWeight = (weight: string): string => {
+        return weight;
     };
 
     const renderCartItem = (cartItem: CartItem, index: number) => {

@@ -1,20 +1,7 @@
 import { Item, ItemType, InventoryVariant } from "../ItemModel";
 
-export enum CoffeeBagWeight {
-    _200g = 200,
-    _5lb = 5,
-}
-
-export enum RoastLevel {
-    light = "Light",
-    mediumLight = "Medium-Light",
-    medium = "Medium",
-    mediumDark = "Medium-Dark",
-    dark = "Dark",
-}
-
 export class CoffeeBagItem implements Item {
-    constructor(id: string, name: string, itemSummary: string, itemDetails: string, price: number, firebaseImageUrls: string[], createdAt: Date, shippingWeight: number, weights: string[], roastLevel: RoastLevel, origin: string, tastingNotes: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean, brewingMethods?: any) {
+    constructor(id: string, name: string, itemSummary: string, itemDetails: string, price: number, firebaseImageUrls: string[], createdAt: Date, shippingWeight: number, weights: string[], roastLevel: string, origin: string, tastingNotes: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean, brewingMethods?: any) {
         this.sku = id;
         this.name = name;
         this.itemSummary = itemSummary;
@@ -46,7 +33,7 @@ export class CoffeeBagItem implements Item {
 
     shippingWeight?: number;
     weights: string[];
-    roastLevel: RoastLevel;
+    roastLevel: string;
     origin: string;
     tastingNotes: string[];
     quantity: number;

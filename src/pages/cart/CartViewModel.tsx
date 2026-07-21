@@ -1,11 +1,10 @@
 import { Item, ItemType } from "../shop/item/ItemModel";
-import { CoffeeBagWeight } from "../shop/item/coffee_bag/CoffeeBagItem";
 import trackingService from "../../services/trackingService";
 import { TaxCodes } from "../../constants/TaxCodes";
 import { allowsUnlimitedPurchases } from "../../util/limitedTimeOffer";
 
 export interface CartItemSelection {
-    weight?: CoffeeBagWeight;
+    weight?: string;
     size?: string;
     color?: string;
     variantSku?: string;

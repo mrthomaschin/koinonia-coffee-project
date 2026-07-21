@@ -214,13 +214,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 const variations: string[] = [];
                 if (cartItem.selections.weight) {
                   const weight = cartItem.selections.weight;
-                  if (weight === 200) {
-                    variations.push('200g');
-                  } else if (weight === 5) {
-                    variations.push('5lb');
-                  } else {
-                    variations.push(`${weight}g`);
-                  }
+                  variations.push(weight);
                 }
                 if (cartItem.selections.size) {
                   variations.push(cartItem.selections.size);
