@@ -59,11 +59,14 @@ export class EmailService {
         const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo, estimatedDelivery } = params;
 
         // Generate tracking URL based on carrier
-        let trackingUrl = "https://tools.usps.com/go/TrackConfirmAction";
+        let trackingUrl = "https://tools.usps.com/tracking";
         if (trackingCarrier === "UPS") {
-            trackingUrl = "https://www.ups.com/track";
+            trackingUrl = `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
         } else if (trackingCarrier === "Fedex") {
-            trackingUrl = "https://www.fedex.com/fedextrack/";
+            trackingUrl = `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
+        } else {
+            // USPS tracking URL format
+            trackingUrl = `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
         }
 
         const emailData = {
@@ -158,11 +161,14 @@ export class EmailService {
         const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, trackingCarrier, trackingInfo, deliveryDate } = params;
 
         // Generate tracking URL based on carrier
-        let trackingUrl = "https://tools.usps.com/go/TrackConfirmAction";
+        let trackingUrl = "https://tools.usps.com/tracking";
         if (trackingCarrier === "UPS") {
-            trackingUrl = "https://www.ups.com/track";
+            trackingUrl = `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
         } else if (trackingCarrier === "Fedex") {
-            trackingUrl = "https://www.fedex.com/fedextrack/";
+            trackingUrl = `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
+        } else {
+            // USPS tracking URL format
+            trackingUrl = `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
         }
 
         const emailData = {
