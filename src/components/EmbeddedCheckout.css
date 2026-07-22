@@ -221,6 +221,34 @@
   opacity: 1;
 }
 
+.pickup-info-container {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  position: relative;
+  z-index: 1;
+}
+
+.pickup-info-container.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.pickup-info-container.expanded {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.pickup-info-text {
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  border-left: 4px solid #4caf50;
+  animation: slideDown 0.3s ease-out;
+}
+
 .address-section {
   animation: slideDown 0.3s ease-out;
 }

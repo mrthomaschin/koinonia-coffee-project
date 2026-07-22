@@ -708,6 +708,13 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         </div>
       </div>
 
+      {deliveryMethod === 'pickup' && (
+        <div className="pickup-info-container expanded">
+          <div className="pickup-info-text">
+            Free local pickup is available in Lawndale and Arcadia, CA. Since we don’t have a storefront, we’ll contact you within 24 hours to arrange a pickup time and location.          </div>
+        </div>
+      )}
+
       {deliveryMethod === 'shipping' && (
         <div className="shipping-sections-container expanded">
           <div className="address-section">
