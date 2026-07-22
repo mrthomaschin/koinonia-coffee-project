@@ -72,14 +72,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             const purchaseItems = state.orderData.items.map(item => {
               const variations: string[] = [];
               if (item.selections?.weight) {
-                const weight = item.selections.weight;
-                if (weight === 200) {
-                  variations.push('200g');
-                } else if (weight === 5) {
-                  variations.push('5lb');
-                } else {
-                  variations.push(`${weight}g`);
-                }
+                variations.push(item.selections.weight);
               }
               if (item.selections?.size) {
                 variations.push(item.selections.size);
