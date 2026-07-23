@@ -285,15 +285,8 @@ export class NotionService {
                     }
                 }
                 const itemType = properties["Item Type"]?.select?.name || "";
-                // Calculate quantity using rollups and formula
-                const prop0Rollup = properties["Prop0"]?.rollup?.number || 0;
-                const prop1Rollup = properties["Prop1"]?.rollup?.number || 0;
-                const prop2Rollup = properties["Prop2 Rollup"]?.rollup?.number || 0;
-                const prop3Formula = properties["Prop3"]?.formula?.number || 0;
-                const quantity = prop0Rollup - prop1Rollup + prop2Rollup - prop3Formula;
-                logger.info(`📊 Parent ${sku}: Prop0=${prop0Rollup}, Prop1=${prop1Rollup}, Prop2=${prop2Rollup}, Prop3=${prop3Formula}, Total=${quantity}`);
+                const quantity = properties["Qty Available"]?.formula?.number ?? 0;
                 const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
-
                 const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
                 const firebaseImageUrls = firebaseImageUrlsArray
                     .map((text: any) => text.plain_text)
@@ -349,21 +342,13 @@ export class NotionService {
                             return active;
                         })
                         .map((variantProps: any) => {
-                            // Calculate quantity using rollups and formula
-                            const prop0Rollup = variantProps["Prop0"]?.rollup?.number || 0;
-                            const prop1Rollup = variantProps["Prop1"]?.rollup?.number || 0;
-                            const prop2Rollup = variantProps["Prop2 Rollup"]?.rollup?.number || 0;
-                            const prop3Formula = variantProps["Prop3"]?.formula?.number || 0;
-                            const quantity = prop0Rollup - prop1Rollup + prop2Rollup - prop3Formula;
-
+                            const quantity = variantProps["Qty Available"]?.formula?.number ?? 0;
                             const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
                             const ltoEndDate = variantProps["LTO End Date"]?.date?.start || null;
                             const ltoUnlimitedPurchases = variantProps["LTO Unlimited Purchases"]?.checkbox || false;
 
                             // Use variant shipping weight from Notion, fallback to parent shipping weight
                             const variantShippingWeight = variantProps["Shipping Weight"]?.number || shippingWeight || 200;
-
-                            logger.info(`📊 Variant ${variantSku}: Prop0=${prop0Rollup}, Prop1=${prop1Rollup}, Prop2=${prop2Rollup}, Prop3=${prop3Formula}, Total=${quantity}, isSoldOut=${quantity <= 0}`);
 
                             return {
                                 sku: variantSku,
