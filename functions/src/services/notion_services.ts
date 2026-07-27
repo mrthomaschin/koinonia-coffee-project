@@ -175,9 +175,9 @@ async function getItemSummaryData(properties: any, itemType: string) {
         return {
             itemDetails: "",
             brewingMethods: {
-                singleDripper: { dose: "", yield: "", ratio: "", time: "", description: "" },
-                batchDripper: { dose: "", yield: "", ratio: "", time: "", description: "" },
-                espresso: { dose: "", yield: "", ratio: "", time: "", description: "" },
+                singleDripper: { dose: "", yield: "", waterTemperature: "", ratio: "", time: "", description: "" },
+                batchDripper: { dose: "", yield: "", waterTemperature: "", ratio: "", time: "", description: "" },
+                espresso: { dose: "", yield: "", waterTemperature: "", ratio: "", time: "", description: "" },
             }
         };
     }
@@ -191,6 +191,7 @@ async function getItemSummaryData(properties: any, itemType: string) {
             singleDripper: {
                 dose: propToString(p["SD Dose"]),
                 yield: propToString(p["SD Yield"]),
+                waterTemperature: propToString(p["SD Water Temperature"]),
                 ratio: propToString(p["SD Ratio"]),
                 time: propToString(p["SD Time"]),
                 description: propToString(p["SD Description"]),
@@ -198,6 +199,7 @@ async function getItemSummaryData(properties: any, itemType: string) {
             batchDripper: {
                 dose: propToString(p["MB Dose"]),
                 yield: propToString(p["MB Yield"]),
+                waterTemperature: propToString(p["MB Water Temperature"]),
                 ratio: propToString(p["MB Ratio"]),
                 time: propToString(p["MB Time"]),
                 description: propToString(p["MB Description"]),
@@ -205,6 +207,7 @@ async function getItemSummaryData(properties: any, itemType: string) {
             espresso: {
                 dose: propToString(p["ESP Dose"]),
                 yield: propToString(p["ESP Yield"]),
+                waterTemperature: propToString(p["ESP Water Temperature"]),
                 ratio: propToString(p["ESP Ratio"]),
                 time: propToString(p["ESP Time"]),
                 description: propToString(p["ESP Description"]),

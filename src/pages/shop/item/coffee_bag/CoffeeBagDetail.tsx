@@ -163,6 +163,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         icon: <img src={ICONS.v60} alt="Single Dripper" className="brewing-icon" />,
         coffee: item.brewingMethods.singleDripper?.dose || "",
         water: item.brewingMethods.singleDripper?.yield || "",
+        waterTemperature: item.brewingMethods.singleDripper?.waterTemperature || "",
         ratio: item.brewingMethods.singleDripper?.ratio || "",
         time: item.brewingMethods.singleDripper?.time || "",
         description: item.brewingMethods.singleDripper?.description || ""
@@ -172,6 +173,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         icon: <img src={ICONS.chemex} alt="Batch Dripper" className="brewing-icon" />,
         coffee: item.brewingMethods.batchDripper?.dose || "",
         water: item.brewingMethods.batchDripper?.yield || "",
+        waterTemperature: item.brewingMethods.batchDripper?.waterTemperature || "",
         ratio: item.brewingMethods.batchDripper?.ratio || "",
         time: item.brewingMethods.batchDripper?.time || "",
         description: item.brewingMethods.batchDripper?.description || ""
@@ -181,6 +183,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         icon: <img src={ICONS.espresso} alt="Espresso" className="brewing-icon" />,
         coffee: item.brewingMethods.espresso?.dose || "",
         water: item.brewingMethods.espresso?.yield || "",
+        waterTemperature: item.brewingMethods.espresso?.waterTemperature || "",
         ratio: item.brewingMethods.espresso?.ratio || "",
         time: item.brewingMethods.espresso?.time || "",
         description: item.brewingMethods.espresso?.description || ""
@@ -208,6 +211,10 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
                 <div className="recipe-row">
                   <span className="recipe-label">Water:</span>
                   <span className="recipe-value">{method.water}</span>
+                </div>
+                <div className="recipe-row">
+                  <span className="recipe-label">Water temp:</span>
+                  <span className="recipe-value">{method.waterTemperature}</span>
                 </div>
                 <div className="recipe-row">
                   <span className="recipe-label">Ratio:</span>

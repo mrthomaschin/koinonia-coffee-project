@@ -345,6 +345,7 @@
   color: #666;
   text-align: center;
   margin: 0;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 768px) {

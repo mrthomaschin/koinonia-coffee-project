@@ -4,6 +4,7 @@ export interface BrewMethod {
     name: string;
     dose: string;
     yield: string;
+    waterTemperature: string;
     ratio: string;
     time: string;
     description: string;
@@ -100,6 +101,7 @@ export class SingleDripper implements BrewMethod {
     name: string;
     dose: string;
     yield: string;
+    waterTemperature: string;
     ratio: string;
     time: string;
     description: string;
@@ -108,6 +110,7 @@ export class SingleDripper implements BrewMethod {
     constructor(
         coffee: string,
         water: string,
+        waterTemperature: string,
         ratio: string,
         time: string,
         description: string,
@@ -115,6 +118,7 @@ export class SingleDripper implements BrewMethod {
         this.name = "Single Dripper";
         this.dose = coffee;
         this.yield = water;
+        this.waterTemperature = waterTemperature;
         this.ratio = ratio;
         this.time = time;
         this.description = description;
@@ -126,6 +130,7 @@ export class BatchDripper implements BrewMethod {
     name: string;
     dose: string;
     yield: string;
+    waterTemperature: string;
     ratio: string;
     time: string;
     description: string;
@@ -134,6 +139,7 @@ export class BatchDripper implements BrewMethod {
     constructor(
         coffee: string,
         water: string,
+        waterTemperature: string,
         ratio: string,
         time: string,
         description: string,
@@ -141,6 +147,7 @@ export class BatchDripper implements BrewMethod {
         this.name = "Batch Dripper";
         this.dose = coffee;
         this.yield = water;
+        this.waterTemperature = waterTemperature;
         this.ratio = ratio;
         this.time = time;
         this.description = description;
@@ -152,6 +159,7 @@ export class Espresso implements BrewMethod {
     name: string;
     dose: string;
     yield: string;
+    waterTemperature: string;
     ratio: string;
     time: string;
     description: string;
@@ -160,6 +168,7 @@ export class Espresso implements BrewMethod {
     constructor(
         coffee: string,
         water: string,
+        waterTemperature: string,
         ratio: string,
         time: string,
         description: string,
@@ -167,6 +176,7 @@ export class Espresso implements BrewMethod {
         this.name = "Espresso";
         this.dose = coffee;
         this.yield = water;
+        this.waterTemperature = waterTemperature;
         this.ratio = ratio;
         this.time = time;
         this.description = description;
@@ -187,6 +197,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             new SingleDripper(
                 '20g',
                 '300g',
+                '93°C',
                 '1:15',
                 '2:30-3:00',
                 'Perfect for highlighting delicate flavors and bright acidity. The slower extraction brings out clarity and complexity.',
@@ -194,6 +205,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             new BatchDripper(
                 '60g',
                 '1000g',
+                '93°C',
                 '1:16.7',
                 '4:00-5:00',
                 'Ideal for consistent, balanced cups when brewing for multiple people. Produces a clean, well-rounded flavor profile.',
@@ -201,6 +213,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             new Espresso(
                 '18g',
                 '36g',
+                '93°C',
                 '1:2',
                 '25-30s',
                 'Concentrated and intense, espresso emphasizes body and sweetness. Best for showcasing chocolate and caramel notes.',
@@ -219,6 +232,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             new SingleDripper(
                 '22g',
                 '330g',
+                '93°C',
                 '1:15',
                 '2:45-3:15',
                 'Brings out the chocolate and caramel sweetness with a smooth, balanced body.',
@@ -226,6 +240,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             new BatchDripper(
                 '65g',
                 '1040g',
+                '93°C',
                 '1:16',
                 '4:30-5:30',
                 'Perfect for sharing, this method produces a crowd-pleasing cup with consistent flavor.',
@@ -233,6 +248,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
             new Espresso(
                 '18g',
                 '40g',
+                '93°C',
                 '1:2.2',
                 '27-32s',
                 'Rich and full-bodied with pronounced chocolate and caramel notes. Excellent for milk-based drinks.',
