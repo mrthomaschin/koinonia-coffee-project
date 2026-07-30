@@ -185,10 +185,23 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         water: item.brewingMethods.espresso?.yield || "",
         waterTemperature: item.brewingMethods.espresso?.waterTemperature || "",
         ratio: item.brewingMethods.espresso?.ratio || "",
+        maxPressure: item.brewingMethods.espresso?.maxPressure || "",
         time: item.brewingMethods.espresso?.time || "",
         description: item.brewingMethods.espresso?.description || ""
+      },
+      {
+        name: "Milk Drink",
+        icon: <img src={ICONS.espresso} alt="Milk Drink" className="brewing-icon" />,
+        coffee: item.brewingMethods.milkDrink?.dose || "",
+        water: item.brewingMethods.milkDrink?.yield || "",
+        waterTemperature: item.brewingMethods.milkDrink?.waterTemperature || "",
+        ratio: item.brewingMethods.milkDrink?.ratio || "",
+        milkRatio: item.brewingMethods.milkDrink?.milkRatio || "",
+        maxPressure: item.brewingMethods.milkDrink?.maxPressure || "",
+        time: item.brewingMethods.milkDrink?.time || "",
+        description: item.brewingMethods.milkDrink?.description || ""
       }
-    ].filter(method => method.coffee || method.water || method.ratio || method.time || method.description);
+    ].filter(method => method.coffee || method.water || method.ratio || method.milkRatio || method.maxPressure || method.time || method.description);
 
     if (brewingMethods.length === 0) {
       return null;
@@ -220,6 +233,18 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
                   <span className="recipe-label">Ratio:</span>
                   <span className="recipe-value">{method.ratio}</span>
                 </div>
+                {"milkRatio" in method && method.milkRatio && (
+                  <div className="recipe-row">
+                    <span className="recipe-label">Milk ratio:</span>
+                    <span className="recipe-value">{method.milkRatio}</span>
+                  </div>
+                )}
+                {"maxPressure" in method && method.maxPressure && (
+                  <div className="recipe-row">
+                    <span className="recipe-label">Max pressure:</span>
+                    <span className="recipe-value">{method.maxPressure}</span>
+                  </div>
+                )}
                 <div className="recipe-row">
                   <span className="recipe-label">Time:</span>
                   <span className="recipe-value">{method.time}</span>

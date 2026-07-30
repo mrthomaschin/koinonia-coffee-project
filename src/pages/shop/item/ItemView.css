@@ -185,6 +185,7 @@
   color: #2F2B39;
   margin: 0;
   letter-spacing: 0.5px;
+  white-space: pre-wrap;
 }
 
 .detail-options {

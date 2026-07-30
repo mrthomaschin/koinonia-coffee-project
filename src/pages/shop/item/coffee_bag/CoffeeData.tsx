@@ -6,6 +6,8 @@ export interface BrewMethod {
     yield: string;
     waterTemperature: string;
     ratio: string;
+    milkRatio?: string;
+    maxPressure?: string;
     time: string;
     description: string;
     icon: string;
@@ -161,6 +163,7 @@ export class Espresso implements BrewMethod {
     yield: string;
     waterTemperature: string;
     ratio: string;
+    maxPressure: string;
     time: string;
     description: string;
     icon: string;
@@ -170,6 +173,7 @@ export class Espresso implements BrewMethod {
         water: string,
         waterTemperature: string,
         ratio: string,
+        maxPressure: string,
         time: string,
         description: string,
     ) {
@@ -178,6 +182,42 @@ export class Espresso implements BrewMethod {
         this.yield = water;
         this.waterTemperature = waterTemperature;
         this.ratio = ratio;
+        this.maxPressure = maxPressure;
+        this.time = time;
+        this.description = description;
+        this.icon = ICONS.espresso;
+    }
+}
+
+export class MilkDrink implements BrewMethod {
+    name: string;
+    dose: string;
+    yield: string;
+    waterTemperature: string;
+    ratio: string;
+    milkRatio: string;
+    maxPressure: string;
+    time: string;
+    description: string;
+    icon: string;
+
+    constructor(
+        coffee: string,
+        water: string,
+        waterTemperature: string,
+        ratio: string,
+        milkRatio: string,
+        maxPressure: string,
+        time: string,
+        description: string,
+    ) {
+        this.name = "Milk Drink";
+        this.dose = coffee;
+        this.yield = water;
+        this.waterTemperature = waterTemperature;
+        this.ratio = ratio;
+        this.milkRatio = milkRatio;
+        this.maxPressure = maxPressure;
         this.time = time;
         this.description = description;
         this.icon = ICONS.espresso;
@@ -215,6 +255,7 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '36g',
                 '93°C',
                 '1:2',
+                '9 bar',
                 '25-30s',
                 'Concentrated and intense, espresso emphasizes body and sweetness. Best for showcasing chocolate and caramel notes.',
             )
@@ -250,8 +291,19 @@ export const coffeeDataMap: Record<string, Coffee> = {
                 '40g',
                 '93°C',
                 '1:2.2',
+                '9 bar',
                 '27-32s',
                 'Rich and full-bodied with pronounced chocolate and caramel notes. Excellent for milk-based drinks.',
+            ),
+            new MilkDrink(
+                '18g',
+                '40g',
+                '93°C',
+                '1:2.2',
+                '1:3',
+                '9 bar',
+                '27-32s',
+                'Ideal for lattes and cappuccinos. The chocolate and caramel notes shine through milk.',
             )
         ]
     ),

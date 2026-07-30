@@ -177,7 +177,8 @@ async function getItemSummaryData(properties: any, itemType: string) {
             brewingMethods: {
                 singleDripper: { dose: "", yield: "", waterTemperature: "", ratio: "", time: "", description: "" },
                 batchDripper: { dose: "", yield: "", waterTemperature: "", ratio: "", time: "", description: "" },
-                espresso: { dose: "", yield: "", waterTemperature: "", ratio: "", time: "", description: "" },
+                espresso: { dose: "", yield: "", waterTemperature: "", ratio: "", maxPressure: "", time: "", description: "" },
+                milkDrink: { dose: "", yield: "", waterTemperature: "", ratio: "", milkRatio: "", maxPressure: "", time: "", description: "" },
             }
         };
     }
@@ -209,8 +210,19 @@ async function getItemSummaryData(properties: any, itemType: string) {
                 yield: propToString(p["ESP Yield"]),
                 waterTemperature: propToString(p["ESP Water Temperature"]),
                 ratio: propToString(p["ESP Ratio"]),
+                maxPressure: propToString(p["ESP Pressure"]),
                 time: propToString(p["ESP Time"]),
                 description: propToString(p["ESP Description"]),
+            },
+            milkDrink: {
+                dose: propToString(p["MD Dose"]),
+                yield: propToString(p["MD Yield"]),
+                waterTemperature: propToString(p["MD Water Temperature"]),
+                ratio: propToString(p["MD Ratio"]),
+                milkRatio: propToString(p["MD Milk Ratio"]),
+                maxPressure: propToString(p["MD Pressure"]),
+                time: propToString(p["MD Time"]),
+                description: propToString(p["MD Description"]),
             },
         }
     };
