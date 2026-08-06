@@ -59,6 +59,23 @@
   color: #333;
 }
 
+.discount-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  color: #2E7D32;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.discount-row span:first-child {
+  font-weight: 500;
+}
+
+.discount-amount {
+  color: #2E7D32;
+  font-weight: 600;
+}
+
 .checkout-totals {
   display: flex;
   flex-direction: column;

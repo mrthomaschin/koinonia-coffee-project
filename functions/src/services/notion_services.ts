@@ -812,6 +812,95 @@ export class NotionService {
         }
     }
 
+    static async validateDiscountCode(req: Request, res: Response): Promise<void> {
+        try {
+            const { code } = req.body;
+            if (!code || typeof code !== 'string') {
+                res.status(400).json({ error: "Discount code is required" });
+                return;
+            }
+
+            const databaseId = process.env.NOTION_DISCOUNT_CODES_DATABASE_ID;
+            if (!databaseId) {
+                res.status(500).json({ error: "NOTION_DISCOUNT_CODES_DATABASE_ID not configured" });
+                return;
+            }
+
+            const notion = getNotion();
+
+            // Query for the discount code by name (case-insensitive)
+            const response = await notion.databases.query({
+                database_id: databaseId,
+                filter: {
+                    property: "Code",
+                    rich_text: {
+                        equals: code.toUpperCase(),
+                    },
+                },
+            });
+
+            if (response.results.length === 0) {
+                res.json({ valid: false, message: "Invalid discount code" });
+                return;
+            }
+
+            const page = response.results[0];
+            if (!("properties" in page)) {
+                res.json({ valid: false, message: "Invalid discount code" });
+                return;
+            }
+
+            const properties = page.properties as any;
+
+            // Check if active
+            const isActive = properties["Active"]?.checkbox;
+            if (!isActive) {
+                res.json({ valid: false, message: "This discount code is no longer active" });
+                return;
+            }
+
+            // Check expiration date
+            const expirationDate = properties["Expiration Date"]?.date?.start;
+            if (expirationDate) {
+                const expDate = new Date(expirationDate);
+                const now = new Date();
+                if (now > expDate) {
+                    res.json({ valid: false, message: "This discount code has expired" });
+                    return;
+                }
+            }
+
+            // Get percentage off
+            const percentOff = properties["% Off"]?.number;
+            logger.info("Checking discount percentage", {
+                percentOff,
+                hasProperty: !!properties["% Off"],
+                propertyType: properties["% Off"]?.type
+            });
+
+            if (!percentOff || percentOff <= 0) {
+                logger.error("Invalid discount percentage", { percentOff, properties: Object.keys(properties) });
+                res.json({ valid: false, message: "Invalid discount percentage" });
+                return;
+            }
+
+            const codeName = properties["Code"]?.rich_text?.[0]?.plain_text || code;
+
+            logger.info("Discount code validated successfully", { code: codeName, percentOff });
+            res.json({
+                valid: true,
+                code: codeName,
+                percentOff: percentOff,
+                message: `${percentOff}% discount applied!`
+            });
+        } catch (error: unknown) {
+            logger.error("Error validating discount code", {
+                error: (error as Error).message,
+            });
+            res.status(500).json({ error: (error as Error).message });
+        }
+    }
+
     static async handleTestOrderStatus(req: Request, res: Response): Promise<void> {
         try {
             logger.info("Starting order status check...");

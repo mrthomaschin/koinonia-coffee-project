@@ -33,6 +33,10 @@ interface PurchaseNotificationData {
   customerName?: string;
   customerPhone?: string;
   items: PurchaseItem[];
+  subtotal?: number;
+  discountCode?: string;
+  discountPercent?: number;
+  discountAmount?: number;
   totalAmount: number;
   orderDate: string;
   sessionId: string;
@@ -44,6 +48,9 @@ interface CustomerConfirmationData {
   customerPhone?: string;
   items: PurchaseItem[];
   subtotal: number;
+  discountCode?: string;
+  discountPercent?: number;
+  discountAmount?: number;
   shipping: number;
   tax: number;
   totalAmount: number;
@@ -112,17 +119,21 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
       })
       .join('\n');
 
-    const subtotal = purchaseData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = purchaseData.subtotal || purchaseData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
     // Create a shorter order ID from session ID (last 8 characters)
     const orderId = purchaseData.sessionId.slice(-8).toUpperCase();
 
     const templateParams = {
       customer_email: purchaseData.customerEmail,
-      customer_name: getFirstName(purchaseData.customerName),
+      customer_name: purchaseData.customerName || 'Customer',
       customer_phone: purchaseData.customerPhone || 'N/A',
       order_items: itemsList.trim(),
       subtotal: `$${subtotal.toFixed(2)}`,
+      discount_code: purchaseData.discountCode || '',
+      discount_percent: purchaseData.discountPercent || 0,
+      discount_amount: purchaseData.discountAmount ? `$${purchaseData.discountAmount.toFixed(2)}` : '$0.00',
+      has_discount: purchaseData.discountCode ? true : false,
       total_amount: `$${purchaseData.totalAmount.toFixed(2)}`,
       order_date: purchaseData.orderDate,
       order_id: orderId,
@@ -191,12 +202,17 @@ export const sendCustomerConfirmation = async (confirmationData: CustomerConfirm
 
     const templateParams = {
       to_email: confirmationData.customerEmail,
-      customer_name: getFirstName(confirmationData.customerName),
+      customer_name: confirmationData.customerName,
+      customer_first_name: getFirstName(confirmationData.customerName),
       customer_phone: confirmationData.customerPhone || 'N/A',
       order_id: confirmationData.orderId,
       order_date: confirmationData.orderDate,
       items_html: itemsHtml,
       subtotal: `$${confirmationData.subtotal.toFixed(2)}`,
+      discount_code: confirmationData.discountCode || '',
+      discount_percent: confirmationData.discountPercent || 0,
+      discount_amount: confirmationData.discountAmount ? `$${confirmationData.discountAmount.toFixed(2)}` : '$0.00',
+      has_discount: confirmationData.discountCode ? true : false,
       shipping: `$${confirmationData.shipping.toFixed(2)}`,
       tax: `$${confirmationData.tax.toFixed(2)}`,
       total: `$${confirmationData.totalAmount.toFixed(2)}`,

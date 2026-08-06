@@ -21,14 +21,38 @@ export interface CartItem {
     taxCode?: string;
 }
 
+export interface DiscountCode {
+    code: string;
+    percentOff: number;
+}
+
 export class CartViewModel {
     cartItems: Array<CartItem> = [];
+    discountCode: DiscountCode | null = null;
 
     getSubtotal(): number {
         return this.cartItems.reduce((total, cartItem) => {
             const itemPrice = this.getItemPrice(cartItem);
             return total + (itemPrice * cartItem.quantity);
         }, 0);
+    }
+
+    getDiscountAmount(): number {
+        if (!this.discountCode) return 0;
+        const subtotal = this.getSubtotal();
+        return subtotal * (this.discountCode.percentOff / 100);
+    }
+
+    getSubtotalAfterDiscount(): number {
+        return this.getSubtotal() - this.getDiscountAmount();
+    }
+
+    setDiscountCode(code: string, percentOff: number): void {
+        this.discountCode = { code, percentOff };
+    }
+
+    clearDiscountCode(): void {
+        this.discountCode = null;
     }
 
     getItemPrice(cartItem: CartItem): number {

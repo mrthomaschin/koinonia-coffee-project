@@ -20,6 +20,11 @@ const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
 });
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
+interface DiscountCodeProp {
+  code: string;
+  percentOff: number;
+}
+
 interface CheckoutFormProps {
   onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
   onCancel: () => void;
@@ -27,6 +32,7 @@ interface CheckoutFormProps {
   onShippingChange: (option: ShippingOption) => void;
   selectedShipping: ShippingOption;
   onAddressChange?: (address: any) => void;
+  discountCode?: DiscountCodeProp | null;
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -35,7 +41,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   totalAmount,
   onShippingChange,
   selectedShipping,
-  onAddressChange
+  onAddressChange,
+  discountCode
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -344,15 +351,23 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         service: mappedRate.service,
       }));
 
-      setShippingOptions(options);
+      // Only update shipping options if still in shipping mode
+      // This prevents race condition when user switches to pickup while rates are loading
+      if (deliveryMethod === 'shipping') {
+        setShippingOptions(options);
 
-      // Select the first option by default
-      if (options.length > 0) {
-        onShippingChange(options[0]);
+        // Select the first option by default
+        if (options.length > 0) {
+          onShippingChange(options[0]);
+        }
+      } else {
+        logger.log('[shipping] Ignoring shipping rates - user switched to pickup');
       }
     } catch (error) {
-      // On error, show no shipping options
-      setShippingOptions([]);
+      // On error, show no shipping options (only if still in shipping mode)
+      if (deliveryMethod === 'shipping') {
+        setShippingOptions([]);
+      }
     } finally {
       setIsLoadingShipping(false);
     }
@@ -397,7 +412,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       // Set new debounce timer to fetch rates after 2 seconds
       const timer = setTimeout(async () => {
-        await fetchShippingRatesFromEasyPost(address);
+        // Only fetch if still in shipping mode
+        if (deliveryMethod === 'shipping') {
+          await fetchShippingRatesFromEasyPost(address);
+        }
       }, 2000);
 
       setDebounceTimer(timer);
@@ -607,6 +625,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <span>Subtotal:</span>
             <span>${totalAmount.toFixed(2)}</span>
           </div>
+          {discountCode && (
+            <div className="discount-row">
+              <span>Discount ({discountCode.code} - {discountCode.percentOff}% off):</span>
+              <span className="discount-amount">-${(totalAmount * (discountCode.percentOff / 100)).toFixed(2)}</span>
+            </div>
+          )}
           <div className={`shipping-row ${deliveryMethod !== 'shipping' ? 'hidden' : ''}`}>
             <span>Shipping:</span>
             <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
@@ -683,6 +707,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
             onClick={() => {
               setDeliveryMethod('pickup');
+              // Cancel any pending shipping rate fetches
+              if (debounceTimer) {
+                clearTimeout(debounceTimer);
+                setDebounceTimer(null);
+              }
+              // Clear shipping options and loading state
+              setShippingOptions([]);
+              setIsLoadingShipping(false);
               // Calculate tax for local pickup based on store location (California)
               calculateTaxForAddress({
                 line1: '15215 Avis Ave',
@@ -700,7 +732,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
             onClick={() => {
               setDeliveryMethod('shipping');
-              // Tax will be calculated when address is completed
+              // Reset shipping options to prevent showing stale local pickup option
+              setShippingOptions([]);
+              // If we have a current address, recalculate tax and shipping rates
+              if (currentAddress && shippingAddressComplete) {
+                calculateTaxForAddress(currentAddress);
+                // Fetch shipping rates (function has internal guard for deliveryMethod)
+                fetchShippingRatesFromEasyPost(currentAddress);
+              } else {
+                // Clear tax if no address is available yet
+                setTaxAmount(0);
+              }
             }}
           >
             <span>Shipping</span>
@@ -796,11 +838,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   );
 };
 
+interface DiscountCode {
+  code: string;
+  percentOff: number;
+}
+
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
   onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
   onCancel: () => void;
+  discountCode?: DiscountCode | null;
 }
 
 const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
@@ -808,6 +856,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   totalAmount,
   onSuccess,
   onCancel,
+  discountCode,
 }) => {
   const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
@@ -883,6 +932,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
           onShippingChange={handleShippingChange}
           selectedShipping={selectedShipping}
           onAddressChange={handleAddressChange}
+          discountCode={discountCode}
         />
       </Elements>
     </div>

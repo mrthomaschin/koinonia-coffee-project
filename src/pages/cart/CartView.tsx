@@ -11,6 +11,7 @@ import { createLogger } from '../../util/logger';
 import { allowsUnlimitedPurchases } from '../../util/limitedTimeOffer';
 
 const logger = createLogger('CartView');
+const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
 interface CartViewProps {
     availableHeight: number;
@@ -24,8 +25,12 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const [showCheckout, setShowCheckout] = useState(false);
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [isLoadingCheckout, setIsLoadingCheckout] = useState(false);
+    const [discountCodeInput, setDiscountCodeInput] = useState('');
+    const [isValidatingDiscount, setIsValidatingDiscount] = useState(false);
 
     const subtotal = useMemo(() => viewModel.getSubtotal(), [viewModel.cartItems, updateTrigger]);
+    const discountAmount = useMemo(() => viewModel.getDiscountAmount(), [viewModel.discountCode, subtotal]);
+    const subtotalAfterDiscount = useMemo(() => viewModel.getSubtotalAfterDiscount(), [viewModel.discountCode, subtotal]);
     const isEmpty = useMemo(() => viewModel.cartItems.length === 0, [viewModel.cartItems, updateTrigger]);
 
     const getPendingQuantity = useCallback((index: number) => {
@@ -113,6 +118,48 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         }
     }, [viewModel, forceUpdate, showToast]);
 
+    const handleApplyDiscount = useCallback(async () => {
+        if (!discountCodeInput.trim()) {
+            showToast('Please enter a discount code', 'error');
+            return;
+        }
+
+        setIsValidatingDiscount(true);
+        try {
+            const response = await fetch(`${backendUrl}/validate-discount-code`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code: discountCodeInput.trim() }),
+            });
+
+            const data = await response.json();
+
+            if (data.valid) {
+                viewModel.setDiscountCode(data.code, data.percentOff);
+                setUpdateTrigger(prev => prev + 1);
+                forceUpdate();
+                showToast(data.message, 'success');
+            } else {
+                showToast(data.message, 'error');
+            }
+        } catch (error) {
+            logger.error('[discount] Error validating discount code:', error);
+            showToast('Failed to validate discount code. Please try again.', 'error');
+        } finally {
+            setIsValidatingDiscount(false);
+        }
+    }, [discountCodeInput, viewModel, forceUpdate, showToast]);
+
+    const handleRemoveDiscount = useCallback(() => {
+        viewModel.clearDiscountCode();
+        setDiscountCodeInput('');
+        setUpdateTrigger(prev => prev + 1);
+        forceUpdate();
+        showToast('Discount code removed', 'success');
+    }, [viewModel, forceUpdate, showToast]);
+
     const handleCheckout = useCallback(async () => {
         if (hasAnyChanges) {
             showToast('Please update your cart before proceeding to checkout', 'error');
@@ -121,7 +168,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
         setIsLoadingCheckout(true);
         try {
-            const totalAmount = subtotal;
+            const totalAmount = subtotalAfterDiscount;
 
             // Store cart items for tax calculation in embedded checkout
             try {
@@ -164,7 +211,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         name: item.item.name,
                         quantity: item.quantity,
                         price: item.variantPrice || item.item.price
-                    })))
+                    }))),
+                    discountCode: viewModel.discountCode?.code || '',
+                    discountPercent: viewModel.discountCode?.percentOff?.toString() || ''
                 }
             );
 
@@ -177,7 +226,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         } finally {
             setIsLoadingCheckout(false);
         }
-    }, [hasAnyChanges, showToast, subtotal, viewModel.cartItems]);
+    }, [hasAnyChanges, showToast, subtotalAfterDiscount, viewModel.cartItems, viewModel.discountCode]);
 
     const handleCheckoutSuccess = useCallback(async (
         paymentIntentId?: string,
@@ -201,7 +250,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
         const shippingCost = shippingOption?.price || 0;
         const taxAmount = tax || 0;
-        const totalWithShippingAndTax = subtotal + shippingCost + taxAmount;
+        const totalWithShippingAndTax = subtotalAfterDiscount + shippingCost + taxAmount;
 
         // Store order data before clearing cart
         const orderData = {
@@ -217,6 +266,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 }
             })),
             subtotal: subtotal,
+            discountCode: viewModel.discountCode?.code,
+            discountPercent: viewModel.discountCode?.percentOff,
+            discountAmount: discountAmount,
+            subtotalAfterDiscount: subtotalAfterDiscount,
             shipping: shippingCost,
             tax: tax,
             shippingMethod: shippingOption?.label || 'Standard Shipping',
@@ -228,6 +281,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         };
 
         viewModel.cartItems = [];
+        viewModel.clearDiscountCode();
         forceUpdate();
         showToast('Payment successful! Thank you for your purchase.', 'success');
 
@@ -241,7 +295,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 customerPhone
             }
         });
-    }, [viewModel, forceUpdate, showToast, navigate, subtotal]);
+    }, [viewModel, forceUpdate, showToast, navigate, subtotal, subtotalAfterDiscount, discountAmount]);
 
     const handleCheckoutCancel = useCallback(() => {
         setShowCheckout(false);
@@ -335,10 +389,58 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 </div>
 
                 <div className="cart-summary">
+                    <div className="discount-code-section">
+                        <h3>Discount Code</h3>
+                        {!viewModel.discountCode ? (
+                            <div className="discount-input-group">
+                                <input
+                                    type="text"
+                                    value={discountCodeInput}
+                                    onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
+                                    placeholder="Enter code"
+                                    className="discount-input"
+                                    disabled={isValidatingDiscount}
+                                />
+                                <button
+                                    onClick={handleApplyDiscount}
+                                    className="apply-discount-btn"
+                                    disabled={isValidatingDiscount || !discountCodeInput.trim()}
+                                >
+                                    {isValidatingDiscount ? 'Validating...' : 'Apply'}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="discount-applied">
+                                <div className="discount-info">
+                                    <span className="discount-code-text">{viewModel.discountCode.code}</span>
+                                    <span className="discount-percent">({viewModel.discountCode.percentOff}% off)</span>
+                                </div>
+                                <button
+                                    onClick={handleRemoveDiscount}
+                                    className="remove-discount-btn"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="summary-row">
                         <span className="summary-label">Subtotal:</span>
                         <span className="summary-value">${subtotal.toFixed(2)}</span>
                     </div>
+                    {viewModel.discountCode && (
+                        <>
+                            <div className="summary-row discount-row">
+                                <span className="summary-label">Discount ({viewModel.discountCode.code}):</span>
+                                <span className="summary-value discount-value">-${discountAmount.toFixed(2)}</span>
+                            </div>
+                            <div className="summary-row total-after-discount">
+                                <span className="summary-label">Subtotal after discount:</span>
+                                <span className="summary-value">${subtotalAfterDiscount.toFixed(2)}</span>
+                            </div>
+                        </>
+                    )}
 
                     <div className="cart-actions">
                         <button
@@ -377,9 +479,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                     <div className="checkout-modal-content" onClick={(e) => e.stopPropagation()}>
                         <EmbeddedCheckout
                             clientSecret={clientSecret}
-                            totalAmount={subtotal}
+                            totalAmount={subtotalAfterDiscount}
                             onSuccess={handleCheckoutSuccess}
                             onCancel={handleCheckoutCancel}
+                            discountCode={viewModel.discountCode}
                         />
                     </div>
                 </div>

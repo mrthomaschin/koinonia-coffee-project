@@ -32,6 +32,10 @@ interface EmbeddedOrderData {
     selections?: any;
   }>;
   subtotal: number;
+  discountCode?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  subtotalAfterDiscount?: number;
   shipping: number;
   tax: number;
   total: number;
@@ -136,6 +140,10 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   customerName: customerName,
                   customerPhone: customerPhone,
                   items: purchaseItems,
+                  subtotal: state.orderData.subtotal,
+                  discountCode: state.orderData.discountCode,
+                  discountPercent: state.orderData.discountPercent,
+                  discountAmount: state.orderData.discountAmount,
                   totalAmount: state.orderData.total,
                   orderDate: state.orderData.timestamp,
                   sessionId: orderId
@@ -150,6 +158,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   customerPhone: customerPhone,
                   items: purchaseItems,
                   subtotal: subtotal,
+                  discountCode: state.orderData.discountCode,
+                  discountPercent: state.orderData.discountPercent,
+                  discountAmount: state.orderData.discountAmount,
                   shipping: state.orderData.shipping || 0,
                   tax: state.orderData.tax || 0,
                   totalAmount: state.orderData.total,

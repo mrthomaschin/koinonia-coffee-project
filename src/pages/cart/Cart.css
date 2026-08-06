@@ -262,6 +262,141 @@
     border: 1px solid #F8F5EB;
 }
 
+.discount-code-section {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #E8E4D8;
+}
+
+.discount-code-section h3 {
+    font-family: 'HedvigLettersSerif_18pt', serif;
+    font-size: 1.125rem;
+    font-weight: 400;
+    color: #2F2B39;
+    margin: 0 0 16px 0;
+    letter-spacing: -0.01em;
+}
+
+.discount-input-group {
+    display: flex;
+    gap: 12px;
+}
+
+.discount-input {
+    flex: 1;
+    padding: 12px 16px;
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.9375rem;
+    border: 1px solid #CBC5B9;
+    border-radius: 1px;
+    background-color: #FAFAF8;
+    color: #2F2B39;
+    transition: all 0.2s ease;
+}
+
+.discount-input:focus {
+    outline: none;
+    border-color: #2F2B39;
+    background-color: #FFFFFF;
+}
+
+.discount-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.apply-discount-btn {
+    background-color: #84825E;
+    color: #FFFFFF;
+    border: none;
+    padding: 12px 24px;
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    border-radius: 1px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.apply-discount-btn:hover:not(:disabled) {
+    background-color: #6d6a4d;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(132, 130, 94, 0.2);
+}
+
+.apply-discount-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.discount-applied {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: #E8F5E9;
+    border: 1px solid #A5D6A7;
+    border-radius: 1px;
+}
+
+.discount-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.discount-code-text {
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #2E7D32;
+}
+
+.discount-percent {
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.875rem;
+    color: #388E3C;
+}
+
+.remove-discount-btn {
+    background-color: transparent;
+    color: #8B3A3A;
+    border: 1px solid #D4A5A5;
+    padding: 6px 16px;
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 400;
+    cursor: pointer;
+    border-radius: 1px;
+    transition: all 0.2s ease;
+}
+
+.remove-discount-btn:hover {
+    background-color: #8B3A3A;
+    color: #FFFFFF;
+    border-color: #8B3A3A;
+}
+
+.discount-row {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding: 12px 0;
+}
+
+.discount-value {
+    color: #2E7D32;
+    font-weight: 600;
+}
+
+.total-after-discount {
+    border-bottom: 1px solid #E8E4D8;
+    margin-bottom: 32px;
+    padding: 12px 0 20px 0;
+    font-weight: 600;
+}
+
 .summary-row {
     display: flex;
     justify-content: space-between;

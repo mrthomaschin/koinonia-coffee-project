@@ -191,6 +191,9 @@ app.post("/mark-order-confirmed-email-sent", async (req: Request, res: Response)
 // Uncheck order confirmed email as sent
 app.post("/uncheck-order-confirmed-email-sent", async (req: Request, res: Response) => NotionService.handleUncheckOrderConfirmedEmailSent(req, res));
 
+// Validate discount code
+app.post("/validate-discount-code", async (req: Request, res: Response) => NotionService.validateDiscountCode(req, res));
+
 // Get shipping rates from EasyPost
 app.post("/get-shipping-rates", getShippingRates);
 
