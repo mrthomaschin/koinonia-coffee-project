@@ -427,6 +427,7 @@ export class NotionService {
                 shipmentData,
                 isLocalPickup,
                 shippingBox,
+                discountCode,
             } = req.body;
 
             logger.info("Creating Notion order", { orderId, hasShipmentData: !!shipmentData, shippingAddress, shippingBox });
@@ -548,6 +549,15 @@ export class NotionService {
                         date: {
                             start: orderDate,
                         },
+                    },
+                    "Discount Code": {
+                        rich_text: [
+                            {
+                                text: {
+                                    content: discountCode || "",
+                                },
+                            },
+                        ],
                     },
                 },
             });

@@ -28,6 +28,7 @@ interface NotionOrderData {
   };
   shippingBox?: string;
   isLocalPickup?: boolean;
+  discountCode?: string;
 }
 
 export interface InventoryVariant {

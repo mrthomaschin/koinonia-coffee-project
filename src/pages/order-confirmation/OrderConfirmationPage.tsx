@@ -124,7 +124,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     shippingAddress: shippingAddress,
                     shipmentData: shipmentData,
                     shippingBox: shipmentData?.boxSize || '',
-                    isLocalPickup: isLocalPickup
+                    isLocalPickup: isLocalPickup,
+                    discountCode: state.orderData.discountCode
                   });
                   logger.log('✅ Notion order created successfully!');
                 } catch (notionError) {
@@ -266,7 +267,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                       shippingAddress: (data as any).shipping_address || '',
                       shipmentData: shipmentData,
                       shippingBox: shipmentData?.boxSize || '',
-                      isLocalPickup: isLocalPickup
+                      isLocalPickup: isLocalPickup,
+                      discountCode: undefined
                     });
                     logger.log('✅ Notion order created successfully!');
                   } catch (notionError) {
