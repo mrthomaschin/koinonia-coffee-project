@@ -58,11 +58,11 @@ export class ShopViewModel {
             this._error = null;
         }
 
-        // Always fetch fresh data in background
+        // Fetch fresh data in background
         try {
             const notionItems = await notionService.getInventory();
             if (!notionItems || notionItems.length === 0) {
-                logger.warn('Received empty inventory from Notion, falling back to sample data');
+                logger.warn('Received empty inventory from backend, falling back to sample data');
                 if (!hasInitialData) {
                     this._error = 'No inventory available. Using sample data.';
                     this._items = sampleItems;
@@ -70,13 +70,12 @@ export class ShopViewModel {
                 setGlobalItems(sampleItems);
             } else {
                 this._items = convertNotionItemsToItems(notionItems);
-                // Register items globally so item detail pages can find them
                 setGlobalItems(this._items);
-                this._error = null; // Clear any previous error
-                logger.log(`Refreshed with ${this._items.length} items from Notion`);
+                this._error = null;
+                logger.log(`✅ Loaded ${this._items.length} items from backend`);
             }
         } catch (error) {
-            logger.error('Failed to load inventory from Notion, falling back to sample data:', error);
+            logger.error('Failed to load inventory from backend:', error);
             // Only show error and update items if we don't have initial data
             if (!hasInitialData) {
                 this._error = 'Failed to load inventory. Using sample data.';

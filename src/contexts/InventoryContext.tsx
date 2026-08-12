@@ -36,18 +36,22 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const cachedItems = getGlobalItems();
       if (cachedItems && cachedItems.length > 0) {
         setItems(cachedItems);
-        preloadImages(cachedItems);
-        logger.log(`Loaded ${cachedItems.length} items from cache`);
+        setIsLoading(false);
+        logger.log(`✅ Loaded ${cachedItems.length} items from cache (instant)`);
+        // Preload images in background without blocking
+        setTimeout(() => preloadImages(cachedItems), 0);
       }
 
-      // Always fetch fresh data in background
+      // Fetch fresh data in background
       const notionItems = await notionService.getInventory();
       if (notionItems && notionItems.length > 0) {
+        // Defer conversion to not block rendering
         const convertedItems = convertNotionItemsToItems(notionItems);
         setItems(convertedItems);
         setGlobalItems(convertedItems);
-        preloadImages(convertedItems);
-        logger.log(`Refreshed with ${convertedItems.length} items from Notion`);
+        logger.log(`🔄 Refreshed with ${convertedItems.length} items from backend`);
+        // Preload images in background
+        setTimeout(() => preloadImages(convertedItems), 0);
       }
       setError(null);
     } catch (err) {
@@ -58,7 +62,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const cachedItems = getGlobalItems();
       if (cachedItems && cachedItems.length > 0) {
         setItems(cachedItems);
-        preloadImages(cachedItems);
+        setTimeout(() => preloadImages(cachedItems), 0);
       }
     } finally {
       setIsLoading(false);

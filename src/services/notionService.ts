@@ -100,7 +100,7 @@ interface CachedInventory {
 }
 
 const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache';
-const INVENTORY_CACHE_TTL_MS = 5 * 60 * 1000; // Reduced to 5 minutes to prevent stale data
+const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes to match backend scheduled sync
 
 const logger = createLogger('NotionService');
 
@@ -272,36 +272,7 @@ class NotionService {
 
       const result = await response.json();
       const lastSyncedAt: number = result.lastSyncedAt || Date.now();
-      logger.log(`✅ Successfully fetched ${result.items.length} inventory items`);
-
-      // Log items with their quantities for monitoring
-      result.items.forEach((item: any) => {
-        const hasVariants = item.variants && item.variants.length > 0;
-        const itemTypeLabel = hasVariants ? "Parent item (with variants)" : "Standalone item (no variants)";
-
-        logger.log(`📦 ${itemTypeLabel}: ${item.name} (${item.sku})`, {
-          sku: item.sku,
-          name: item.name,
-          quantity: item.quantity,
-          hasVariants: hasVariants,
-          itemType: item.itemType,
-          shippingWeight: item.shippingWeight,
-        });
-
-        // Log variant details if present
-        if (hasVariants) {
-          logger.log(`📦 Variants for ${item.name} (${item.sku})`, {
-            variantDetails: item.variants.map((v: any) => ({
-              sku: v.sku,
-              size: v.size,
-              color: v.color,
-              weight: v.weight,
-              quantity: v.quantity,
-              isSoldOut: v.isSoldOut
-            }))
-          });
-        }
-      });
+      logger.log(`✅ Successfully fetched ${result.items.length} inventory items from backend`);
 
       this.setCachedInventory({ items: result.items, lastSyncedAt });
       return result.items;
