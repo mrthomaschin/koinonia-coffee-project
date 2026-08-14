@@ -7,6 +7,8 @@ import { mapEasyPostRates, filterAllowedServices } from '../util/EasyPostMapper'
 import { EasyPostRate } from '../models/ShippingModels';
 import { TaxCodes } from '../constants/TaxCodes';
 import { calculateParcel, formatParcelForEasyPost } from '../util/shipping';
+import { SHIPPING_RESTRICTION_MESSAGE, cartContainsCoffee } from '../services/shippingLocationsService';
+import { validateStripeAddress, type AddressValidationResult } from '../services/addressValidationService';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
@@ -67,6 +69,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [taxAmount, setTaxAmount] = useState(0);
   const [currentAddress, setCurrentAddress] = useState<any>(null);
+  const [showShippingRestriction, setShowShippingRestriction] = useState(false);
+  const [addressValidation, setAddressValidation] = useState<AddressValidationResult | null>(null);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -230,40 +234,39 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     return digitsOnly.length >= 10 && digitsOnly.length <= 11;
   };
 
-  const validateAddress = (address: any): boolean => {
-    // Basic address validation
-    if (!address) return false;
-
-    const street1 = address.line1 || address.street1;
-    const city = address.city;
-    const state = address.state;
-    const zip = address.postal_code || address.zip;
-    const country = address.country;
-
-    // Check required fields
-    if (!street1 || street1.trim().length < 3) return false;
-    if (!city || city.trim().length < 2) return false;
-    if (!state || state.trim().length < 2) return false;
-    if (!zip || zip.trim().length < 5) return false;
-    if (!country || country.trim().length < 2) return false;
-
-    // Basic zip code validation for US
-    if (country === 'US' || country === 'USA') {
-      const zipPattern = /^\d{5}(-\d{4})?$/;
-      if (!zipPattern.test(zip)) return false;
+  const getCartItems = (): any[] => {
+    try {
+      const cartItemsStr = localStorage.getItem('checkout_cart_items');
+      if (cartItemsStr) {
+        return JSON.parse(cartItemsStr);
+      }
+    } catch (error) {
+      logger.error('[cart] Failed to get cart items from localStorage:', error);
     }
-
-    // Basic state code validation for US
-    if (country === 'US' || country === 'USA') {
-      const statePattern = /^[A-Z]{2}$/;
-      if (!statePattern.test(state.toUpperCase())) return false;
-    }
-
-    return true;
+    return [];
   };
+
 
   const fetchShippingRatesFromEasyPost = async (address: any) => {
     if (!address || !address.line1 || !address.city || !address.state || !address.postal_code || !address.country) {
+      return;
+    }
+
+    // Validate address before calling EasyPost API
+    const cartItems = getCartItems();
+    const validation = validateStripeAddress(address, cartItems);
+
+    logger.log('[shipping] Validating address before EasyPost API call', {
+      isValid: validation.isValid,
+      isAllowedForShipping: validation.isAllowedForShipping,
+      errors: validation.errors,
+    });
+
+    // Don't call API if address is invalid or not in allowed shipping locations
+    if (!validation.isValid || !validation.isAllowedForShipping) {
+      logger.log('[shipping] Skipping EasyPost API call - address validation failed');
+      setIsLoadingShipping(false);
+      setShippingOptions([]);
       return;
     }
 
@@ -383,16 +386,46 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     if (isComplete) {
       setShippingAddressComplete(true);
 
-      // Validate the address before fetching rates
+      // Validate the address using the validation service
       const address = addressData?.address || addressData;
-      const isAddressValid = validateAddress(address);
+      const cartItems = getCartItems();
+      const hasCoffee = cartContainsCoffee(cartItems);
+      const validation = validateStripeAddress(address, cartItems);
+      setAddressValidation(validation);
 
-      if (!isAddressValid) {
-        // Show default options only when address is explicitly invalid
+      logger.log('[address] Validation result', {
+        isValid: validation.isValid,
+        isAllowedForShipping: validation.isAllowedForShipping,
+        errors: validation.errors,
+        cartHasCoffee: hasCoffee,
+        state: address.state,
+      });
+
+      // If address structure is invalid, don't proceed
+      if (!validation.isValid) {
+        logger.log('[address] Address structure is invalid', { errors: validation.errors });
         setShippingOptions(DEFAULT_SHIPPING_OPTIONS);
         setIsLoadingShipping(false);
         setTaxAmount(0);
+        setShippingAddressComplete(false);
+        setShowShippingRestriction(false);
         return;
+      }
+
+      // Check if address is in an allowed shipping state (only for shipping mode)
+      if (deliveryMethod === 'shipping') {
+        if (!validation.isAllowedForShipping) {
+          logger.log('[shipping] Address not in allowed shipping states', { state: address.state });
+          setShowShippingRestriction(true);
+          setShippingOptions([]);
+          setIsLoadingShipping(false);
+          setTaxAmount(0);
+          setShippingAddressComplete(false);
+          return;
+        } else {
+          // Clear restriction if address is now valid
+          setShowShippingRestriction(false);
+        }
       }
 
       // Store current address for cart change recalculation
@@ -421,6 +454,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       setDebounceTimer(timer);
     } else {
       setShippingAddressComplete(false);
+      setAddressValidation(null);
       // Clear any pending fetch if address becomes incomplete
       if (debounceTimer) {
         clearTimeout(debounceTimer);
@@ -608,233 +642,288 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   const displayTotal = totalAmount + selectedShipping.price + taxAmount;
 
+  // Check if form is ready for submission
+  const isFormValid = () => {
+    // Check required contact fields
+    if (!customerName.trim() || !customerEmail || !customerPhone) {
+      logger.log('[form] Form invalid: missing contact fields', {
+        hasName: !!customerName.trim(),
+        hasEmail: !!customerEmail,
+        hasPhone: !!customerPhone,
+      });
+      return false;
+    }
+
+    // Check email and phone validation
+    if (!validateEmail(customerEmail) || !validatePhone(customerPhone)) {
+      logger.log('[form] Form invalid: email or phone format incorrect');
+      return false;
+    }
+
+    // For shipping mode, check if address is complete and valid
+    if (deliveryMethod === 'shipping') {
+      // If shipping restriction is shown, form is invalid
+      if (showShippingRestriction) {
+        logger.log('[form] Form invalid: shipping restriction shown');
+        return false;
+      }
+      // Address must be complete
+      if (!shippingAddressComplete) {
+        logger.log('[form] Form invalid: shipping address not complete');
+        return false;
+      }
+      // Address must pass validation (structure and shipping location)
+      if (!addressValidation || !addressValidation.isValid || !addressValidation.isAllowedForShipping) {
+        logger.log('[form] Form invalid: address validation failed', {
+          hasValidation: !!addressValidation,
+          isValid: addressValidation?.isValid,
+          isAllowedForShipping: addressValidation?.isAllowedForShipping,
+        });
+        return false;
+      }
+    }
+
+    logger.log('[form] Form is valid');
+    return true;
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="embedded-checkout-form">
-      <button
-        type="button"
-        onClick={onCancel}
-        className="close-btn"
-        aria-label="Close checkout"
-      >
-        ×
-      </button>
-      <div className="checkout-header">
-        <h2>Complete Your Purchase</h2>
-        <div className="checkout-totals">
-          <div className="subtotal-row">
-            <span>Subtotal:</span>
-            <span>${totalAmount.toFixed(2)}</span>
-          </div>
-          {discountCode && (
-            <div className="discount-row">
-              <span>Discount ({discountCode.code} - {discountCode.percentOff}% off):</span>
-              <span className="discount-amount">-${(totalAmount * (discountCode.percentOff / 100)).toFixed(2)}</span>
-            </div>
-          )}
-          <div className={`shipping-row ${deliveryMethod !== 'shipping' ? 'hidden' : ''}`}>
-            <span>Shipping:</span>
-            <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
-          </div>
-          <div className="tax-row">
-            <span>Tax:</span>
-            <span>${taxAmount.toFixed(2)}</span>
-          </div>
-          <div className="total-row">
-            <span>Total:</span>
-            <span className="total-amount">${displayTotal.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-      {stripeLoading && (
-        <div className="loading-message">Loading payment form...</div>
-      )}
-
-      <div className="customer-info-section">
-        <h3>Contact Information</h3>
-        <div className="form-group">
-          <label htmlFor="customer-name">Full Name *</label>
-          <input
-            type="text"
-            id="customer-name"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="John Doe"
-            required
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="customer-email">Email Address *</label>
-          <input
-            type="email"
-            id="customer-email"
-            value={customerEmail}
-            onChange={(e) => {
-              setCustomerEmail(e.target.value);
-              setEmailError(null);
-            }}
-            placeholder="john@example.com"
-            required
-            className={`form-input ${emailError ? 'error' : ''}`}
-          />
-          {emailError && <div className="field-error">{emailError}</div>}
-          <p className="field-hint">Order confirmation will be sent to this email</p>
-        </div>
-        <div className="form-group">
-          <label htmlFor="customer-phone">Phone Number *</label>
-          <input
-            type="tel"
-            id="customer-phone"
-            value={customerPhone}
-            onChange={(e) => {
-              setCustomerPhone(e.target.value);
-              setPhoneError(null);
-            }}
-            placeholder="(555) 123-4567"
-            required
-            className={`form-input ${phoneError ? 'error' : ''}`}
-          />
-          {phoneError && <div className="field-error">{phoneError}</div>}
-          <p className="field-hint">For shipping updates and order notifications</p>
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label>Delivery Method *</label>
-        <div className="delivery-method-options">
-          <div
-            className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
-            onClick={() => {
-              setDeliveryMethod('pickup');
-              // Cancel any pending shipping rate fetches
-              if (debounceTimer) {
-                clearTimeout(debounceTimer);
-                setDebounceTimer(null);
-              }
-              // Clear shipping options and loading state
-              setShippingOptions([]);
-              setIsLoadingShipping(false);
-              // Calculate tax for local pickup based on store location (California)
-              calculateTaxForAddress({
-                line1: '15215 Avis Ave',
-                city: 'Lawndale',
-                state: 'CA',
-                postal_code: '90260',
-                country: 'US'
-              });
-              onShippingChange({ id: 'local-pickup', label: 'Local Pickup', price: 0, description: 'Pick up at our location - Free' });
-            }}
-          >
-            <span>Local Pickup</span>
-          </div>
-          <div
-            className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
-            onClick={() => {
-              setDeliveryMethod('shipping');
-              // Reset shipping options to prevent showing stale local pickup option
-              setShippingOptions([]);
-              // If we have a current address, recalculate tax and shipping rates
-              if (currentAddress && shippingAddressComplete) {
-                calculateTaxForAddress(currentAddress);
-                // Fetch shipping rates (function has internal guard for deliveryMethod)
-                fetchShippingRatesFromEasyPost(currentAddress);
-              } else {
-                // Clear tax if no address is available yet
-                setTaxAmount(0);
-              }
-            }}
-          >
-            <span>Shipping</span>
-          </div>
-        </div>
-      </div>
-
-      {deliveryMethod === 'pickup' && (
-        <div className="pickup-info-container expanded">
-          <div className="pickup-info-text">
-            Free local pickup is available in Lawndale and Arcadia, CA. Since we don’t have a storefront, we’ll contact you within 24 hours to arrange a pickup time and location.          </div>
-        </div>
-      )}
-
-      {deliveryMethod === 'shipping' && (
-        <div className="shipping-sections-container expanded">
-          <div className="address-section">
-            <h3>Shipping Address</h3>
-            <AddressElement
-              options={{ mode: 'shipping' }}
-              onChange={handleAddressChange}
-              onReady={() => {
-                logger.log('[stripe] Shipping address element ready');
-                setElementsMounted(prev => ({ ...prev, shipping: true }));
-              }}
-            />
-            {!elementsMounted.shipping && <div className="debug-info">Shipping address loading...</div>}
-          </div>
-
-          <ShippingSelector
-            onShippingChange={onShippingChange}
-            selectedShipping={selectedShipping}
-            shippingOptions={shippingOptions}
-            isLoading={isLoadingShipping}
-            showShippingOptions={shippingAddressComplete}
-          />
-        </div>
-      )}
-
-      <div className="address-section">
-        <h3>Billing Address</h3>
-        <AddressElement
-          options={{ mode: 'billing' }}
-          onReady={() => {
-            logger.log('[stripe] Billing address element ready');
-            setElementsMounted(prev => ({ ...prev, billing: true }));
-          }}
-        />
-        {!elementsMounted.billing && <div className="debug-info">Billing address loading...</div>}
-      </div>
-
-      <div className="payment-element-container">
-        <PaymentElement
-          options={{
-            fields: {
-              billingDetails: {
-                address: 'never',
-              }
-            },
-          }}
-          onReady={() => {
-            logger.log('[stripe] Payment element ready');
-            setElementsMounted(prev => ({ ...prev, payment: true }));
-          }}
-        />
-        {!elementsMounted.payment && <div className="debug-info">Payment element loading...</div>}
-      </div>
-
-      {errorMessage && (
-        <div className="error-message">
-          {errorMessage}
-        </div>
-      )}
-
-      <div className="checkout-actions">
+    <>
+      <form onSubmit={handleSubmit} className="embedded-checkout-form">
         <button
           type="button"
           onClick={onCancel}
-          className="cancel-btn"
-          disabled={isProcessing}
+          className="close-btn"
+          aria-label="Close checkout"
         >
-          Cancel
+          ×
         </button>
-        <button
-          type="submit"
-          disabled={!stripe || isProcessing}
-          className="pay-btn"
-        >
-          {isProcessing ? 'Processing...' : `Pay $${displayTotal.toFixed(2)}`}
-        </button>
-      </div>
-    </form>
+        <div className="checkout-header">
+          <h2>Complete Your Purchase</h2>
+          <div className="checkout-totals">
+            <div className="subtotal-row">
+              <span>Subtotal:</span>
+              <span>${totalAmount.toFixed(2)}</span>
+            </div>
+            {discountCode && (
+              <div className="discount-row">
+                <span>Discount ({discountCode.code} - {discountCode.percentOff}% off):</span>
+                <span className="discount-amount">-${(totalAmount * (discountCode.percentOff / 100)).toFixed(2)}</span>
+              </div>
+            )}
+            <div className={`shipping-row ${deliveryMethod !== 'shipping' ? 'hidden' : ''}`}>
+              <span>Shipping:</span>
+              <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
+            </div>
+            <div className="tax-row">
+              <span>Tax:</span>
+              <span>${taxAmount.toFixed(2)}</span>
+            </div>
+            <div className="total-row">
+              <span>Total:</span>
+              <span className="total-amount">${displayTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {stripeLoading && (
+          <div className="loading-message">Loading payment form...</div>
+        )}
+
+        <div className="customer-info-section">
+          <h3>Contact Information</h3>
+          <div className="form-group">
+            <label htmlFor="customer-name">Full Name *</label>
+            <input
+              type="text"
+              id="customer-name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="John Doe"
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="customer-email">Email Address *</label>
+            <input
+              type="email"
+              id="customer-email"
+              value={customerEmail}
+              onChange={(e) => {
+                setCustomerEmail(e.target.value);
+                setEmailError(null);
+              }}
+              placeholder="john@example.com"
+              required
+              className={`form-input ${emailError ? 'error' : ''}`}
+            />
+            {emailError && <div className="field-error">{emailError}</div>}
+            <p className="field-hint">Order confirmation will be sent to this email</p>
+          </div>
+          <div className="form-group">
+            <label htmlFor="customer-phone">Phone Number *</label>
+            <input
+              type="tel"
+              id="customer-phone"
+              value={customerPhone}
+              onChange={(e) => {
+                setCustomerPhone(e.target.value);
+                setPhoneError(null);
+              }}
+              placeholder="(555) 123-4567"
+              required
+              className={`form-input ${phoneError ? 'error' : ''}`}
+            />
+            {phoneError && <div className="field-error">{phoneError}</div>}
+            <p className="field-hint">For shipping updates and order notifications</p>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Delivery Method *</label>
+          <div className="delivery-method-options">
+            <div
+              className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
+              onClick={() => {
+                setDeliveryMethod('pickup');
+                // Cancel any pending shipping rate fetches
+                if (debounceTimer) {
+                  clearTimeout(debounceTimer);
+                  setDebounceTimer(null);
+                }
+                // Clear shipping options and loading state
+                setShippingOptions([]);
+                setIsLoadingShipping(false);
+                // Calculate tax for local pickup based on store location (California)
+                calculateTaxForAddress({
+                  line1: '15215 Avis Ave',
+                  city: 'Lawndale',
+                  state: 'CA',
+                  postal_code: '90260',
+                  country: 'US'
+                });
+                onShippingChange({ id: 'local-pickup', label: 'Local Pickup', price: 0, description: 'Pick up at our location - Free' });
+              }}
+            >
+              <span>Local Pickup</span>
+            </div>
+            <div
+              className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
+              onClick={() => {
+                setDeliveryMethod('shipping');
+                // Reset shipping options to prevent showing stale local pickup option
+                setShippingOptions([]);
+                // If we have a current address, recalculate tax and shipping rates
+                if (currentAddress && shippingAddressComplete) {
+                  calculateTaxForAddress(currentAddress);
+                  // Fetch shipping rates (function has internal guard for deliveryMethod)
+                  fetchShippingRatesFromEasyPost(currentAddress);
+                } else {
+                  // Clear tax if no address is available yet
+                  setTaxAmount(0);
+                }
+              }}
+            >
+              <span>Shipping</span>
+            </div>
+          </div>
+        </div>
+
+        {deliveryMethod === 'pickup' && (
+          <div className="pickup-info-container expanded">
+            <div className="pickup-info-text">
+              Free local pickup is available in Lawndale and Arcadia, CA. Since we don’t have a storefront, we’ll contact you within 24 hours to arrange a pickup time and location.          </div>
+          </div>
+        )}
+
+        {deliveryMethod === 'shipping' && (
+          <div className="shipping-sections-container expanded">
+            <div className="address-section">
+              <h3>Shipping Address</h3>
+              <AddressElement
+                options={{ mode: 'shipping' }}
+                onChange={handleAddressChange}
+                onReady={() => {
+                  logger.log('[stripe] Shipping address element ready');
+                  setElementsMounted(prev => ({ ...prev, shipping: true }));
+                }}
+              />
+              {!elementsMounted.shipping && <div className="debug-info">Shipping address loading...</div>}
+            </div>
+
+            {showShippingRestriction && (
+              <div className="shipping-restriction-container expanded">
+                <div className="shipping-restriction-text">
+                  {SHIPPING_RESTRICTION_MESSAGE}
+                </div>
+              </div>
+            )}
+
+            <ShippingSelector
+              onShippingChange={onShippingChange}
+              selectedShipping={selectedShipping}
+              shippingOptions={shippingOptions}
+              isLoading={isLoadingShipping}
+              showShippingOptions={shippingAddressComplete}
+            />
+          </div>
+        )}
+
+        <div className="address-section">
+          <h3>Billing Address</h3>
+          <AddressElement
+            options={{ mode: 'billing' }}
+            onReady={() => {
+              logger.log('[stripe] Billing address element ready');
+              setElementsMounted(prev => ({ ...prev, billing: true }));
+            }}
+          />
+          {!elementsMounted.billing && <div className="debug-info">Billing address loading...</div>}
+        </div>
+
+        <div className="payment-element-container">
+          <PaymentElement
+            options={{
+              fields: {
+                billingDetails: {
+                  address: 'never',
+                }
+              },
+            }}
+            onReady={() => {
+              logger.log('[stripe] Payment element ready');
+              setElementsMounted(prev => ({ ...prev, payment: true }));
+            }}
+          />
+          {!elementsMounted.payment && <div className="debug-info">Payment element loading...</div>}
+        </div>
+
+        {errorMessage && (
+          <div className="error-message">
+            {errorMessage}
+          </div>
+        )}
+
+        <div className="checkout-actions">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="cancel-btn"
+            disabled={isProcessing}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!stripe || isProcessing || !isFormValid()}
+            className="pay-btn"
+          >
+            {isProcessing ? 'Processing...' : `Pay $${displayTotal.toFixed(2)}`}
+          </button>
+        </div>
+      </form>
+    </>
   );
 };
 

@@ -380,6 +380,35 @@
   display: block;
 }
 
+/* Shipping restriction inline notification */
+.shipping-restriction-container {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  position: relative;
+  z-index: 1;
+}
+
+.shipping-restriction-container.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.shipping-restriction-container.expanded {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.shipping-restriction-text {
+  padding: 1rem;
+  background: #fff3cd;
+  border-radius: 8px;
+  color: #856404;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  border-left: 4px solid #ffc107;
+  animation: slideDown 0.3s ease-out;
+}
+
 @media (max-width: 768px) {
   .embedded-checkout-container {
     padding: 1rem;
