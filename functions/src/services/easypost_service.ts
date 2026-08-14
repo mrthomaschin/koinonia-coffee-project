@@ -206,6 +206,10 @@ export const purchaseShipment = async (
                 to_address: easyPostToAddress,
                 from_address: easyPostFromAddress,
                 parcel: easyPostParcel,
+                options: {
+                    label_format: 'PNG',
+                    label_size: '4x6'
+                }
             });
 
             logger.info('Shipment created successfully', {
@@ -337,6 +341,10 @@ export const fetchShippingRates = async (
             to_address: easyPostToAddress,
             from_address: easyPostFromAddress,
             parcel: easyPostParcel,
+            options: {
+                label_format: 'PNG',
+                label_size: '4x6'
+            }
         });
 
         logger.info('Shipment created successfully', { shipmentId: shipment.id });
