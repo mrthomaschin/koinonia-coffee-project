@@ -11,7 +11,7 @@ const logger = createLogger('ItemViewModel');
 export const useItemDetailViewModel = (itemProp?: Item, cart?: CartViewModel) => {
     const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
-    const { items } = useInventory();
+    const { items, isLoading } = useInventory();
 
     // Look up item by slug using inventory context items
     const routedItem = useMemo(() => {
@@ -49,6 +49,7 @@ export const useItemDetailViewModel = (itemProp?: Item, cart?: CartViewModel) =>
 
     return {
         item,
+        isLoading,
         handleBack,
         isDetailsDropdownOpen,
         isBrewingMethodDropdownOpen,

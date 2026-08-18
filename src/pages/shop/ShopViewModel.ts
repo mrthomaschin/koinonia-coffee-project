@@ -1,5 +1,5 @@
 import { Item, ItemType } from './item/ItemModel';
-import { sampleItems, setGlobalItems, getGlobalItems } from './shopData';
+import { setGlobalItems, getGlobalItems } from './shopData';
 import { notionService } from '../../services/notionService';
 import { convertNotionItemsToItems } from './notionItemMapper';
 import { createLogger } from '../../util/logger';
@@ -47,7 +47,7 @@ export class ShopViewModel {
 
     async loadInventory(): Promise<void> {
         if (!this._useNotion) {
-            this._items = sampleItems;
+            this._items = [];
             return;
         }
 
@@ -62,12 +62,11 @@ export class ShopViewModel {
         try {
             const notionItems = await notionService.getInventory();
             if (!notionItems || notionItems.length === 0) {
-                logger.warn('Received empty inventory from backend, falling back to sample data');
+                logger.warn('Received empty inventory from backend');
                 if (!hasInitialData) {
-                    this._error = 'No inventory available. Using sample data.';
-                    this._items = sampleItems;
+                    this._error = 'No inventory available.';
+                    this._items = [];
                 }
-                setGlobalItems(sampleItems);
             } else {
                 this._items = convertNotionItemsToItems(notionItems);
                 setGlobalItems(this._items);
@@ -76,12 +75,10 @@ export class ShopViewModel {
             }
         } catch (error) {
             logger.error('Failed to load inventory from backend:', error);
-            // Only show error and update items if we don't have initial data
+            // Only show error if we don't have initial data
             if (!hasInitialData) {
-                this._error = 'Failed to load inventory. Using sample data.';
-                this._items = sampleItems;
+                this._error = 'Failed to load inventory.';
             }
-            setGlobalItems(sampleItems);
         } finally {
             this._isLoading = false;
         }

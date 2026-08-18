@@ -41,6 +41,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
   const { cart } = useCart();
   const {
     item: viewModelItem,
+    isLoading,
     handleBack: viewModelHandleBack,
     isDetailsDropdownOpen,
     isBrewingMethodDropdownOpen,
@@ -152,6 +153,15 @@ export const ItemView: React.FC<ItemViewProps> = ({
   };
 
   if (!item) {
+    if (isLoading) {
+      return (
+        <div className="shop-page" style={{ minHeight: availableHeight }}>
+          <div className="shop-header">
+            <h1 className="shop-title">Loading...</h1>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="shop-page" style={{ minHeight: availableHeight }}>
         <div className="shop-header">
