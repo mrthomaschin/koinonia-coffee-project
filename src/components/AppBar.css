@@ -2,7 +2,7 @@
   height: 80px;
   background-color: #F8F5EB;
   position: sticky;
-  top: 0;
+  top: 40px;
   z-index: 1000;
 }
 
@@ -144,7 +144,7 @@
 
 .app-bar-dropdown {
   position: absolute;
-  top: 80px;
+  top: 120px;
   right: 16px;
   background-color: #F8F5EB;
   border-radius: 8px;
@@ -231,5 +231,15 @@
 
   .cart-icon-mobile {
     display: flex;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-bar {
+    top: 36px;
+  }
+
+  .app-bar-dropdown {
+    top: 116px;
   }
 }

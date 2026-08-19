@@ -158,7 +158,6 @@ export class FedExExpressSaver implements Service {
 export const ALLOWED_SERVICES: Service[] = [
     new USPSGroundAdvantage(),
     new USPSPriority(),
-    new UPSGround(),
     new UPS2ndDayAir(),
     new UPSNextDayAir(),
 ];

@@ -13,6 +13,9 @@ import { allowsUnlimitedPurchases } from '../../util/limitedTimeOffer';
 const logger = createLogger('CartView');
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
+// Free shipping threshold
+const FREE_SHIPPING_THRESHOLD = 40;
+
 interface CartViewProps {
     availableHeight: number;
 }
@@ -32,6 +35,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const discountAmount = useMemo(() => viewModel.getDiscountAmount(), [viewModel.discountCode, subtotal]);
     const subtotalAfterDiscount = useMemo(() => viewModel.getSubtotalAfterDiscount(), [viewModel.discountCode, subtotal]);
     const isEmpty = useMemo(() => viewModel.cartItems.length === 0, [viewModel.cartItems, updateTrigger]);
+    const qualifiesForFreeShipping = useMemo(() => subtotalAfterDiscount >= FREE_SHIPPING_THRESHOLD, [subtotalAfterDiscount]);
 
     const getPendingQuantity = useCallback((index: number) => {
         return pendingQuantities[index] ?? viewModel.cartItems[index]?.quantity ?? 1;
@@ -136,13 +140,14 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
             const data = await response.json();
 
-            if (data.valid) {
+            if (response.ok && data.valid) {
                 viewModel.setDiscountCode(data.code, data.percentOff);
                 setUpdateTrigger(prev => prev + 1);
                 forceUpdate();
                 showToast(data.message, 'success');
             } else {
-                showToast(data.message, 'error');
+                const errorMessage = data.message || data.error || 'Invalid discount code';
+                showToast(errorMessage, 'error');
             }
         } catch (error) {
             logger.error('[discount] Error validating discount code:', error);
@@ -424,6 +429,12 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                             </div>
                         )}
                     </div>
+
+                    {qualifiesForFreeShipping && (
+                        <div className="free-shipping-notice">
+                            🎉 You qualify for free USPS Ground Advantage shipping!
+                        </div>
+                    )}
 
                     <div className="summary-row">
                         <span className="summary-label">Subtotal:</span>

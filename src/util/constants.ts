@@ -48,6 +48,7 @@ export const COLORS = {
 } as const;
 
 export const LAYOUT = {
+  notificationBarHeight: 40,
   appBarHeight: 80,
   bottomBarHeight: 140,
   mobileBreakpoint: 768,

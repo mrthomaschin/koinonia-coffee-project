@@ -13,6 +13,12 @@ import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
 
+// Flag to enable/disable local pickup option
+const LOCAL_PICKUP_ENABLED = false;
+
+// Free shipping threshold
+const FREE_SHIPPING_THRESHOLD = 40;
+
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '').then(stripe => {
   logger.log('[stripe] Stripe.js loaded', { hasStripe: !!stripe });
   return stripe;
@@ -35,6 +41,7 @@ interface CheckoutFormProps {
   selectedShipping: ShippingOption;
   onAddressChange?: (address: any) => void;
   discountCode?: DiscountCodeProp | null;
+  originalShippingPrice?: number;
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -71,6 +78,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [currentAddress, setCurrentAddress] = useState<any>(null);
   const [showShippingRestriction, setShowShippingRestriction] = useState(false);
   const [addressValidation, setAddressValidation] = useState<AddressValidationResult | null>(null);
+  const [showPickupDisabledMessage, setShowPickupDisabledMessage] = useState(false);
+  const [originalShippingPrice, setOriginalShippingPrice] = useState(0);
+  const qualifiesForFreeShipping = totalAmount >= FREE_SHIPPING_THRESHOLD;
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -345,14 +355,25 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       const mappedRates = mapEasyPostRates(filteredRates);
 
       // Convert mapped rates to ShippingOption format
-      const options: ShippingOption[] = mappedRates.map((mappedRate) => ({
-        id: mappedRate.id,
-        label: `${mappedRate.carrier} ${mappedRate.displayService}`,
-        price: parseFloat(mappedRate.price.replace('$', '')),
-        description: `Estimated delivery: ${mappedRate.estimatedDelivery}`,
-        carrier: mappedRate.carrier,
-        service: mappedRate.service,
-      }));
+      // Only apply free shipping to USPS Ground Advantage
+      const options: ShippingOption[] = mappedRates.map((mappedRate) => {
+        const originalPrice = parseFloat(mappedRate.price.replace('$', ''));
+        const isGroundAdvantage = mappedRate.carrier === 'USPS' && mappedRate.service === 'GroundAdvantage';
+        const discountedPrice = qualifiesForFreeShipping && isGroundAdvantage ? 0 : originalPrice;
+
+        return {
+          id: mappedRate.id,
+          label: `${mappedRate.carrier} ${mappedRate.displayService}`,
+          price: discountedPrice,
+          description: `Estimated delivery: ${mappedRate.estimatedDelivery}`,
+          carrier: mappedRate.carrier,
+          service: mappedRate.service,
+          originalPrice: isGroundAdvantage ? originalPrice : undefined,
+        };
+      });
+
+      // Sort shipping options by price (cheapest to most expensive)
+      options.sort((a, b) => a.price - b.price);
 
       // Only update shipping options if still in shipping mode
       // This prevents race condition when user switches to pickup while rates are loading
@@ -361,7 +382,13 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
         // Select the first option by default
         if (options.length > 0) {
-          onShippingChange(options[0]);
+          const firstOption = options[0];
+          // Store original price for display purposes
+          if (qualifiesForFreeShipping) {
+            const originalPrice = parseFloat(mappedRates[0].price.replace('$', ''));
+            setOriginalShippingPrice(originalPrice);
+          }
+          onShippingChange(firstOption);
         }
       } else {
         logger.log('[shipping] Ignoring shipping rates - user switched to pickup');
@@ -784,8 +811,31 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <label>Delivery Method *</label>
           <div className="delivery-method-options">
             <div
-              className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
+              className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
               onClick={() => {
+                setDeliveryMethod('shipping');
+                // Reset shipping options to prevent showing stale local pickup option
+                setShippingOptions([]);
+                // If we have a current address, recalculate tax and shipping rates
+                if (currentAddress && shippingAddressComplete) {
+                  calculateTaxForAddress(currentAddress);
+                  // Fetch shipping rates (function has internal guard for deliveryMethod)
+                  fetchShippingRatesFromEasyPost(currentAddress);
+                } else {
+                  // Clear tax if no address is available yet
+                  setTaxAmount(0);
+                }
+              }}
+            >
+              <span>Shipping</span>
+            </div>
+            <div
+              className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''} ${!LOCAL_PICKUP_ENABLED ? 'disabled' : ''}`}
+              onClick={() => {
+                if (!LOCAL_PICKUP_ENABLED) {
+                  setShowPickupDisabledMessage(!showPickupDisabledMessage);
+                  return;
+                }
                 setDeliveryMethod('pickup');
                 // Cancel any pending shipping rate fetches
                 if (debounceTimer) {
@@ -808,27 +858,16 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             >
               <span>Local Pickup</span>
             </div>
-            <div
-              className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
-              onClick={() => {
-                setDeliveryMethod('shipping');
-                // Reset shipping options to prevent showing stale local pickup option
-                setShippingOptions([]);
-                // If we have a current address, recalculate tax and shipping rates
-                if (currentAddress && shippingAddressComplete) {
-                  calculateTaxForAddress(currentAddress);
-                  // Fetch shipping rates (function has internal guard for deliveryMethod)
-                  fetchShippingRatesFromEasyPost(currentAddress);
-                } else {
-                  // Clear tax if no address is available yet
-                  setTaxAmount(0);
-                }
-              }}
-            >
-              <span>Shipping</span>
-            </div>
           </div>
         </div>
+
+        {!LOCAL_PICKUP_ENABLED && showPickupDisabledMessage && (
+          <div className="pickup-disabled-container expanded">
+            <div className="pickup-disabled-text">
+              Local pickup is not available at this time. We apologize for the inconvenience.
+            </div>
+          </div>
+        )}
 
         {deliveryMethod === 'pickup' && (
           <div className="pickup-info-container expanded">
@@ -860,12 +899,19 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               </div>
             )}
 
+            {qualifiesForFreeShipping && shippingAddressComplete && shippingOptions.length > 0 && (
+              <div className="free-shipping-notice-checkout">
+                🎉 Free USPS Ground Advantage shipping applied!
+              </div>
+            )}
+
             <ShippingSelector
               onShippingChange={onShippingChange}
               selectedShipping={selectedShipping}
               shippingOptions={shippingOptions}
               isLoading={isLoadingShipping}
               showShippingOptions={shippingAddressComplete}
+              qualifiesForFreeShipping={qualifiesForFreeShipping}
             />
           </div>
         )}

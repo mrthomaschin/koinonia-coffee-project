@@ -5,6 +5,7 @@ import { CartProvider, useCart } from './contexts/CartContext';
 import { InventoryProvider } from './contexts/InventoryContext';
 import { ToastContainer } from './components/Toast';
 import AppBar from './components/AppBar';
+import NotificationBar from './components/NotificationBar';
 import BottomBar from './components/BottomBar';
 import ComingSoon from './components/ComingSoon';
 import Homepage from './pages/homepage/Homepage';
@@ -28,7 +29,7 @@ const MainContent: React.FC = () => {
   useEffect(() => {
     const calculateHeight = (): void => {
       const windowHeight = window.innerHeight;
-      const calculatedHeight = windowHeight - LAYOUT.appBarHeight - LAYOUT.bottomBarHeight;
+      const calculatedHeight = windowHeight - LAYOUT.notificationBarHeight - LAYOUT.appBarHeight - LAYOUT.bottomBarHeight;
       setAvailableHeight(calculatedHeight);
     };
 
@@ -46,6 +47,7 @@ const MainContent: React.FC = () => {
   return (
     <div className="app">
       <ToastContainer toasts={toasts} onClose={removeToast} />
+      <NotificationBar enabled={true} message="Free shipping on orders over $40" />
       <AppBar />
       <div className="main-content">
         <Routes>

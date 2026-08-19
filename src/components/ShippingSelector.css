@@ -133,6 +133,23 @@
   font-weight: 600;
   color: #4caf50;
   font-size: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.original-price {
+  font-size: 0.9rem;
+  color: #999;
+  text-decoration: line-through;
+  font-weight: 400;
+}
+
+.free-price {
+  font-size: 1.1rem;
+  color: #4caf50;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {

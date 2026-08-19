@@ -1,0 +1,37 @@
+.notification-bar {
+  height: 40px;
+  background-color: #84825E;
+  position: sticky;
+  top: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-bar-content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+}
+
+.notification-message {
+  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .notification-bar {
+    height: 36px;
+  }
+
+  .notification-message {
+    font-size: 11px;
+  }
+}

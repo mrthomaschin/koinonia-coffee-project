@@ -349,7 +349,8 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "STRIPE_SECRET_KEY",
     "NOTION_TOKEN",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
-    "NOTION_INVENTORY_DATABASE_ID"
+    "NOTION_INVENTORY_DATABASE_ID",
+    "NOTION_DISCOUNT_CODES_DATABASE_ID"
   ];
 }
 export const api = onRequest(apiOptions, app);

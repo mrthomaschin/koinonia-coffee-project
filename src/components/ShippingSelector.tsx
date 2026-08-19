@@ -8,6 +8,7 @@ export interface ShippingOption {
   description?: string;
   carrier?: string;
   service?: string;
+  originalPrice?: number;
 }
 
 interface ShippingSelectorProps {
@@ -16,6 +17,7 @@ interface ShippingSelectorProps {
   shippingOptions?: ShippingOption[];
   isLoading?: boolean;
   showShippingOptions?: boolean;
+  qualifiesForFreeShipping?: boolean;
 }
 
 const DEFAULT_SHIPPING_OPTIONS: ShippingOption[] = [
@@ -32,7 +34,8 @@ const ShippingSelector: React.FC<ShippingSelectorProps> = ({
   selectedShipping,
   shippingOptions,
   isLoading = false,
-  showShippingOptions = true
+  showShippingOptions = true,
+  qualifiesForFreeShipping = false
 }) => {
   const options = shippingOptions || DEFAULT_SHIPPING_OPTIONS;
   const [selected, setSelected] = useState<ShippingOption>(
@@ -89,7 +92,14 @@ const ShippingSelector: React.FC<ShippingSelectorProps> = ({
                   )}
                 </div>
                 <div className="shipping-price">
-                  {option.price === 0 ? 'FREE' : `$${option.price.toFixed(2)}`}
+                  {qualifiesForFreeShipping && option.originalPrice && option.originalPrice > 0 ? (
+                    <>
+                      <span className="original-price">${option.originalPrice.toFixed(2)}</span>
+                      <span className="free-price">FREE</span>
+                    </>
+                  ) : (
+                    <>{option.price === 0 ? 'FREE' : `$${option.price.toFixed(2)}`}</>
+                  )}
                 </div>
               </div>
             </div>

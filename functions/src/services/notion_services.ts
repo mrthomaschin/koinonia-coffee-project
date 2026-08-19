@@ -904,10 +904,23 @@ export class NotionService {
                 message: `${percentOff}% discount applied!`
             });
         } catch (error: unknown) {
+            const errorMessage = (error as Error).message;
             logger.error("Error validating discount code", {
-                error: (error as Error).message,
+                error: errorMessage,
+                stack: (error as Error).stack,
             });
-            res.status(500).json({ error: (error as Error).message });
+
+            // Provide user-friendly error message
+            let userMessage = "Unable to validate discount code. Please try again later.";
+            if (errorMessage.includes("database_id")) {
+                userMessage = "Discount code database not found. Please contact support.";
+            } else if (errorMessage.includes("unauthorized") || errorMessage.includes("authentication")) {
+                userMessage = "Discount code system authentication failed. Please contact support.";
+            } else if (errorMessage.includes("property")) {
+                userMessage = "Discount code database structure error. Please contact support.";
+            }
+
+            res.status(500).json({ valid: false, message: userMessage });
         }
     }
 

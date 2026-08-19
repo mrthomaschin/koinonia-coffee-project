@@ -16,7 +16,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 1002;
     padding: 20px;
 }
 
@@ -263,9 +263,35 @@
 }
 
 .discount-code-section {
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     padding-bottom: 24px;
     border-bottom: 1px solid #E8E4D8;
+}
+
+.free-shipping-notice {
+    padding: 12px 16px;
+    background-color: #E8F5E9;
+    border: 1px solid #A5D6A7;
+    border-radius: 1px;
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.9375rem;
+    color: #2E7D32;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.free-shipping-progress {
+    padding: 12px 16px;
+    background-color: #FFF3E0;
+    border: 1px solid #FFB74D;
+    border-radius: 1px;
+    font-family: 'RethinkSans-Regular', sans-serif;
+    font-size: 0.9375rem;
+    color: #E65100;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 24px;
 }
 
 .discount-code-section h3 {
