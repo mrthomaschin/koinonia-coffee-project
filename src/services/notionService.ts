@@ -25,6 +25,7 @@ interface NotionOrderData {
     shipmentId: string;
     carrier?: string;
     service?: string;
+    shippingPrice?: number;
   };
   shippingBox?: string;
   isLocalPickup?: boolean;

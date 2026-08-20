@@ -150,7 +150,7 @@ export const purchaseShipment = async (
     fromAddress?: Address,
     parcel?: Parcel,
     shipmentId?: string
-): Promise<{ trackingNumber: string; labelUrl: string; shipmentId: string; carrier?: string; service?: string }> => {
+): Promise<{ trackingNumber: string; labelUrl: string; shipmentId: string; carrier?: string; service?: string; shippingPrice?: number }> => {
     try {
         logger.info('Starting shipment purchase process', {
             step: 'init',
@@ -251,7 +251,8 @@ export const purchaseShipment = async (
             trackingNumber: purchasedShipment.tracking_code,
             labelUrl: purchasedShipment.postage_label?.label_url,
             carrier: purchasedShipment.selected_rate?.carrier,
-            service: purchasedShipment.selected_rate?.service
+            service: purchasedShipment.selected_rate?.service,
+            shippingPrice: purchasedShipment.selected_rate?.rate
         });
 
         return {
@@ -260,6 +261,7 @@ export const purchaseShipment = async (
             shipmentId: purchasedShipment.id,
             carrier: purchasedShipment.selected_rate?.carrier,
             service: purchasedShipment.selected_rate?.service,
+            shippingPrice: Number(purchasedShipment.selected_rate?.rate),
         };
     } catch (error) {
         logger.error('Error purchasing shipment', {

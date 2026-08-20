@@ -258,6 +258,7 @@ app.post("/purchase-shipment", async (req: Request, res: Response): Promise<void
       shipmentId: result.shipmentId,
       carrier: result.carrier,
       service: result.service,
+      shippingPrice: result.shippingPrice,
       boxSize: boxSize,
     });
 

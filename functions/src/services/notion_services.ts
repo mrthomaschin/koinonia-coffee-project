@@ -459,6 +459,12 @@ export class NotionService {
                 })
                 .join("\n");
 
+            // This is the actual EasyPost label cost, which may differ from the
+            // shipping amount charged to the customer (for example, free shipping).
+            const shippingPrice = Number.isFinite(shipmentData?.shippingPrice)
+                ? shipmentData.shippingPrice
+                : null;
+
 
             const notion = getNotion();
             const response = await notion.pages.create({
@@ -544,6 +550,9 @@ export class NotionService {
                     },
                     "Total": {
                         number: totalAmount,
+                    },
+                    "Shipping Price": {
+                        number: shippingPrice,
                     },
                     "Order created": {
                         date: {
