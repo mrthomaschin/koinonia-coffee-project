@@ -1,7 +1,7 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import { useAccount } from '../../contexts/AccountContext';
 import { accountService } from '../../services/accountService';
-import { Order } from '../../models/AccountModel';
+import { Order, SUBSCRIPTION_PLANS, Subscription } from '../../models/AccountModel';
 import './AccountPage.css';
 
 const AccountPage: React.FC = () => {
@@ -18,6 +18,8 @@ const AccountPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersError, setOrdersError] = useState('');
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptionError, setSubscriptionError] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -27,6 +29,35 @@ const AccountPage: React.FC = () => {
       .catch((requestError: Error) => setOrdersError(requestError.message))
       .finally(() => setOrdersLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    accountService.getSubscriptions(token)
+      .then(({ subscriptions: loadedSubscriptions }) => setSubscriptions(loadedSubscriptions))
+      .catch((requestError: Error) => setSubscriptionError(requestError.message));
+  }, [token]);
+
+  const cancelSubscription = async (subscriptionId: string): Promise<void> => {
+    if (!token) return;
+    setSubscriptionError('');
+    try {
+      const { subscription } = await accountService.cancelSubscription(token, subscriptionId);
+      setSubscriptions((current) => current.map((item) => item.id === subscription.id ? subscription : item));
+    } catch (requestError) {
+      setSubscriptionError(requestError instanceof Error ? requestError.message : 'Please try again.');
+    }
+  };
+
+  const skipSubscription = async (subscriptionId: string): Promise<void> => {
+    if (!token) return;
+    setSubscriptionError('');
+    try {
+      const { subscription } = await accountService.skipSubscription(token, subscriptionId);
+      setSubscriptions((current) => current.map((item) => item.id === subscription.id ? subscription : item));
+    } catch (requestError) {
+      setSubscriptionError(requestError instanceof Error ? requestError.message : 'Please try again.');
+    }
+  };
 
   const submit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
@@ -81,6 +112,11 @@ const AccountPage: React.FC = () => {
     {ordersError && <p className="account-error">{ordersError}</p>}
     {!ordersLoading && !ordersError && orders.length === 0 && <p className="account-empty">No orders are associated with this email yet.</p>}
     {orders.map((order) => <article className="order-row" key={order.id}><div><strong>Order #{order.id}</strong><span>{new Date(order.date).toLocaleDateString()}</span></div><div><span className={`order-status order-status-${order.status}`}>{order.status}</span><strong>${order.totalAmount.toFixed(2)}</strong></div></article>)}
+    <h2>Roast subscriptions</h2>
+    <p className="account-intro">Manage subscriptions started from a coffee product page. Roast dates usually fall every 2–3 weeks.</p>
+    {subscriptionError && <p className="account-error" role="alert">{subscriptionError}</p>}
+    {subscriptions.length === 0 && <p className="account-empty">You do not have any subscriptions yet.</p>}
+    {subscriptions.map((subscription) => <article className="subscription-row" key={subscription.id}><div><strong>{subscription.itemName || subscription.coffeePreference} · {subscription.weight}</strong><span>{SUBSCRIPTION_PLANS.find((plan) => plan.id === subscription.plan)?.label} · 5% off{subscription.freeShipping ? ' · Free shipping' : ''}{subscription.skipNextDelivery ? ' · Next delivery skipped' : ''}</span></div><div><span className={`order-status order-status-${subscription.status}`}>{subscription.status}</span>{subscription.status === 'active' && <span className="subscription-actions">{!subscription.skipNextDelivery && <button className="account-cancel" onClick={() => void skipSubscription(subscription.id)}>Skip next</button>}<button className="account-cancel" onClick={() => void cancelSubscription(subscription.id)}>Cancel</button></span>}</div></article>)}
   </section></main>;
 };
 

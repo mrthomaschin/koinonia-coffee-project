@@ -199,6 +199,10 @@ app.post("/validate-discount-code", async (req: Request, res: Response) => Notio
 app.post("/account/login", AccountService.login);
 app.post("/account/create", AccountService.createAccount);
 app.get("/account/orders", AccountService.getOrders);
+app.get("/account/subscriptions", AccountService.getSubscriptions);
+app.post("/account/subscriptions", AccountService.createSubscription);
+app.post("/account/subscriptions/:subscriptionId/cancel", AccountService.cancelSubscription);
+app.post("/account/subscriptions/:subscriptionId/skip", AccountService.skipSubscription);
 app.post("/account/logout", AccountService.logout);
 
 // Get shipping rates from EasyPost
@@ -359,7 +363,8 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
     "NOTION_INVENTORY_DATABASE_ID",
     "NOTION_DISCOUNT_CODES_DATABASE_ID",
-    "NOTION_ACCOUNTS_DATABASE_ID"
+    "NOTION_ACCOUNTS_DATABASE_ID",
+    "NOTION_SUBSCRIPTIONS_DATABASE_ID"
   ];
 }
 export const api = onRequest(apiOptions, app);

@@ -114,6 +114,15 @@
   margin: 0;
 }
 
+.subscription-options { border: 1px solid #cbc5b9; margin: 0; padding: 16px; }
+.subscription-options legend { padding: 0 6px; font-weight: 600; }
+.subscription-options p { margin: 0 0 12px; color: #59667e; font-size: .9rem; }
+.subscription-plan-options { display: grid; gap: 8px; }
+.subscription-plan-options label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: .88rem; }
+.subscription-plan-options label.selected { color: #313d66; font-weight: 600; }
+.subscription-frequency { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2ddd2; }
+.subscription-frequency p { margin: 0 0 8px; }
+
 .detail-tasting-section {
   background: #faf8f5;
   padding: 20px;

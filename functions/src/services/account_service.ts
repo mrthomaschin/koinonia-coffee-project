@@ -34,6 +34,36 @@ interface Order {
   status: "pending" | "completed" | "cancelled";
 }
 
+type SubscriptionPlan =
+  | "one-bag-every-session"
+  | "two-bags-every-session"
+  | "one-bag-every-other-session"
+  | "two-bags-every-other-session";
+
+interface Subscription {
+  id: string;
+  plan: SubscriptionPlan;
+  bagCount: 1 | 2;
+  cadence: "every-session" | "every-other-session";
+  coffeePreference: string;
+  itemSku: string;
+  itemName: string;
+  weight: string;
+  discountPercent: 5;
+  freeShipping: boolean;
+  nextEligibleSession: number | null;
+  status: "active" | "paused" | "canceled";
+  skipNextDelivery: boolean;
+  createdAt: string;
+}
+
+const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" | "cadence" | "freeShipping">> = {
+  "one-bag-every-session": { bagCount: 1, cadence: "every-session", freeShipping: false },
+  "two-bags-every-session": { bagCount: 2, cadence: "every-session", freeShipping: true },
+  "one-bag-every-other-session": { bagCount: 1, cadence: "every-other-session", freeShipping: false },
+  "two-bags-every-other-session": { bagCount: 2, cadence: "every-other-session", freeShipping: true },
+};
+
 let notionInstance: Client | null = null;
 
 const getNotion = (): Client => {
@@ -50,6 +80,9 @@ const accountDatabaseId = (): string => {
   if (!databaseId) throw new Error("NOTION_ACCOUNTS_DATABASE_ID is not configured");
   return databaseId;
 };
+
+const subscriptionMirrorDatabaseId = (): string | null =>
+  process.env.NOTION_SUBSCRIPTIONS_DATABASE_ID || null;
 
 const text = (property: any): string => {
   if (!property) return "";
@@ -137,6 +170,51 @@ const sessionAccount = async (req: Request): Promise<AccountProfile | null> => {
   const accountData = account.data() as StoredAccount | undefined;
   if (!accountData) return null;
   return publicProfile(accountData);
+};
+
+type StoredSubscription = Subscription & { accountId: string };
+
+const accountSubscription = (accountId: string, subscriptionId: string) =>
+  database().collection("account_subscriptions").doc(subscriptionId).get()
+    .then((snapshot) => snapshot.exists && snapshot.data()?.accountId === accountId ? snapshot : null);
+
+const syncSubscriptionMirror = async (subscription: StoredSubscription, account: AccountProfile): Promise<void> => {
+  const databaseId = subscriptionMirrorDatabaseId();
+  if (!databaseId) return;
+
+  try {
+    const notion = getNotion();
+    const properties = {
+      "Name": { title: [{ text: { content: `${account.user.firstName} ${account.user.lastName}`.trim() } }] },
+      "Subscription ID": { rich_text: [{ text: { content: subscription.id } }] },
+      "Account ID": { rich_text: [{ text: { content: subscription.accountId } }] },
+      "Plan": { rich_text: [{ text: { content: subscription.plan } }] },
+      "Bag Count": { number: subscription.bagCount },
+      "Cadence": { rich_text: [{ text: { content: subscription.cadence } }] },
+      "Coffee Preference": { rich_text: [{ text: { content: subscription.coffeePreference } }] },
+      "Item SKU": { rich_text: [{ text: { content: subscription.itemSku } }] },
+      "Item Name": { rich_text: [{ text: { content: subscription.itemName } }] },
+      "Weight": { rich_text: [{ text: { content: subscription.weight } }] },
+      "Discount Percent": { number: subscription.discountPercent },
+      "Free Shipping": { checkbox: subscription.freeShipping },
+      "Next Eligible Session": { number: subscription.nextEligibleSession },
+      "Status": { select: { name: subscription.status } },
+      "Skip Next Delivery": { checkbox: subscription.skipNextDelivery },
+      "Created At": { date: { start: subscription.createdAt } },
+    };
+    const response = await notion.databases.query({
+      database_id: databaseId,
+      filter: { property: "Subscription ID", rich_text: { equals: subscription.id } },
+    });
+    const page = response.results[0];
+    if (page) await notion.pages.update({ page_id: page.id, properties });
+    else await notion.pages.create({ parent: { database_id: databaseId }, properties });
+  } catch (error: unknown) {
+    logger.warn("Unable to sync subscription to Notion mirror", {
+      subscriptionId: subscription.id,
+      error: (error as Error).message,
+    });
+  }
 };
 
 export class AccountService {
@@ -233,6 +311,116 @@ export class AccountService {
     } catch (error: unknown) {
       logger.error("Unable to get account orders", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to load orders right now." });
+    }
+  }
+
+  static async getSubscriptions(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const response = await database().collection("account_subscriptions")
+        .where("accountId", "==", account.id)
+        .get();
+      const subscriptions = response.docs
+        .map((document) => document.data() as StoredSubscription)
+        .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+      res.json({ subscriptions });
+    } catch (error: unknown) {
+      logger.error("Unable to get subscriptions", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to load subscriptions right now." });
+    }
+  }
+
+  static async createSubscription(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const plan = String(req.body?.plan || "") as SubscriptionPlan;
+      const selectedPlan = subscriptionPlans[plan];
+      if (!selectedPlan) {
+        res.status(400).json({ error: "Choose a valid subscription plan." });
+        return;
+      }
+      const itemSku = String(req.body?.itemSku || "").trim().slice(0, 120);
+      const itemName = String(req.body?.itemName || "").trim().slice(0, 120);
+      const weight = String(req.body?.weight || "").trim().slice(0, 40);
+      if (!itemSku || !itemName || !weight) {
+        res.status(400).json({ error: "Choose a coffee and bag size for your subscription." });
+        return;
+      }
+      const subscription: StoredSubscription = {
+        id: `sub_${randomUUID()}`,
+        accountId: account.id,
+        plan,
+        ...selectedPlan,
+        coffeePreference: itemName,
+        itemSku,
+        itemName,
+        weight,
+        discountPercent: 5,
+        nextEligibleSession: null,
+        status: "active",
+        skipNextDelivery: false,
+        createdAt: new Date().toISOString(),
+      };
+      await database().collection("account_subscriptions").doc(subscription.id).set(subscription);
+      await syncSubscriptionMirror(subscription, account);
+      res.status(201).json({ subscription });
+    } catch (error: unknown) {
+      logger.error("Unable to create subscription", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to create your subscription right now." });
+    }
+  }
+
+  static async cancelSubscription(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const subscriptionId = String(req.params.subscriptionId || "");
+      const snapshot = await accountSubscription(account.id, subscriptionId);
+      if (!snapshot) {
+        res.status(404).json({ error: "Subscription not found." });
+        return;
+      }
+      const subscription = { ...snapshot.data(), status: "canceled" } as StoredSubscription;
+      await snapshot.ref.update({ status: subscription.status });
+      await syncSubscriptionMirror(subscription, account);
+      res.json({ subscription });
+    } catch (error: unknown) {
+      logger.error("Unable to cancel subscription", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to cancel your subscription right now." });
+    }
+  }
+
+  static async skipSubscription(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const subscriptionId = String(req.params.subscriptionId || "");
+      const snapshot = await accountSubscription(account.id, subscriptionId);
+      if (!snapshot) {
+        res.status(404).json({ error: "Subscription not found." });
+        return;
+      }
+      const subscription = { ...snapshot.data(), skipNextDelivery: true } as StoredSubscription;
+      await snapshot.ref.update({ skipNextDelivery: subscription.skipNextDelivery });
+      await syncSubscriptionMirror(subscription, account);
+      res.json({ subscription });
+    } catch (error: unknown) {
+      logger.error("Unable to skip subscription", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to skip your next delivery right now." });
     }
   }
 

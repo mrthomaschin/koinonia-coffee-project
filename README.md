@@ -167,7 +167,7 @@ Create a Notion **Accounts** database and share it with the same Notion integrat
 
 | Property | Notion type |
 | --- | --- |
-| `Name` | Title |
+| `Name` | Title — customer's full name |
 | `First Name` | Text |
 | `Last Name` | Text |
 | `Email` | Email |
@@ -186,6 +186,50 @@ npx -y firebase-tools@latest functions:secrets:set NOTION_ACCOUNTS_DATABASE_ID
 ```
 
 Each new account receives an immutable, application-level ID such as `acct_8b57…`; it is stored in `Account ID` and used for sessions and cached orders. New account passwords are salted and scrypt-hashed before being written to Notion. Existing account rows need a `Password Hash` value in that format; plaintext password fields are intentionally not supported.
+
+### Roast subscriptions
+
+Authenticated customers can manage four roast-session subscription plans from the `/account` page:
+
+| Plan | Delivery cadence | Coffee discount | Shipping |
+| --- | --- | --- | --- |
+| One bag every roast | Every roast session | 5% | Paid by customer |
+| Two bags every roast | Every roast session | 5% | Free |
+| One bag every other roast | Every second roast session | 5% | Paid by customer |
+| Two bags every other roast | Every second roast session | 5% | Free |
+
+A roast session is created around the roaster's confirmed schedule, which usually varies between two and three weeks. The current release manages enrollment and cancellation; charging and order creation should be triggered by a confirmed roast-session fulfillment workflow rather than a fixed calendar interval.
+
+Firestore is the source of truth for subscriptions, which permits multiple subscriptions per account and keeps customer actions independent of the Notion API. Optionally, each create or cancellation is mirrored to a separate Notion **Subscriptions** database for operations.
+
+To enable the mirror, create the database below, share it with the Functions Notion integration, then set its ID in `functions/.env.local` and as a Firebase secret. If the database is unconfigured or a sync fails, the Firestore subscription remains available to customers.
+
+| Property | Notion type |
+| --- | --- |
+| `Name` | Title |
+| `Subscription ID` | Text |
+| `Account ID` | Text |
+| `Plan` | Text |
+| `Bag Count` | Number |
+| `Cadence` | Text |
+| `Coffee Preference` | Text |
+| `Item SKU` | Text |
+| `Item Name` | Text |
+| `Weight` | Text |
+| `Discount Percent` | Number |
+| `Free Shipping` | Checkbox |
+| `Next Eligible Session` | Number |
+| `Status` | Select — add `active`, `paused`, and `canceled` |
+| `Skip Next Delivery` | Checkbox |
+| `Created At` | Date |
+
+```env
+NOTION_SUBSCRIPTIONS_DATABASE_ID=your_notion_subscriptions_database_id
+```
+
+```bash
+npx -y firebase-tools@latest functions:secrets:set NOTION_SUBSCRIPTIONS_DATABASE_ID
+```
 
 ## Technologies Used
 

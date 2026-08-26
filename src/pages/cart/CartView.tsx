@@ -331,6 +331,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                             Weight: {formatWeight(cartItem.selections.weight)}
                         </p>
                     )}
+                    {cartItem.selections.subscriptionPlan && (
+                        <p className="cart-item-selection">Subscription: {cartItem.selections.subscriptionPlan.includes('every-other') ? 'every other roast' : 'every roast'} · Save 5%</p>
+                    )}
 
                     {cartItem.selections.size && (
                         <p className="cart-item-selection">

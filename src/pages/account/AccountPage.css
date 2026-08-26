@@ -22,4 +22,15 @@
 .order-row span { font-size: .85rem; color: #59667e; text-transform: capitalize; }
 .order-status { font-weight: 600; }
 .order-status-completed { color: #4f6b42 !important; }.order-status-cancelled { color: #a62929 !important; }
+.subscription-form { display: grid; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid #cbc5b9; }
+.subscription-form label { display: grid; gap: 7px; font-size: .88rem; }
+.subscription-form input, .subscription-form select { border: 1px solid #84825e; padding: 12px; font: inherit; border-radius: 0; background: #fff; }
+.subscription-row { display: flex; justify-content: space-between; padding: 16px 0; border-top: 1px solid #cbc5b9; gap: 18px; }
+.subscription-row div { display: grid; gap: 5px; }
+.subscription-row div:last-child { justify-items: end; }
+.subscription-row span { font-size: .85rem; color: #59667e; text-transform: capitalize; }
+.account-cancel { border: 0; background: none; color: #a62929; cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
+.subscription-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.subscription-actions .account-cancel:first-child { color: #313d66; }
+.order-status-active { color: #4f6b42 !important; }
 @media (max-width: 600px) { .account-page { padding: 28px 16px; }.account-card { padding: 28px 22px; }.account-name-row { grid-template-columns: 1fr; }.account-dashboard-heading { display: block; }.account-dashboard .account-switch { margin-top: 20px; } }

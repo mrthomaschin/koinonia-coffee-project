@@ -1,4 +1,4 @@
-import { Account, Order } from '../models/AccountModel';
+import { Account, CreateSubscriptionInput, Order, Subscription } from '../models/AccountModel';
 
 type AccountProfile = Omit<Account, 'password' | 'orders'>;
 
@@ -40,6 +40,32 @@ class AccountService {
 
   getOrders(token: string): Promise<{ orders: Order[] }> {
     return this.request('/account/orders', { headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  getSubscriptions(token: string): Promise<{ subscriptions: Subscription[] }> {
+    return this.request('/account/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  createSubscription(token: string, input: CreateSubscriptionInput): Promise<{ subscription: Subscription }> {
+    return this.request('/account/subscriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    });
+  }
+
+  cancelSubscription(token: string, subscriptionId: string): Promise<{ subscription: Subscription }> {
+    return this.request(`/account/subscriptions/${subscriptionId}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  skipSubscription(token: string, subscriptionId: string): Promise<{ subscription: Subscription }> {
+    return this.request(`/account/subscriptions/${subscriptionId}/skip`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
   }
 
   logout(token: string): Promise<void> {
