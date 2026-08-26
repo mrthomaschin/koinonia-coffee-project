@@ -159,6 +159,34 @@ For more details, see [Stripe's Apple Pay documentation](https://stripe.com/docs
 
 For detailed instructions, see [STRIPE_DEPLOYMENT_GUIDE.md](./STRIPE_DEPLOYMENT_GUIDE.md).
 
+## Account and order-history setup
+
+The `/account` page lets customers create an account, sign in, and see online orders whose Notion `Email` matches their account email. The browser never receives a Notion credential or a password hash.
+
+Create a Notion **Accounts** database and share it with the same Notion integration used by the Functions backend. It needs these exact properties:
+
+| Property | Notion type |
+| --- | --- |
+| `Name` | Title |
+| `First Name` | Text |
+| `Last Name` | Text |
+| `Email` | Email |
+| `Username` | Text |
+| `Account ID` | Text |
+| `Password Hash` | Text |
+
+Set the database ID locally in `functions/.env.local` and in production as a Firebase secret:
+
+```env
+NOTION_ACCOUNTS_DATABASE_ID=your_notion_accounts_database_id
+```
+
+```bash
+npx -y firebase-tools@latest functions:secrets:set NOTION_ACCOUNTS_DATABASE_ID
+```
+
+Each new account receives an immutable, application-level ID such as `acct_8b57…`; it is stored in `Account ID` and used for sessions and cached orders. New account passwords are salted and scrypt-hashed before being written to Notion. Existing account rows need a `Password Hash` value in that format; plaintext password fields are intentionally not supported.
+
 ## Technologies Used
 
 - **React 18** - UI library

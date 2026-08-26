@@ -1,0 +1,25 @@
+.account-page { min-height: 100%; padding: 56px 24px; background: #f8f5eb; display: flex; justify-content: center; }
+.account-card { width: min(100%, 560px); height: fit-content; background: #fff; padding: 42px; box-sizing: border-box; border: 1px solid #cbc5b9; color: #2f2b39; }
+.account-kicker { margin: 0 0 8px; letter-spacing: .13em; font-size: .72rem; color: #59667e; }
+.account-card h1 { font-family: HedvigLettersSerif_18pt, Georgia, serif; font-size: 2.2rem; font-weight: 400; margin: 0; }
+.account-card h2 { font-family: HedvigLettersSerif_18pt, Georgia, serif; font-weight: 400; margin: 36px 0 12px; }
+.account-intro { margin: 12px 0 28px; color: #59667e; }
+.account-form { display: grid; gap: 16px; }
+.account-form label { display: grid; gap: 7px; font-size: .88rem; }
+.account-form input { border: 1px solid #84825e; padding: 12px; font: inherit; border-radius: 0; }
+.account-name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.account-submit { border: 0; background: #313d66; color: #fff; padding: 14px; font: inherit; cursor: pointer; }
+.account-submit:disabled { opacity: .65; cursor: wait; }
+.account-switch { padding: 0; margin-top: 20px; background: none; border: 0; color: #313d66; text-decoration: underline; font: inherit; cursor: pointer; }
+.account-error { color: #a62929; margin: 0; }
+.account-dashboard-heading { display: flex; justify-content: space-between; align-items: start; gap: 24px; }
+.account-dashboard-heading p:not(.account-kicker) { color: #59667e; margin: 8px 0 0; }
+.account-dashboard .account-switch { margin: 0; white-space: nowrap; }
+.account-empty { color: #59667e; }
+.order-row { display: flex; justify-content: space-between; padding: 16px 0; border-top: 1px solid #cbc5b9; gap: 18px; }
+.order-row div { display: grid; gap: 5px; }
+.order-row div:last-child { justify-items: end; }
+.order-row span { font-size: .85rem; color: #59667e; text-transform: capitalize; }
+.order-status { font-weight: 600; }
+.order-status-completed { color: #4f6b42 !important; }.order-status-cancelled { color: #a62929 !important; }
+@media (max-width: 600px) { .account-page { padding: 28px 16px; }.account-card { padding: 28px 22px; }.account-name-row { grid-template-columns: 1fr; }.account-dashboard-heading { display: block; }.account-dashboard .account-switch { margin-top: 20px; } }

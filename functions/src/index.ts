@@ -11,6 +11,7 @@ import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
+import { AccountService } from "./services/account_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -194,6 +195,12 @@ app.post("/uncheck-order-confirmed-email-sent", async (req: Request, res: Respon
 // Validate discount code
 app.post("/validate-discount-code", async (req: Request, res: Response) => NotionService.validateDiscountCode(req, res));
 
+// Account data lives in Notion; Firestore holds only short-lived sessions and caches.
+app.post("/account/login", AccountService.login);
+app.post("/account/create", AccountService.createAccount);
+app.get("/account/orders", AccountService.getOrders);
+app.post("/account/logout", AccountService.logout);
+
 // Get shipping rates from EasyPost
 app.post("/get-shipping-rates", getShippingRates);
 
@@ -351,7 +358,8 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_TOKEN",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
     "NOTION_INVENTORY_DATABASE_ID",
-    "NOTION_DISCOUNT_CODES_DATABASE_ID"
+    "NOTION_DISCOUNT_CODES_DATABASE_ID",
+    "NOTION_ACCOUNTS_DATABASE_ID"
   ];
 }
 export const api = onRequest(apiOptions, app);
