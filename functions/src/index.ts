@@ -41,6 +41,25 @@ const getFirestoreDb = () => {
 
 const INVENTORY_CACHE_DOC = "inventory_cache/latest";
 const INVENTORY_CACHE_TTL_MS = 5 * 60 * 1000; // Reduced to 5 minutes to prevent stale data
+const PROCESSED_EVENTS_COLLECTION = "processed_function_events";
+
+const processedEventRef = (functionName: string, eventId: string) =>
+  getFirestoreDb().collection(PROCESSED_EVENTS_COLLECTION)
+    .doc(`${functionName}_${Buffer.from(eventId).toString("base64url")}`);
+
+const hasProcessedEvent = async (functionName: string, eventId: string): Promise<boolean> =>
+  (await processedEventRef(functionName, eventId).get()).exists;
+
+const markEventProcessed = async (functionName: string, eventId: string, subscriptionId: string): Promise<void> => {
+  await processedEventRef(functionName, eventId).set({
+    functionName,
+    eventId,
+    subscriptionId,
+    processedAt: new Date(),
+    // Configure this field as a Firestore TTL policy if automatic cleanup is desired.
+    expiresAt: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
+  });
+};
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface InventoryCache {
@@ -217,7 +236,12 @@ export const syncSubscriptionToNotion = onDocumentWritten(
   { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
   async (event) => {
     if (!event.data?.after.exists) return;
+    if (await hasProcessedEvent("syncSubscriptionToNotion", event.id)) {
+      logger.info("Skipping previously processed subscription-mirror event", { eventId: event.id });
+      return;
+    }
     await AccountService.syncSubscriptionMirrorById(event.params.subscriptionId);
+    await markEventProcessed("syncSubscriptionToNotion", event.id, event.params.subscriptionId);
   }
 );
 
@@ -233,12 +257,17 @@ export const checkUpdatedSubscriptionForRenewal = onDocumentWritten(
   { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
   async (event) => {
     if (!event.data?.after.exists) return;
+    if (await hasProcessedEvent("checkUpdatedSubscriptionForRenewal", event.id)) {
+      logger.info("Skipping previously processed subscription-renewal event", { eventId: event.id });
+      return;
+    }
     const before = event.data.before.data();
     const after = event.data.after.data();
     // Ignore writes made solely by the fulfillment processor itself. Eligibility
     // must change before a database-write event starts another payment attempt.
     if (before && before.upcomingRoastDate === after?.upcomingRoastDate && before.status === after?.status && before.skipNextDelivery === after?.skipNextDelivery) return;
     await AccountService.checkDueSubscriptions(event.params.subscriptionId);
+    await markEventProcessed("checkUpdatedSubscriptionForRenewal", event.id, event.params.subscriptionId);
   }
 );
 
