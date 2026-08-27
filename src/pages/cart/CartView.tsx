@@ -24,7 +24,7 @@ interface CartViewProps {
 const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const navigate = useNavigate();
     const { cart: viewModel, forceUpdate, showToast } = useCart();
-    const { isAuthenticated, token } = useAccount();
+    const { account, isAuthenticated, token } = useAccount();
     const [pendingQuantities, setPendingQuantities] = useState<{ [key: number]: number }>({});
     const [updateTrigger, setUpdateTrigger] = useState(0);
     const [showCheckout, setShowCheckout] = useState(false);
@@ -258,7 +258,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         setClientSecret(null);
 
         const customerEmail = email || 'customer@example.com';
-        const customerName = name || 'Valued Customer';
+        const hasSubscription = viewModel.cartItems.some((item) => !!item.selections.subscriptionPlan);
+        const accountName = account ? `${account.user.firstName} ${account.user.lastName}`.trim() : '';
+        const customerName = hasSubscription && accountName ? accountName : (name || 'Valued Customer');
         const customerPhone = phone || '';
 
         logger.log('Payment successful:', { paymentIntentId, customerEmail, customerName, customerPhone });
@@ -321,7 +323,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 customerPhone
             }
         });
-    }, [viewModel, forceUpdate, showToast, navigate, subtotal, subtotalAfterDiscount, discountAmount]);
+    }, [account, viewModel, forceUpdate, showToast, navigate, subtotal, subtotalAfterDiscount, discountAmount]);
 
     const handleCheckoutCancel = useCallback(() => {
         setShowCheckout(false);

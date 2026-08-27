@@ -25,6 +25,8 @@ export interface Subscription {
     freeShipping: boolean;
     status: 'active' | 'paused' | 'canceled';
     skipNextDelivery: boolean;
+    isLocalPickup?: boolean;
+    orderPickupId?: string;
     createdAt: string;
     upcomingRoastDate: string;
 }

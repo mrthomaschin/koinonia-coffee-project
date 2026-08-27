@@ -255,9 +255,13 @@ export class NotionService {
                 return;
             }
 
-            const targetDate = typeof req.query.targetDate === "string" && req.query.targetDate
-                ? req.query.targetDate
-                : new Date().toISOString();
+            const containsCoffee = req.query.containsCoffee === "true";
+            let targetDate = new Date().toISOString();
+            if (containsCoffee) {
+                const roastDate = new Date(await nextUpcomingRoastSessionDate());
+                roastDate.setUTCDate(roastDate.getUTCDate() + 2);
+                targetDate = roastDate.toISOString();
+            }
 
             const notion = getNotion();
             const response = await notion.databases.query({

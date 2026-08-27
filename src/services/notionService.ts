@@ -174,10 +174,10 @@ class NotionService {
     }
   }
 
-  async getOrderPickupOptions(targetDate: string): Promise<OrderPickupOption[]> {
+  async getOrderPickupOptions(containsCoffee: boolean): Promise<OrderPickupOption[]> {
     try {
       const response = await fetch(
-        `${this.backendUrl}/get-order-pickup-options?targetDate=${encodeURIComponent(targetDate)}`,
+        `${this.backendUrl}/get-order-pickup-options?containsCoffee=${containsCoffee ? 'true' : 'false'}`,
         { headers: { 'Content-Type': 'application/json' } }
       );
 

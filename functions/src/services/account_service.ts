@@ -63,6 +63,7 @@ interface Order {
   createdAt: string;
   status: "pending" | "completed" | "canceled";
   paymentIntentId?: string;
+  itemsSummary?: string;
 }
 
 type SubscriptionPlan =
@@ -86,6 +87,8 @@ interface Subscription {
   freeShipping: boolean;
   status: "active" | "paused" | "canceled";
   skipNextDelivery: boolean;
+  isLocalPickup?: boolean;
+  orderPickupId?: string;
   createdAt: string;
   upcomingRoastDate: string;
 }
@@ -193,7 +196,17 @@ const pacificCalendarDate = (date: Date = new Date()): string => new Intl.DateTi
   day: "2-digit",
 }).format(date);
 
-const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean => roastDate.slice(0, 10) <= pacificCalendarDate(now);
+const calendarDateOffset = (dateValue: string, days: number): string => {
+  const [year, month, day] = dateValue.slice(0, 10).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const renewalCalendarDate = (roastDate: string): string => calendarDateOffset(roastDate, -4);
+
+const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean =>
+  renewalCalendarDate(roastDate) <= pacificCalendarDate(now);
 
 let notionInstance: Client | null = null;
 
@@ -221,12 +234,12 @@ const serviceDisplayName = (service?: string): string => {
   return services[service || ""] || "Standard";
 };
 
-const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
+const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment?: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
   const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
   if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
   const notion = getNotion();
   const existing = await notion.databases.query({ database_id: databaseId, filter: { property: "Order #", rich_text: { equals: params.orderId } } });
-  const shipmentProperties = {
+  const shipmentProperties: Record<string, any> = params.shipment ? {
     "Shipping Price": { number: params.shippingLabelPrice },
     "Tracking Info": { rich_text: [{ text: { content: params.shipment.trackingNumber } }] },
     "Shipment ID": { rich_text: [{ text: { content: params.shipment.shipmentId } }] },
@@ -234,6 +247,10 @@ const createRenewalNotionOrder = async (params: { orderId: string; paymentIntent
     "Carrier Type": { select: { name: serviceDisplayName(params.shipment.service) } },
     "Tracking Label": { url: params.shipment.labelUrl },
     "Shipping Box": { rich_text: [{ text: { content: params.shippingBox } }] },
+  } : {
+    "Shipping Price": { number: 0 },
+    "Local Pickup": { checkbox: true },
+    "Order Pickup ID": { rich_text: [{ text: { content: params.subscription.orderPickupId || "" } }] },
   };
   if (existing.results.length) {
     await notion.pages.update({ page_id: existing.results[0].id, properties: shipmentProperties });
@@ -475,7 +492,8 @@ export class AccountService {
       const customerId = account?.billing?.stripeCustomerId;
       const paymentMethodId = account?.billing?.stripePaymentMethodId;
       const shippingAddress = account?.shippingAddressData;
-      if (!account || !customerId || !paymentMethodId || !shippingAddress) throw new Error("Subscription is missing a saved payment method or shipping address");
+      if (!account || !customerId || !paymentMethodId) throw new Error("Subscription is missing a saved payment method");
+      if (!subscription.isLocalPickup && !shippingAddress) throw new Error("Subscription is missing a saved shipping address");
       if (!Number.isSafeInteger(subscription.unitAmount) || subscription.unitAmount < 50) throw new Error("Subscription is missing a valid renewal price");
 
       // Older checkouts may not have saved the phone in Firestore. Recover it
@@ -486,12 +504,12 @@ export class AccountService {
       if (recoveredPhone) await accountSnapshot.ref.set({ phone: recoveredPhone, updatedAt: Date.now() }, { merge: true });
 
       const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - subscription.discountPercent / 100));
-      const address: Address = { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`, email: renewalAccount.user.email, phone: renewalAccount.phone };
       const parcel = subscriptionParcel(subscription.shippingWeight, subscription.weight, subscription.bagCount);
-      const shippingQuote = await fetchShippingRates(address, undefined, parcel);
-      if (!shippingQuote.rates.length) throw new Error("No shipping rates are available for this subscription order");
-      const selectedRate = shippingQuote.rates.reduce((lowest, rate) => rate.rate < lowest.rate ? rate : lowest);
-      const shippingAmount = subscription.freeShipping ? 0 : Math.round(selectedRate.rate * 100);
+      const address: Address | null = shippingAddress ? { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`, email: renewalAccount.user.email, phone: renewalAccount.phone } : null;
+      const shippingQuote = address ? await fetchShippingRates(address, undefined, parcel) : null;
+      if (shippingQuote && !shippingQuote.rates.length) throw new Error("No shipping rates are available for this subscription order");
+      const selectedRate = shippingQuote?.rates.reduce((lowest, rate) => rate.rate < lowest.rate ? rate : lowest);
+      const shippingAmount = selectedRate && !subscription.isLocalPickup && !subscription.freeShipping ? Math.round(selectedRate.rate * 100) : 0;
       const dueKey = `${subscription.id}:${subscription.upcomingRoastDate}`;
       const generatedOrderId = Date.now().toString().slice(-8).toUpperCase();
       const paymentIntent = await getStripe().paymentIntents.create({
@@ -505,7 +523,9 @@ export class AccountService {
         description: `Koinonia roast subscription: ${subscription.itemName}`,
       }, { idempotencyKey: `renewal:${dueKey}` });
       const orderId = paymentIntent.metadata.orderNumber || generatedOrderId;
-      const shipment = await purchaseShipment(address, selectedRate.id, undefined, parcel, shippingQuote.shipmentId);
+      const shipment = address && selectedRate && shippingQuote
+        ? await purchaseShipment(address, selectedRate.id, undefined, parcel, shippingQuote.shipmentId)
+        : undefined;
       await createRenewalNotionOrder({
         orderId,
         paymentIntentId: paymentIntent.id,
@@ -513,7 +533,7 @@ export class AccountService {
         subscription,
         totalAmount: paymentIntent.amount_received / 100,
         shippingAddress: account.shippingAddress || "",
-        shippingLabelPrice: shipment.shippingPrice || selectedRate.rate,
+        shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0,
         shippingBox: parcel.boxSize,
         shipment,
       });
@@ -531,7 +551,7 @@ export class AccountService {
         }),
       ]);
       await db.batch()
-        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment.shippingPrice || selectedRate.rate, shippingBox: parcel.boxSize, shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null })
+        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${subscription.bagCount}x ${subscription.itemName} (${subscription.weight})`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}) , isLocalPickup: !!subscription.isLocalPickup })
         .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString() })
         .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
         .commit();
@@ -576,12 +596,18 @@ export class AccountService {
       const items = Array.isArray(req.body?.subscriptionItems) ? req.body.subscriptionItems : [];
       const shippingAddress = String(req.body?.shippingAddress || "").trim().slice(0, 500);
       const shippingAddressData = normalizedShippingAddress(req.body?.shippingAddressData);
+      const isLocalPickup = req.body?.isLocalPickup === true;
+      const orderPickupId = String(req.body?.orderPickupId || "").trim().slice(0, 120);
       if (!paymentIntentId || items.length === 0) {
         res.status(400).json({ error: "A paid subscription checkout is required." });
         return;
       }
-      if (!shippingAddressData) {
+      if (!isLocalPickup && !shippingAddressData) {
         res.status(400).json({ error: "A complete shipping address is required for a subscription." });
+        return;
+      }
+      if (isLocalPickup && !orderPickupId) {
+        res.status(400).json({ error: "A pickup option is required for a local-pickup subscription." });
         return;
       }
       const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
@@ -621,6 +647,8 @@ export class AccountService {
           id: `sub_${randomUUID()}`, accountId: account.id, plan, ...selectedPlan,
           itemSku, itemName, weight, shippingWeight: Number.isFinite(shippingWeight) && shippingWeight > 0 ? shippingWeight : undefined, unitAmount, discountPercent: 5,
           status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
+          isLocalPickup,
+          orderPickupId: isLocalPickup ? orderPickupId : undefined,
           upcomingRoastDate,
         });
       }
@@ -634,9 +662,10 @@ export class AccountService {
         status: "completed",
         paymentIntentId,
         subscriptionIds: subscriptions.map((item) => item.id),
+        itemsSummary: subscriptions.map((item) => `${item.bagCount}x ${item.itemName} (${item.weight})`).join(", "),
         source: "subscription-checkout",
       };
-      batch.set(checkoutRef, { accountId: account.id, paymentIntentId, subscriptionIds: subscriptions.map((item) => item.id), createdAt: Date.now() });
+      batch.set(checkoutRef, { accountId: account.id, paymentIntentId, orderId, subscriptionIds: subscriptions.map((item) => item.id), createdAt: Date.now() });
       batch.set(database().collection("account_orders").doc(order.id), order);
       batch.delete(database().collection("account_order_cache").doc(account.id));
       batch.set(database().collection("accounts").doc(account.id), {
@@ -732,9 +761,27 @@ export class AccountService {
       // began writing account_orders. Stripe remains the source for the amount.
       const checkoutSnapshots = await db.collection("subscription_checkouts").where("accountId", "==", account.id).get();
       await Promise.all(checkoutSnapshots.docs.map(async (checkout) => {
-        const paymentIntentId = String(checkout.data().paymentIntentId || "");
+        const checkoutData = checkout.data();
+        const paymentIntentId = String(checkoutData.paymentIntentId || "");
         if (!paymentIntentId) return;
-        const orderRef = db.collection("account_orders").doc(paymentIntentId.slice(-8).toUpperCase());
+
+        const fallbackOrderId = paymentIntentId.slice(-8).toUpperCase();
+        const existingOrders = await db.collection("account_orders")
+          .where("paymentIntentId", "==", paymentIntentId)
+          .get();
+        const accountOrders = existingOrders.docs.filter((document) => document.data().accountId === account.id);
+        const existingCanonicalOrder = accountOrders.find((document) => document.id !== fallbackOrderId);
+        if (existingCanonicalOrder) {
+          // Remove the legacy PaymentIntent-suffix duplicate when the real
+          // checkout order already exists.
+          const fallbackOrder = accountOrders.find((document) => document.id === fallbackOrderId);
+          if (fallbackOrder) await fallbackOrder.ref.delete();
+          return;
+        }
+
+        const storedOrderId = String(checkoutData.orderId || "").trim().toUpperCase();
+        const orderId = /^[A-Z0-9]{8}$/.test(storedOrderId) ? storedOrderId : fallbackOrderId;
+        const orderRef = db.collection("account_orders").doc(orderId);
         if ((await orderRef.get()).exists) return;
         const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
         if (paymentIntent.status !== "succeeded" || paymentIntent.metadata.accountId !== account.id) return;
@@ -745,7 +792,7 @@ export class AccountService {
           createdAt: new Date(paymentIntent.created * 1000).toISOString(),
           status: "completed",
           paymentIntentId,
-          subscriptionIds: checkout.data().subscriptionIds || [],
+          subscriptionIds: checkoutData.subscriptionIds || [],
           source: "subscription-checkout",
         });
       }));
@@ -766,10 +813,16 @@ export class AccountService {
           createdAt: properties["Order created"]?.date?.start || page.created_time,
           status: status(properties.Status),
           paymentIntentId: text(properties["Transaction ID"]) || undefined,
+          itemsSummary: text(properties["Items ordered"]) || undefined,
         };
       });
+      const notionItemsByOrderId = new Map(notionOrders.map((order) => [order.id, order.itemsSummary]));
+      const enrichedFirestoreOrders = firestoreOrders.map((order) => ({
+        ...order,
+        itemsSummary: order.itemsSummary || notionItemsByOrderId.get(order.id),
+      }));
       const paymentIntentIds = new Set<string>();
-      const orders = [...firestoreOrders, ...notionOrders]
+      const orders = [...enrichedFirestoreOrders, ...notionOrders]
         .filter((order, index, all) => {
           if (all.findIndex((candidate) => candidate.id === order.id) !== index) return false;
           if (!order.paymentIntentId) return true;

@@ -5,6 +5,12 @@ import { SUBSCRIPTION_PLANS, Subscription } from '../../models/AccountModel';
 import './AccountPage.css';
 import { Order } from '../../models/OrderModel';
 
+const formatRenewalDate = (roastDate: string): string => {
+  const renewalDate = new Date(roastDate);
+  renewalDate.setDate(renewalDate.getDate() - 4);
+  return renewalDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 const AccountPage: React.FC = () => {
   const { account, token, isAuthenticated, isLoading, login, createAccount, logout } = useAccount();
   const [mode, setMode] = useState<'login' | 'create'>('login');
@@ -131,12 +137,12 @@ const AccountPage: React.FC = () => {
     {ordersLoading && <p>Loading your orders…</p>}
     {ordersError && <p className="account-error">{ordersError}</p>}
     {!ordersLoading && !ordersError && orders.length === 0 && <p className="account-empty">No orders are associated with this email yet.</p>}
-    {orders.map((order) => <article className="order-row" key={order.id}><div><strong>Order #{order.id}</strong><span>{new Date(order.createdAt).toLocaleDateString()}</span></div><div><span className={`order-status order-status-${order.status}`}>{order.status}</span><strong>${order.totalAmount.toFixed(2)}</strong></div></article>)}
+    {orders.map((order) => <article className="order-row" key={order.id}><div><strong>Order #{order.id}</strong><span>Placed {new Date(order.createdAt).toLocaleString()}</span>{order.itemsSummary && <span>{order.itemsSummary}</span>}</div><div><span className={`order-status order-status-${order.status}`}>{order.status}</span><strong>${order.totalAmount.toFixed(2)}</strong></div></article>)}
     <h2>Roast subscriptions</h2>
     <p className="account-intro">Manage subscriptions started from a coffee product page. Roast dates usually fall every 2–3 weeks.</p>
     {subscriptionError && <p className="account-error" role="alert">{subscriptionError}</p>}
     {subscriptions.length === 0 && <p className="account-empty">You do not have any subscriptions yet.</p>}
-    {subscriptions.map((subscription) => <article className="subscription-row" key={subscription.id}><div><strong>{subscription.itemName} · {subscription.weight}</strong><span>{SUBSCRIPTION_PLANS.find((plan) => plan.id === subscription.plan)?.label} · 5% off{subscription.freeShipping ? ' · Free shipping' : ''}{subscription.skipNextDelivery ? ' · Next delivery skipped' : ''}</span></div><div><span className={`order-status order-status-${subscription.status}`}>{subscription.status}</span>{subscription.status === 'active' && <span className="subscription-actions">{!subscription.skipNextDelivery && <button className="account-cancel" onClick={() => void skipSubscription(subscription.id)}>Skip next</button>}<button className="account-cancel" onClick={() => void cancelSubscription(subscription.id)}>Cancel</button></span>}</div></article>)}
+    {subscriptions.map((subscription) => <article className="subscription-row" key={subscription.id}><div><strong>{subscription.itemName} · {subscription.weight}</strong><span>{SUBSCRIPTION_PLANS.find((plan) => plan.id === subscription.plan)?.label} · 5% off{subscription.freeShipping ? ' · Free shipping' : ''}{subscription.isLocalPickup ? ' · Local pickup' : ''}{subscription.skipNextDelivery ? ' · Next delivery skipped' : ''}</span><span>Renews {formatRenewalDate(subscription.upcomingRoastDate)} (4 days before roast)</span></div><div><span className={`order-status order-status-${subscription.status}`}>{subscription.status}</span>{subscription.status === 'active' && <span className="subscription-actions">{!subscription.skipNextDelivery && <button className="account-cancel" onClick={() => void skipSubscription(subscription.id)}>Skip next</button>}<button className="account-cancel" onClick={() => void cancelSubscription(subscription.id)}>Cancel</button></span>}</div></article>)}
   </section></main>;
 };
 

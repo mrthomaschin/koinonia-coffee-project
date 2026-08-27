@@ -2,6 +2,7 @@
  * Shipping Locations Service
  * Manages allowed shipping locations and validation
  */
+import { ItemType } from '../pages/shop/item/ItemModel';
 
 export const ALLOWED_SHIPPING_STATES = ['CA', 'CALIFORNIA'];
 
@@ -30,7 +31,7 @@ export const isAddressAllowedForShipping = (address: { state?: string }): boolea
 };
 
 /**
- * Check if cart contains coffee beans (ItemType.coffee = 4)
+ * Check if cart contains coffee beans.
  * @param cartItems - Array of cart items from localStorage
  * @returns true if cart contains any coffee items
  */
@@ -39,8 +40,7 @@ export const cartContainsCoffee = (cartItems: any[]): boolean => {
 
     return cartItems.some((cartItem: any) => {
         const item = cartItem.item;
-        // ItemType.coffee has enum value of 4
-        return item && item.itemType === 4;
+        return item && item.itemType === ItemType.coffee;
     });
 };
 

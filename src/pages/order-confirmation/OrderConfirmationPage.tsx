@@ -79,6 +79,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
       orderData.shippingAddressData || undefined,
       orderId,
       state.customerPhone,
+      orderData.isLocalPickup === true,
+      orderData.orderPickupId || undefined,
     ).catch((checkoutError) => logger.error('Unable to activate paid subscriptions', checkoutError));
   }, [location.state, token]);
 

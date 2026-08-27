@@ -3,4 +3,5 @@ export interface Order {
     totalAmount: number;
     status: 'pending' | 'completed' | 'canceled';
     createdAt: string;
+    itemsSummary?: string;
 }
