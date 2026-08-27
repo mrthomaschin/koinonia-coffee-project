@@ -12,11 +12,16 @@ import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
-import { AccountService, nextUpcomingRoastSessionDate } from "./services/account_service";
+import { AccountService } from "./services/account_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
 dotenv.config({ path: ".env.local" });
+// Reuse public EmailJS template configuration from the web app during local
+// emulator development. Production values must be Firebase secrets.
+dotenv.config({ path: "../.env" });
+process.env.EMAILJS_CUSTOMER_TEMPLATE_ID ||= process.env.REACT_APP_EMAILJS_CUSTOMER_TEMPLATE_ID;
+process.env.EMAILJS_PURCHASE_TEMPLATE_ID ||= process.env.REACT_APP_EMAILJS_PURCHASE_TEMPLATE_ID;
 
 const logger = createLogger('index');
 
@@ -177,17 +182,6 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
   }
 });
 
-// Get the next scheduled roast date from the Notion roast calendar.
-app.get("/get-next-roast-date", async (_req: Request, res: Response) => {
-  try {
-    const nextRoastDate = await nextUpcomingRoastSessionDate();
-    res.json({ nextRoastDate });
-  } catch (error: unknown) {
-    logger.error("Error fetching next roast date", { error: (error as Error).message });
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
 
@@ -240,7 +234,7 @@ export const checkUpdatedSubscriptionForRenewal = onDocumentWritten(
     const after = event.data.after.data();
     // Ignore writes made solely by the fulfillment processor itself. Eligibility
     // must change before a database-write event starts another payment attempt.
-    if (before && before.nextEligibleRoastAt === after?.nextEligibleRoastAt && before.status === after?.status && before.skipNextDelivery === after?.skipNextDelivery) return;
+    if (before && before.upcomingRoastDate === after?.upcomingRoastDate && before.status === after?.status && before.skipNextDelivery === after?.skipNextDelivery) return;
     await AccountService.checkDueSubscriptions(event.params.subscriptionId);
   }
 );

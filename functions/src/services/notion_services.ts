@@ -3,7 +3,19 @@ import { Request, Response } from "express";
 import { createLogger } from "../logger";
 
 import { getShipmentStatus } from "./easypost_service";
+import { nextUpcomingRoastSessionDate } from "./account_service";
 const logger = createLogger("notion");
+
+const getNextRoastDateForInventory = async (): Promise<string | null> => {
+    try {
+        return await nextUpcomingRoastSessionDate();
+    } catch (error: unknown) {
+        logger.error("Unable to load the roast calendar; inventory will load without a next roast date", {
+            error: (error as Error).message,
+        });
+        return null;
+    }
+};
 
 // Service name to display name mapping
 const SERVICE_DISPLAY_NAMES: Record<string, string> = {
@@ -242,20 +254,22 @@ export class NotionService {
         }
 
         const notion = getNotion();
-
-        const response = await notion.databases.query({
-            database_id: databaseId,
-            sorts: [
-                {
-                    property: "Index",
-                    direction: "ascending",
-                },
-                {
-                    property: "Created At",
-                    direction: "descending",
-                },
-            ],
-        });
+        const [response, nextRoastDate] = await Promise.all([
+            notion.databases.query({
+                database_id: databaseId,
+                sorts: [
+                    {
+                        property: "Index",
+                        direction: "ascending",
+                    },
+                    {
+                        property: "Created At",
+                        direction: "descending",
+                    },
+                ],
+            }),
+            getNextRoastDateForInventory(),
+        ]);
 
         // Separate parent items and variants
         const parentItems = new Map<string, any>();
@@ -388,6 +402,7 @@ export class NotionService {
                     name,
                     itemSummary,
                     itemDetails,
+                    nextRoastDate,
                     price,
                     firebaseImageUrls: images,
                     itemType,

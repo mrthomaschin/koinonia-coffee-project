@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CoffeeBagItem } from './CoffeeBagItem';
 import { ItemView } from '../ItemView';
 import { useCart } from '../../../../contexts/CartContext';
@@ -15,36 +15,6 @@ interface CoffeeBagDetailProps {
 
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
-  const [nextRoastDate, setNextRoastDate] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isCurrent = true;
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
-
-    const fetchNextRoastDate = async () => {
-      try {
-        const response = await fetch(`${backendUrl}/get-next-roast-date`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result: { nextRoastDate?: string } = await response.json();
-        if (isCurrent && result.nextRoastDate) {
-          setNextRoastDate(new Intl.DateTimeFormat(undefined, {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            timeZone: 'America/Los_Angeles',
-          }).format(new Date(result.nextRoastDate)));
-        }
-      } catch (error) {
-        console.error('Failed to fetch next roast date:', error);
-      }
-    };
-
-    fetchNextRoastDate();
-    return () => {
-      isCurrent = false;
-    };
-  }, [item.sku]);
-
   // Derive available weights from variants if they exist, otherwise use parent's weights
   const availableWeights = item.variants && item.variants.length > 0
     ? item.variants
@@ -313,7 +283,6 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       onBack={onBack}
       renderMetadata={() => renderMetadata(item)}
       renderExtraInfo={() => renderExtraInfo(item)}
-      nextRoastDate={nextRoastDate}
       renderOptions={renderOptions}
       renderBrewingMethod={renderBrewingMethod}
       calculatePrice={calculatePrice}

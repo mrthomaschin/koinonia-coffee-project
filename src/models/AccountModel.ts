@@ -19,14 +19,14 @@ export interface Subscription {
     itemSku: string;
     itemName: string;
     weight: string;
+    shippingWeight?: number;
     unitAmount: number;
     discountPercent: 5;
     freeShipping: boolean;
-    nextEligibleSession: number | null;
     status: 'active' | 'paused' | 'canceled';
     skipNextDelivery: boolean;
     createdAt: string;
-    nextEligibleRoastAt: string;
+    upcomingRoastDate: string;
 }
 
 export interface CreateSubscriptionInput {

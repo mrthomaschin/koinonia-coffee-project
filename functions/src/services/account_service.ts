@@ -1,12 +1,13 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { Client } from "@notionhq/client";
 import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
-import { Address, fetchShippingRates } from "./easypost_service";
+import { Address, fetchShippingRates, purchaseShipment } from "./easypost_service";
+import { EmailService } from "./email_service";
 
 const logger = createLogger("accounts");
 const scrypt = promisify(scryptCallback);
@@ -61,6 +62,7 @@ interface Order {
   totalAmount: number;
   createdAt: string;
   status: "pending" | "completed" | "canceled";
+  paymentIntentId?: string;
 }
 
 type SubscriptionPlan =
@@ -77,14 +79,15 @@ interface Subscription {
   itemSku: string;
   itemName: string;
   weight: string;
+  // Product/variant shipping weight in grams, captured at checkout.
+  shippingWeight?: number;
   unitAmount: number;
   discountPercent: 5;
   freeShipping: boolean;
-  nextEligibleSession: number | null;
   status: "active" | "paused" | "canceled";
   skipNextDelivery: boolean;
   createdAt: string;
-  nextEligibleRoastAt: string;
+  upcomingRoastDate: string;
 }
 
 const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" | "cadence" | "freeShipping">> = {
@@ -92,6 +95,34 @@ const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" 
   "two-bags-every-session": { bagCount: 2, cadence: "every-session", freeShipping: true },
   "one-bag-every-other-session": { bagCount: 1, cadence: "every-other-session", freeShipping: false },
   "two-bags-every-other-session": { bagCount: 2, cadence: "every-other-session", freeShipping: true },
+};
+
+// Mirrors src/util/shipping.ts so recurring shipments use the same box rules
+// and weight calculation as EmbeddedCheckout.
+const subscriptionParcel = (shippingWeight: number | undefined, displayWeight: string, quantity: number) => {
+  const sourceWeight = Number.isFinite(shippingWeight) && Number(shippingWeight) > 0
+    ? Number(shippingWeight)
+    : displayWeight;
+  const weightText = String(sourceWeight).toLowerCase().trim();
+  const numericWeight = typeof sourceWeight === "number" ? sourceWeight : Number.parseFloat(weightText.match(/\d+(?:\.\d+)?/)?.[0] || "0");
+  const itemWeightOunces = typeof sourceWeight === "number"
+    ? sourceWeight === 200 ? 7 : sourceWeight === 5 ? 80 : sourceWeight / 28.35
+    : weightText.includes("lb") ? numericWeight * 16
+      : weightText.includes("oz") ? numericWeight
+        : weightText.includes("g") || numericWeight > 100 ? numericWeight / 28.35 : numericWeight;
+  const totalWeightOunces = itemWeightOunces * quantity;
+  const box = totalWeightOunces <= 12 ? { length: 6, width: 4, height: 2, boxWeight: 4 }
+    : totalWeightOunces <= 28 ? { length: 8, width: 6, height: 3, boxWeight: 6 }
+      : totalWeightOunces <= 96 ? { length: 10, width: 8, height: 4, boxWeight: 8 }
+        : totalWeightOunces <= 160 ? { length: 12, width: 10, height: 6, boxWeight: 12 }
+          : { length: 18, width: 14, height: 10, boxWeight: 20 };
+  return {
+    length: box.length,
+    width: box.width,
+    height: box.height,
+    weight: Math.round(totalWeightOunces + box.boxWeight),
+    boxSize: `${box.length}x${box.width}x${box.height}`,
+  };
 };
 
 const roastCalendarDatabaseId = (): string | null => process.env.NOTION_ROAST_DATES_DATABASE_ID || null;
@@ -127,8 +158,17 @@ export const nextRoastSessionDate = async (
   cadence: Subscription["cadence"],
 ): Promise<string | null> => {
   const calendar = await getRoastSessionCalendar();
-  const currentIndex = calendar.findIndex((date) => date === currentRoastDate);
-  if (currentIndex < 0) return null;
+  // Notion can return a date-only value or a timestamp with a different offset.
+  // Roast fulfillment is calendar-day based, so match the Pacific calendar date.
+  const currentDateKey = currentRoastDate.slice(0, 10);
+  const exactIndex = calendar.findIndex((date) => date.slice(0, 10) === currentDateKey);
+  const currentIndex = exactIndex >= 0
+    ? exactIndex
+    : calendar.reduce((latestIndex, date, index) => date.slice(0, 10) <= currentDateKey ? index : latestIndex, -1);
+  if (currentIndex < 0) {
+    logger.warn("Due subscription date is before the first roast calendar entry", { currentRoastDate, currentDateKey, calendar });
+    return null;
+  }
   const sessionsToAdvance = cadence === "every-session" ? 1 : 2;
   return calendar[currentIndex + sessionsToAdvance] || null;
 };
@@ -146,6 +186,15 @@ export const nextUpcomingRoastSessionDate = async (): Promise<string> => {
   return nextDate;
 };
 
+const pacificCalendarDate = (date: Date = new Date()): string => new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Los_Angeles",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(date);
+
+const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean => roastDate.slice(0, 10) <= pacificCalendarDate(now);
+
 let notionInstance: Client | null = null;
 
 const getNotion = (): Client => {
@@ -155,6 +204,60 @@ const getNotion = (): Client => {
     notionInstance = new Client({ auth: token });
   }
   return notionInstance;
+};
+
+const carrierDisplayName = (carrier?: string): string => {
+  if (carrier === "UPSDAP") return "UPS";
+  if (carrier === "FedExDefault") return "FedEx";
+  return carrier || "Unknown";
+};
+
+const serviceDisplayName = (service?: string): string => {
+  const services: Record<string, string> = {
+    GroundAdvantage: "Ground Advantage",
+    Priority: "Priority Mail",
+    PriorityExpress: "Priority Mail Express",
+  };
+  return services[service || ""] || "Standard";
+};
+
+const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
+  const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+  if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
+  const notion = getNotion();
+  const existing = await notion.databases.query({ database_id: databaseId, filter: { property: "Order #", rich_text: { equals: params.orderId } } });
+  const shipmentProperties = {
+    "Shipping Price": { number: params.shippingLabelPrice },
+    "Tracking Info": { rich_text: [{ text: { content: params.shipment.trackingNumber } }] },
+    "Shipment ID": { rich_text: [{ text: { content: params.shipment.shipmentId } }] },
+    "Tracking Carrier": { select: { name: carrierDisplayName(params.shipment.carrier) } },
+    "Carrier Type": { select: { name: serviceDisplayName(params.shipment.service) } },
+    "Tracking Label": { url: params.shipment.labelUrl },
+    "Shipping Box": { rich_text: [{ text: { content: params.shippingBox } }] },
+  };
+  if (existing.results.length) {
+    await notion.pages.update({ page_id: existing.results[0].id, properties: shipmentProperties });
+    return;
+  }
+  await notion.pages.create({
+    parent: { database_id: databaseId },
+    properties: {
+      "Customer": { title: [{ text: { content: `${params.account.user.firstName} ${params.account.user.lastName}`.trim() } }] },
+      "Order #": { rich_text: [{ text: { content: params.orderId } }] },
+      "Status": { status: { name: "Paid" } },
+      "Fulfillment": { status: { name: "Pending" } },
+      "Items ordered": { rich_text: [{ text: { content: `${params.subscription.bagCount}x ${params.subscription.itemName} (${params.subscription.weight})` } }] },
+      "Items ordered formatted": { rich_text: [{ text: { content: `${params.subscription.itemName},${params.subscription.itemSku},${params.subscription.bagCount}` } }] },
+      "Email": { email: params.account.user.email },
+      "Phone": { phone_number: params.account.phone || null },
+      "Shipping address": { rich_text: [{ text: { content: params.shippingAddress || "N/A" } }] },
+      "Transaction ID": { rich_text: [{ text: { content: params.orderId } }] },
+      "Receipt": { url: `https://dashboard.stripe.com/payments/${params.paymentIntentId}` },
+      "Total": { number: params.totalAmount },
+      ...shipmentProperties,
+      "Order created": { date: { start: new Date().toISOString() } },
+    },
+  });
 };
 
 const subscriptionMirrorDatabaseId = (): string | null =>
@@ -241,6 +344,26 @@ export const sessionAccount = async (req: Request): Promise<AccountProfile | nul
 
 type StoredSubscription = Subscription & { accountId: string };
 
+/** One-time in-place migration for subscriptions created before the field rename. */
+const migrateSubscriptionDocument = async (snapshot: FirebaseFirestore.DocumentSnapshot): Promise<StoredSubscription | null> => {
+  const value = snapshot.data() as (Partial<StoredSubscription> & { nextEligibleRoastAt?: string }) | undefined;
+  if (!value) return null;
+  const record = value as Record<string, unknown>;
+  const hasLegacyFields = ["nextEligibleRoastAt", "nextEligibleSession", "renewalLeaseUntil", "renewalProcessingDueAt"]
+    .some((field) => field in record);
+  if (value.upcomingRoastDate && !hasLegacyFields) return value as StoredSubscription;
+  if (!value.upcomingRoastDate && !value.nextEligibleRoastAt) return null;
+  const migration: Record<string, unknown> = {
+    nextEligibleRoastAt: FieldValue.delete(),
+    nextEligibleSession: FieldValue.delete(),
+    renewalLeaseUntil: FieldValue.delete(),
+    renewalProcessingDueAt: FieldValue.delete(),
+  };
+  if (!value.upcomingRoastDate) migration.upcomingRoastDate = value.nextEligibleRoastAt;
+  await snapshot.ref.update(migration);
+  return { ...value, upcomingRoastDate: value.upcomingRoastDate || value.nextEligibleRoastAt } as StoredSubscription;
+};
+
 const accountSubscription = (accountId: string, subscriptionId: string) =>
   database().collection("account_subscriptions").doc(subscriptionId).get()
     .then((snapshot) => snapshot.exists && snapshot.data()?.accountId === accountId ? snapshot : null);
@@ -265,11 +388,10 @@ const syncSubscriptionMirror = async (subscription: StoredSubscription, account:
       "Weight": { rich_text: [{ text: { content: subscription.weight } }] },
       "Discount Percent": { number: subscription.discountPercent },
       "Free Shipping": { checkbox: subscription.freeShipping },
-      "Next Eligible Session": { number: subscription.nextEligibleSession },
       "Status": { select: { name: subscription.status } },
       "Skip Next Delivery": { checkbox: subscription.skipNextDelivery },
       "Created At": { date: { start: subscription.createdAt } },
-      "Next Eligible Roast At": { date: { start: subscription.nextEligibleRoastAt || INITIAL_ROAST_DATE } },
+      "Upcoming Roast Date": { date: { start: subscription.upcomingRoastDate || INITIAL_ROAST_DATE } },
     };
     const response = await notion.databases.query({
       database_id: databaseId,
@@ -293,26 +415,33 @@ const syncSubscriptionMirror = async (subscription: StoredSubscription, account:
 };
 
 export class AccountService {
+  /** Removes retired subscription fields from existing Firestore documents. */
+  static async migrateLegacySubscriptionFields(): Promise<void> {
+    const snapshots = await database().collection("account_subscriptions").get();
+    await Promise.all(snapshots.docs.map(migrateSubscriptionDocument));
+  }
+
   /** Returns due subscriptions without mutating them. Fulfillment is invoked separately. */
   static async getDueSubscriptionIds(subscriptionId?: string): Promise<string[]> {
-    const now = new Date().toISOString();
     if (subscriptionId) {
       const snapshot = await database().collection("account_subscriptions").doc(subscriptionId).get();
-      const subscription = snapshot.data() as StoredSubscription | undefined;
-      return subscription && subscription.status === "active" && !subscription.skipNextDelivery && subscription.nextEligibleRoastAt <= now
+      const subscription = await migrateSubscriptionDocument(snapshot);
+      return subscription && subscription.status === "active" && !subscription.skipNextDelivery && isRoastDateDue(subscription.upcomingRoastDate)
         ? [subscriptionId]
         : [];
     }
     const response = await database().collection("account_subscriptions")
-      .where("nextEligibleRoastAt", "<=", now)
+      .where("status", "==", "active")
       .get();
-    return response.docs
-      .map((document) => document.data() as StoredSubscription)
-      .filter((subscription) => subscription.status === "active" && !subscription.skipNextDelivery)
+    const subscriptions = await Promise.all(response.docs.map(migrateSubscriptionDocument));
+    return subscriptions
+      .filter((subscription): subscription is StoredSubscription => !!subscription)
+      .filter((subscription) => !subscription.skipNextDelivery && isRoastDateDue(subscription.upcomingRoastDate))
       .map((subscription) => subscription.id);
   }
 
   static async checkDueSubscriptions(subscriptionId?: string): Promise<void> {
+    if (!subscriptionId) await AccountService.migrateLegacySubscriptionFields();
     const dueSubscriptionIds = await AccountService.getDueSubscriptionIds(subscriptionId);
     logger.info("Subscription due-date check completed", {
       scope: subscriptionId ? "single-subscription" : "all-subscriptions",
@@ -325,35 +454,45 @@ export class AccountService {
   static async processDueSubscription(subscriptionId: string): Promise<void> {
     const db = database();
     const subscriptionRef = db.collection("account_subscriptions").doc(subscriptionId);
+    const renewalClaimRef = db.collection("subscription_renewal_claims").doc(subscriptionId);
     const now = new Date();
     const subscription = await db.runTransaction(async (transaction): Promise<StoredSubscription | null> => {
-      const snapshot = await transaction.get(subscriptionRef);
-      const value = snapshot.data() as (StoredSubscription & { renewalLeaseUntil?: number }) | undefined;
-      if (!value || value.status !== "active" || value.skipNextDelivery || value.nextEligibleRoastAt > now.toISOString() || (value.renewalLeaseUntil || 0) > now.getTime()) return null;
-      transaction.update(subscriptionRef, { renewalLeaseUntil: now.getTime() + 10 * 60 * 1000, renewalProcessingDueAt: value.nextEligibleRoastAt });
+      const [snapshot, claimSnapshot] = await Promise.all([transaction.get(subscriptionRef), transaction.get(renewalClaimRef)]);
+      const value = snapshot.data() as StoredSubscription | undefined;
+      if (!value || value.status !== "active" || value.skipNextDelivery || !isRoastDateDue(value.upcomingRoastDate, now)) return null;
+      const claim = claimSnapshot.data() as { dueDate?: string; processingUntil?: number; status?: string } | undefined;
+      if (claim?.dueDate === value.upcomingRoastDate && (claim.status === "completed" || (claim.processingUntil || 0) > now.getTime())) return null;
+      transaction.set(renewalClaimRef, { subscriptionId, dueDate: value.upcomingRoastDate, status: "processing", processingUntil: now.getTime() + 10 * 60 * 1000, updatedAt: now.toISOString() });
       return value;
     });
     if (!subscription) return;
 
     try {
-      const nextRoastDate = await nextRoastSessionDate(subscription.nextEligibleRoastAt, subscription.cadence);
+      const nextRoastDate = await nextRoastSessionDate(subscription.upcomingRoastDate, subscription.cadence);
       if (!nextRoastDate) throw new Error("No later roast date is available in the Notion calendar");
       const accountSnapshot = await db.collection("accounts").doc(subscription.accountId).get();
-      const account = accountSnapshot.data() as (StoredAccount & { billing?: { stripeCustomerId?: string; stripePaymentMethodId?: string }; shippingAddressData?: ShippingAddressData; shippingAddress?: string }) | undefined;
+      const account = accountSnapshot.data() as (StoredAccount & { phone?: string; billing?: { stripeCustomerId?: string; stripePaymentMethodId?: string }; shippingAddressData?: ShippingAddressData; shippingAddress?: string }) | undefined;
       const customerId = account?.billing?.stripeCustomerId;
       const paymentMethodId = account?.billing?.stripePaymentMethodId;
       const shippingAddress = account?.shippingAddressData;
       if (!account || !customerId || !paymentMethodId || !shippingAddress) throw new Error("Subscription is missing a saved payment method or shipping address");
       if (!Number.isSafeInteger(subscription.unitAmount) || subscription.unitAmount < 50) throw new Error("Subscription is missing a valid renewal price");
 
+      // Older checkouts may not have saved the phone in Firestore. Recover it
+      // from Stripe before building the shipping and Notion payloads.
+      const stripeCustomer = !account.phone ? await getStripe().customers.retrieve(customerId) : null;
+      const recoveredPhone = stripeCustomer && !stripeCustomer.deleted ? stripeCustomer.phone || undefined : undefined;
+      const renewalAccount = recoveredPhone ? { ...account, phone: recoveredPhone } : account;
+      if (recoveredPhone) await accountSnapshot.ref.set({ phone: recoveredPhone, updatedAt: Date.now() }, { merge: true });
+
       const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - subscription.discountPercent / 100));
-      let shippingAmount = 0;
-      if (!subscription.freeShipping) {
-        const address: Address = { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${account.user.firstName} ${account.user.lastName}`, email: account.user.email };
-        const rates = await fetchShippingRates(address, undefined, { length: 6, width: 4, height: 2, weight: Math.max(8, Math.ceil((Number.parseFloat(subscription.weight) || 200) / 28.35 * subscription.bagCount + 3)) });
-        shippingAmount = Math.round(Math.min(...rates.rates.map((rate) => rate.rate)) * 100);
-      }
-      const dueKey = `${subscription.id}:${subscription.nextEligibleRoastAt}`;
+      const address: Address = { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`, email: renewalAccount.user.email, phone: renewalAccount.phone };
+      const parcel = subscriptionParcel(subscription.shippingWeight, subscription.weight, subscription.bagCount);
+      const shippingQuote = await fetchShippingRates(address, undefined, parcel);
+      if (!shippingQuote.rates.length) throw new Error("No shipping rates are available for this subscription order");
+      const selectedRate = shippingQuote.rates.reduce((lowest, rate) => rate.rate < lowest.rate ? rate : lowest);
+      const shippingAmount = subscription.freeShipping ? 0 : Math.round(selectedRate.rate * 100);
+      const dueKey = `${subscription.id}:${subscription.upcomingRoastDate}`;
       const generatedOrderId = Date.now().toString().slice(-8).toUpperCase();
       const paymentIntent = await getStripe().paymentIntents.create({
         amount: productAmount + shippingAmount,
@@ -362,20 +501,46 @@ export class AccountService {
         payment_method: paymentMethodId,
         off_session: true,
         confirm: true,
-        metadata: { accountId: subscription.accountId, subscriptionId: subscription.id, dueRoastDate: subscription.nextEligibleRoastAt, orderNumber: generatedOrderId },
+        metadata: { accountId: subscription.accountId, subscriptionId: subscription.id, dueRoastDate: subscription.upcomingRoastDate, orderNumber: generatedOrderId },
         description: `Koinonia roast subscription: ${subscription.itemName}`,
       }, { idempotencyKey: `renewal:${dueKey}` });
       const orderId = paymentIntent.metadata.orderNumber || generatedOrderId;
+      const shipment = await purchaseShipment(address, selectedRate.id, undefined, parcel, shippingQuote.shipmentId);
+      await createRenewalNotionOrder({
+        orderId,
+        paymentIntentId: paymentIntent.id,
+        account: renewalAccount,
+        subscription,
+        totalAmount: paymentIntent.amount_received / 100,
+        shippingAddress: account.shippingAddress || "",
+        shippingLabelPrice: shipment.shippingPrice || selectedRate.rate,
+        shippingBox: parcel.boxSize,
+        shipment,
+      });
+      const customerName = `${account.user.firstName} ${account.user.lastName}`.trim();
+      await Promise.all([
+        EmailService.sendSubscriptionOrderConfirmation({
+          toEmail: account.user.email, customerName, orderId,
+          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
+          totalAmount: paymentIntent.amount_received / 100, shippingAmount: shippingAmount / 100,
+        }),
+        EmailService.sendSubscriptionPurchaseNotification({
+          customerEmail: account.user.email, customerName, orderId,
+          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
+          unitAmount: subscription.unitAmount / 100, totalAmount: paymentIntent.amount_received / 100,
+        }),
+      ]);
       await db.batch()
-        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal" })
-        .update(subscriptionRef, { nextEligibleRoastAt: nextRoastDate, renewalLeaseUntil: 0, renewalProcessingDueAt: null, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString() })
+        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment.shippingPrice || selectedRate.rate, shippingBox: parcel.boxSize, shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null })
+        .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString() })
+        .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
         .commit();
       logger.info("Subscription renewal payment succeeded", { subscriptionId, paymentIntentId: paymentIntent.id, orderId });
     } catch (error: unknown) {
       const stripeError = error as Stripe.StripeRawError;
-      const update: Record<string, unknown> = { renewalLeaseUntil: 0, renewalProcessingDueAt: null, lastRenewalError: stripeError.message || "Unknown renewal error" };
+      const update: Record<string, unknown> = { lastRenewalError: stripeError.message || "Unknown renewal error" };
       if (stripeError.type === "card_error") update.status = "paused";
-      await subscriptionRef.update(update);
+      await Promise.all([subscriptionRef.update(update), renewalClaimRef.delete()]);
       logger.error("Subscription renewal failed", { subscriptionId, error: stripeError.message });
     }
   }
@@ -407,6 +572,7 @@ export class AccountService {
       }
       const paymentIntentId = String(req.body?.paymentIntentId || "");
       const requestedOrderId = String(req.body?.orderId || "").trim().toUpperCase();
+      const customerPhone = String(req.body?.customerPhone || "").trim().slice(0, 40);
       const items = Array.isArray(req.body?.subscriptionItems) ? req.body.subscriptionItems : [];
       const shippingAddress = String(req.body?.shippingAddress || "").trim().slice(0, 500);
       const shippingAddressData = normalizedShippingAddress(req.body?.shippingAddressData);
@@ -432,7 +598,12 @@ export class AccountService {
       }
       const paymentMethodId = typeof paymentIntent.payment_method === "string" ? paymentIntent.payment_method : null;
       const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : null;
-      const nextEligibleRoastAt = await nextUpcomingRoastSessionDate();
+      const paymentMethod = paymentMethodId ? await getStripe().paymentMethods.retrieve(paymentMethodId) : null;
+      const stripeCustomer = customerId ? await getStripe().customers.retrieve(customerId) : null;
+      const stripeCustomerPhone = stripeCustomer && !stripeCustomer.deleted ? stripeCustomer.phone : "";
+      const savedPhone = (customerPhone || paymentIntent.shipping?.phone || paymentMethod?.billing_details?.phone || stripeCustomerPhone || "").trim().slice(0, 40);
+      if (customerId && savedPhone) await getStripe().customers.update(customerId, { phone: savedPhone });
+      const upcomingRoastDate = await nextUpcomingRoastSessionDate();
       const subscriptions: StoredSubscription[] = [];
       for (const item of items) {
         const plan = String(item?.plan || "") as SubscriptionPlan;
@@ -440,6 +611,7 @@ export class AccountService {
         const itemSku = String(item?.itemSku || "").trim().slice(0, 120);
         const itemName = String(item?.itemName || "").trim().slice(0, 120);
         const weight = String(item?.weight || "").trim().slice(0, 40);
+        const shippingWeight = Number(item?.shippingWeight);
         const unitAmount = Math.round(Number(item?.unitAmount) * 100);
         if (!selectedPlan || !itemSku || !itemName || !weight || !Number.isSafeInteger(unitAmount) || unitAmount < 50) {
           res.status(400).json({ error: "Invalid subscription item." });
@@ -447,9 +619,9 @@ export class AccountService {
         }
         subscriptions.push({
           id: `sub_${randomUUID()}`, accountId: account.id, plan, ...selectedPlan,
-          itemSku, itemName, weight, unitAmount, discountPercent: 5, nextEligibleSession: null,
+          itemSku, itemName, weight, shippingWeight: Number.isFinite(shippingWeight) && shippingWeight > 0 ? shippingWeight : undefined, unitAmount, discountPercent: 5,
           status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
-          nextEligibleRoastAt,
+          upcomingRoastDate,
         });
       }
       const batch = database().batch();
@@ -471,6 +643,7 @@ export class AccountService {
         billing: { stripeCustomerId: customerId, stripePaymentMethodId: paymentMethodId, paymentMethodSavedAt: Date.now() },
         shippingAddress: shippingAddress || null,
         shippingAddressData,
+        ...(savedPhone ? { phone: savedPhone } : {}),
         updatedAt: Date.now(),
       }, { merge: true });
       subscriptions.forEach((subscription) => batch.set(database().collection("account_subscriptions").doc(subscription.id), subscription));
@@ -592,10 +765,18 @@ export class AccountService {
           totalAmount: properties.Total?.number || 0,
           createdAt: properties["Order created"]?.date?.start || page.created_time,
           status: status(properties.Status),
+          paymentIntentId: text(properties["Transaction ID"]) || undefined,
         };
       });
+      const paymentIntentIds = new Set<string>();
       const orders = [...firestoreOrders, ...notionOrders]
-        .filter((order, index, all) => all.findIndex((candidate) => candidate.id === order.id) === index)
+        .filter((order, index, all) => {
+          if (all.findIndex((candidate) => candidate.id === order.id) !== index) return false;
+          if (!order.paymentIntentId) return true;
+          if (paymentIntentIds.has(order.paymentIntentId)) return false;
+          paymentIntentIds.add(order.paymentIntentId);
+          return true;
+        })
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
       res.json({ orders });
     } catch (error: unknown) {
@@ -655,11 +836,10 @@ export class AccountService {
         weight,
         unitAmount,
         discountPercent: 5,
-        nextEligibleSession: null,
         status: "active",
         skipNextDelivery: false,
         createdAt: new Date().toISOString(),
-        nextEligibleRoastAt: await nextUpcomingRoastSessionDate(),
+        upcomingRoastDate: await nextUpcomingRoastSessionDate(),
       };
       await database().collection("account_subscriptions").doc(subscription.id).set(subscription);
       res.status(201).json({ subscription });

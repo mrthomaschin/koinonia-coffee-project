@@ -274,6 +274,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 itemSku: item.variantSku || item.item.sku,
                 itemName: item.item.name,
                 weight: item.selections.weight || '',
+                shippingWeight: item.selections.variantShippingWeight || item.item.shippingWeight,
                 unitAmount: item.variantPrice || viewModel.getItemPrice(item),
             })),
             items: viewModel.cartItems.map(item => ({

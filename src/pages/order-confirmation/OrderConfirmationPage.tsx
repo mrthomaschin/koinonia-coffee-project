@@ -27,7 +27,7 @@ interface SessionData {
 
 interface EmbeddedOrderData {
   paymentIntentId?: string;
-  subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string; unitAmount: number }>;
+  subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string; shippingWeight?: number; unitAmount: number }>;
   items: Array<{
     name: string;
     quantity: number;
@@ -63,7 +63,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
   const subscriptionCreatedRef = React.useRef(false);
 
   useEffect(() => {
-    const state = location.state as { orderData?: EmbeddedOrderData; fromEmbeddedCheckout?: boolean };
+    const state = location.state as { orderData?: EmbeddedOrderData; fromEmbeddedCheckout?: boolean; customerPhone?: string };
     const orderData = state?.orderData;
     if (!state?.fromEmbeddedCheckout || !orderData?.paymentIntentId || !token || subscriptionCreatedRef.current) return;
     if (!orderData.subscriptionItems?.length) return;
@@ -76,6 +76,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
       orderData.shippingAddress || "",
       orderData.shippingAddressData || undefined,
       orderId,
+      state.customerPhone,
     ).catch((checkoutError) => logger.error('Unable to activate paid subscriptions', checkoutError));
   }, [location.state, token]);
 
@@ -146,7 +147,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     items: purchaseItems,
                     totalAmount: state.orderData.total,
                     orderDate: state.orderData.timestamp,
-                    transactionId: state.orderData.paymentIntentId || orderId,
+                    transactionId: orderId,
                     shippingAddress: shippingAddress,
                     shipmentData: shipmentData,
                     shippingBox: shipmentData?.boxSize || '',

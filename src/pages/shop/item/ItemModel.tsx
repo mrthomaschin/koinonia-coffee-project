@@ -26,6 +26,7 @@ export interface Item {
     name: string;
     itemSummary: string;
     itemDetails: string;
+    nextRoastDate?: string | null;
     price: number;
     firebaseImageUrls: string[];
     itemType: ItemType;
