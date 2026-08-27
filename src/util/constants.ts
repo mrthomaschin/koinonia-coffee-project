@@ -6,7 +6,8 @@ export const PAGES = {
   GALLERY: 'gallery',
   EVENTS: 'events',
   CONTACT: 'contact',
-  CART: 'cart'
+  CART: 'cart',
+  ACCOUNT: 'account'
 } as const;
 
 export type PageType = typeof PAGES[keyof typeof PAGES];

@@ -21,6 +21,8 @@ import Menu from './pages/menu/Menu';
 import CartView from './pages/cart/CartView';
 import OrderConfirmationPage from './pages/order-confirmation/OrderConfirmationPage';
 import trackingService from './services/trackingService';
+import AccountPage from './pages/account/AccountPage';
+import { AccountProvider } from './contexts/AccountContext';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -136,6 +138,7 @@ const MainContent: React.FC = () => {
             path="/order-confirmation"
             element={<OrderConfirmationPage availableHeight={availableHeight} />}
           />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <BottomBar />
@@ -153,9 +156,11 @@ const App: React.FC = () => {
     <BrowserRouter>
       <InventoryProvider>
         <CartProvider>
-          <NavigationProvider>
-            <MainContent />
-          </NavigationProvider>
+          <AccountProvider>
+            <NavigationProvider>
+              <MainContent />
+            </NavigationProvider>
+          </AccountProvider>
         </CartProvider>
       </InventoryProvider>
     </BrowserRouter>

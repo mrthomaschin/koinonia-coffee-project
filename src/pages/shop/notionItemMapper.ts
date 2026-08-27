@@ -60,7 +60,8 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       convertedVariants || null,
       ltoEndDate,
       ltoUnlimitedPurchases,
-      notionItem.brewingMethods
+      notionItem.brewingMethods,
+      notionItem.nextRoastDate
     );
   } else {
     const sizes = (notionItem.sizes || [])

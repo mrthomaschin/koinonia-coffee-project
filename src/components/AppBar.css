@@ -243,3 +243,13 @@
     top: 116px;
   }
 }
+.profile-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}

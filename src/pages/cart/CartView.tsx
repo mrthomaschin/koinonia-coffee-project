@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CartItem } from './CartViewModel';
 import { ItemType } from '../shop/item/ItemModel';
 import { useCart } from '../../contexts/CartContext';
+import { useAccount } from '../../contexts/AccountContext';
 import { stripeService } from '../../services/stripeService';
 import EmbeddedCheckout from '../../components/EmbeddedCheckout';
 import { ShippingOption } from '../../components/ShippingSelector';
@@ -23,6 +24,7 @@ interface CartViewProps {
 const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const navigate = useNavigate();
     const { cart: viewModel, forceUpdate, showToast } = useCart();
+    const { account, isAuthenticated, token } = useAccount();
     const [pendingQuantities, setPendingQuantities] = useState<{ [key: number]: number }>({});
     const [updateTrigger, setUpdateTrigger] = useState(0);
     const [showCheckout, setShowCheckout] = useState(false);
@@ -166,6 +168,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     }, [viewModel, forceUpdate, showToast]);
 
     const handleCheckout = useCallback(async () => {
+        if (viewModel.cartItems.some((item) => item.selections.subscriptionPlan) && !isAuthenticated) {
+            showToast('Please sign in or create an account before checking out with a subscription.', 'error');
+            return;
+        }
         if (hasAnyChanges) {
             showToast('Please update your cart before proceeding to checkout', 'error');
             return;
@@ -215,11 +221,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         id: item.variantSku || item.item.sku,
                         name: item.item.name,
                         quantity: item.quantity,
-                        price: item.variantPrice || item.item.price
+                        price: item.variantPrice || item.item.price,
+                        subscriptionPlan: item.selections.subscriptionPlan || ''
                     }))),
                     discountCode: viewModel.discountCode?.code || '',
                     discountPercent: viewModel.discountCode?.percentOff?.toString() || ''
-                }
+                },
+                token
             );
 
             logger.log('[checkout] Payment intent created successfully');
@@ -231,7 +239,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         } finally {
             setIsLoadingCheckout(false);
         }
-    }, [hasAnyChanges, showToast, subtotalAfterDiscount, viewModel.cartItems, viewModel.discountCode]);
+    }, [hasAnyChanges, isAuthenticated, showToast, subtotalAfterDiscount, token, viewModel.cartItems, viewModel.discountCode]);
 
     const handleCheckoutSuccess = useCallback(async (
         paymentIntentId?: string,
@@ -242,6 +250,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         shipmentData?: any,
         shippingAddress?: string,
         tax?: number,
+        shippingAddressData?: any,
         orderPickupId?: string
     ) => {
         logger.log('CartView handleCheckoutSuccess called with shippingAddress:', shippingAddress);
@@ -249,7 +258,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         setClientSecret(null);
 
         const customerEmail = email || 'customer@example.com';
-        const customerName = name || 'Valued Customer';
+        const hasSubscription = viewModel.cartItems.some((item) => !!item.selections.subscriptionPlan);
+        const accountName = account ? `${account.user.firstName} ${account.user.lastName}`.trim() : '';
+        const customerName = hasSubscription && accountName ? accountName : (name || 'Valued Customer');
         const customerPhone = phone || '';
 
         logger.log('Payment successful:', { paymentIntentId, customerEmail, customerName, customerPhone });
@@ -260,6 +271,15 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
         // Store order data before clearing cart
         const orderData = {
+            paymentIntentId,
+            subscriptionItems: viewModel.cartItems.filter((item) => item.selections.subscriptionPlan).map((item) => ({
+                plan: item.selections.subscriptionPlan,
+                itemSku: item.variantSku || item.item.sku,
+                itemName: item.item.name,
+                weight: item.selections.weight || '',
+                shippingWeight: item.selections.variantShippingWeight || item.item.shippingWeight,
+                unitAmount: item.variantPrice || viewModel.getItemPrice(item),
+            })),
             items: viewModel.cartItems.map(item => ({
                 name: item.item.name,
                 quantity: item.quantity,
@@ -283,6 +303,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             timestamp: new Date().toISOString(),
             shipmentData: shipmentData || null,
             shippingAddress: shippingAddress || null,
+            shippingAddressData: shippingAddressData || null,
             isLocalPickup: shippingOption?.id === 'local-pickup' || false,
             orderPickupId: orderPickupId || null
         };
@@ -302,7 +323,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 customerPhone
             }
         });
-    }, [viewModel, forceUpdate, showToast, navigate, subtotal, subtotalAfterDiscount, discountAmount]);
+    }, [account, viewModel, forceUpdate, showToast, navigate, subtotal, subtotalAfterDiscount, discountAmount]);
 
     const handleCheckoutCancel = useCallback(() => {
         setShowCheckout(false);
@@ -332,6 +353,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         <p className="cart-item-selection">
                             Weight: {formatWeight(cartItem.selections.weight)}
                         </p>
+                    )}
+                    {cartItem.selections.subscriptionPlan && (
+                        <p className="cart-item-selection">Subscription: {cartItem.selections.subscriptionPlan.includes('every-other') ? 'every other roast' : 'every roast'} · Save 5%</p>
                     )}
 
                     {cartItem.selections.size && (
@@ -496,6 +520,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                             onSuccess={handleCheckoutSuccess}
                             onCancel={handleCheckoutCancel}
                             discountCode={viewModel.discountCode}
+                            hasSubscription={viewModel.cartItems.some((item) => !!item.selections.subscriptionPlan)}
                         />
                     </div>
                 </div>

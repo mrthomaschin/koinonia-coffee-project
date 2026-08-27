@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createLogger } from '../util/logger';
 import { Elements, PaymentElement, useStripe, useElements, AddressElement } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -10,8 +10,6 @@ import { calculateParcel, formatParcelForEasyPost } from '../util/shipping';
 import { SHIPPING_RESTRICTION_MESSAGE, cartContainsCoffee } from '../services/shippingLocationsService';
 import { validateStripeAddress, type AddressValidationResult } from '../services/addressValidationService';
 import { notionService, type OrderPickupOption } from '../services/notionService';
-import { ItemType } from '../pages/shop/item/ItemModel';
-import { getCoffeeDataById } from '../pages/shop/item/coffee_bag/CoffeeData';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
@@ -45,7 +43,7 @@ interface DiscountCodeProp {
 }
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, orderPickupId?: string) => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -53,6 +51,7 @@ interface CheckoutFormProps {
   onAddressChange?: (address: any) => void;
   discountCode?: DiscountCodeProp | null;
   originalShippingPrice?: number;
+  hasSubscription: boolean;
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -63,6 +62,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   selectedShipping,
   onAddressChange,
   discountCode
+  , hasSubscription
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -94,6 +94,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [isLoadingPickupOptions, setIsLoadingPickupOptions] = useState(false);
   const [pickupOptionsError, setPickupOptionsError] = useState<string | null>(null);
   const [originalShippingPrice, setOriginalShippingPrice] = useState(0);
+  const shippingRequestRef = useRef<AbortController | null>(null);
+  const deliveryMethodRef = useRef(deliveryMethod);
+  deliveryMethodRef.current = deliveryMethod;
   const qualifiesForFreeShipping = totalAmount >= FREE_SHIPPING_THRESHOLD;
 
   // Cleanup debounce timer on unmount
@@ -270,29 +273,6 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     return [];
   };
 
-  const getPickupTargetDate = (): string => {
-    const roastDates = getCartItems()
-      .filter((cartItem: any) => cartItem.item?.itemType === ItemType.coffee)
-      .map((cartItem: any) => {
-        const sku = cartItem.variantSku || cartItem.item?.sku;
-        const roastDate = cartItem.item?.roastDate
-          || getCoffeeDataById(sku)?.roastDate
-          || getCoffeeDataById(cartItem.item?.sku)?.roastDate;
-        const date = roastDate ? new Date(roastDate) : null;
-        return date && !Number.isNaN(date.getTime()) ? date : null;
-      })
-      .filter((date: Date | null): date is Date => date !== null);
-
-    const now = Date.now();
-    const earliestRoastDate = roastDates.length > 0
-      ? Math.min(...roastDates.map((date) => date.getTime()))
-      : now;
-
-    // Pickup options must be upcoming. If a roast date is today or in the past,
-    // use the current time so already-passed slots are not returned.
-    return new Date(Math.max(now, earliestRoastDate)).toISOString();
-  };
-
   useEffect(() => {
     if (deliveryMethod !== 'pickup') return;
 
@@ -301,7 +281,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       setIsLoadingPickupOptions(true);
       setPickupOptionsError(null);
       try {
-        const options = await notionService.getOrderPickupOptions(getPickupTargetDate());
+        const options = await notionService.getOrderPickupOptions(
+          cartContainsCoffee(getCartItems())
+        );
         if (!cancelled) {
           setPickupOptions(options);
           setSelectedPickupId((current) => options.some((option) => option.pickupId === current)
@@ -349,6 +331,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       return;
     }
 
+    shippingRequestRef.current?.abort();
+    const requestController = new AbortController();
+    shippingRequestRef.current = requestController;
     setIsLoadingShipping(true);
     try {
       const toAddress = {
@@ -402,6 +387,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: requestController.signal,
         body: JSON.stringify({ toAddress, parcel: formattedParcel }),
       });
 
@@ -411,6 +397,13 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
 
       const data = await response.json();
+
+      // A request can finish after the user changes delivery method. Only the
+      // latest request may update shipping state or the selected shipping option.
+      if (shippingRequestRef.current !== requestController || deliveryMethodRef.current !== 'shipping') {
+        logger.log('[shipping] Ignoring stale shipping rates response');
+        return;
+      }
 
       // Store shipment ID for later use in purchase
       if (data.shipmentId) {
@@ -446,7 +439,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       // Only update shipping options if still in shipping mode
       // This prevents race condition when user switches to pickup while rates are loading
-      if (deliveryMethod === 'shipping') {
+      if (shippingRequestRef.current === requestController && deliveryMethodRef.current === 'shipping') {
         setShippingOptions(options);
 
         // Select the first option by default
@@ -464,11 +457,16 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
     } catch (error) {
       // On error, show no shipping options (only if still in shipping mode)
-      if (deliveryMethod === 'shipping') {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        logger.log('[shipping] Shipping rates request cancelled');
+      } else if (shippingRequestRef.current === requestController && deliveryMethodRef.current === 'shipping') {
         setShippingOptions([]);
       }
     } finally {
-      setIsLoadingShipping(false);
+      if (shippingRequestRef.current === requestController) {
+        shippingRequestRef.current = null;
+        setIsLoadingShipping(false);
+      }
     }
   };
 
@@ -704,6 +702,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   shipmentData,
                   currentShippingAddress,
                   taxAmount,
+                  currentAddress,
                   orderPickupId
                 );
               } else {
@@ -712,17 +711,18 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   statusText: response.statusText
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
               }
             } else {
               logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
             }
           } catch (shipmentError) {
             logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
+
           }
         } else {
           logger.log('[shipment] Shipment purchase conditions not met, skipping', {
@@ -730,7 +730,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             selectedShippingId: selectedShipping.id
           });
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
         }
       }
     } catch (err) {
@@ -908,6 +908,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <div
               className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
               onClick={() => {
+                shippingRequestRef.current?.abort();
+                shippingRequestRef.current = null;
                 setDeliveryMethod('pickup');
                 // Cancel any pending shipping rate fetches
                 if (debounceTimer) {
@@ -1057,6 +1059,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             {isProcessing ? 'Processing...' : `Pay $${displayTotal.toFixed(2)}`}
           </button>
         </div>
+        {hasSubscription && <p className="subscription-disclosure">Your cart contains an automatically renewing subscription. By clicking "Pay now," <strong>you expressly and affirmatively agree that you will be automatically charged the recurring amount(s) shown in your cart (plus shipping and taxes) until the subscription(s) ends or you cancel.</strong> <strong>You may cancel anytime by going to your account or contacting the store.</strong></p>}
       </form>
     </>
   );
@@ -1070,9 +1073,10 @@ interface DiscountCode {
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, orderPickupId?: string) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string) => void;
   onCancel: () => void;
   discountCode?: DiscountCode | null;
+  hasSubscription: boolean;
 }
 
 const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
@@ -1081,6 +1085,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   onSuccess,
   onCancel,
   discountCode,
+  hasSubscription,
 }) => {
   const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
@@ -1111,10 +1116,11 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     });
   }, [clientSecret]);
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, orderPickupId?: string) => {
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, orderPickupId);
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, shippingAddressData, orderPickupId);
   };
+
   const options = {
     clientSecret,
     appearance: {
@@ -1157,6 +1163,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
           selectedShipping={selectedShipping}
           onAddressChange={handleAddressChange}
           discountCode={discountCode}
+          hasSubscription={hasSubscription}
         />
       </Elements>
     </div>

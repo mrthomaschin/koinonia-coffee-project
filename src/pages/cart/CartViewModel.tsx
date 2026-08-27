@@ -10,6 +10,7 @@ export interface CartItemSelection {
     variantSku?: string;
     variantPrice?: number;
     variantShippingWeight?: number;
+    subscriptionPlan?: 'one-bag-every-session' | 'two-bags-every-session' | 'one-bag-every-other-session' | 'two-bags-every-other-session';
 }
 
 export interface CartItem {

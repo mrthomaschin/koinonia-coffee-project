@@ -6,6 +6,7 @@ import { ICONS } from '../../../../util/constants';
 import './CoffeeBagDetail.css';
 import { ItemType } from '../ItemModel';
 import { allowsUnlimitedPurchases } from '../../../../util/limitedTimeOffer';
+import { SubscriptionPlan } from '../../../../models/AccountModel';
 
 interface CoffeeBagDetailProps {
   item: CoffeeBagItem;
@@ -24,6 +25,10 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     : (item.weights || []);
   const [selectedWeight, setSelectedWeight] = useState<string>(availableWeights[0] || '200g');
   const [quantity, setQuantity] = useState<number>(1);
+  const [purchaseMode, setPurchaseMode] = useState<'one-time' | 'subscription'>('one-time');
+  const [subscriptionFrequency, setSubscriptionFrequency] = useState<'every-session' | 'every-other-session'>('every-session');
+
+  const subscriptionPlan: SubscriptionPlan = `${quantity === 2 ? 'two-bags' : 'one-bag'}-${subscriptionFrequency}` as SubscriptionPlan;
 
   const handleAddToCart = () => {
     // Find the matching variant for the selected weight
@@ -40,11 +45,13 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       }
     }
 
+    const unitPrice = purchaseMode === 'subscription' ? variantPrice * 0.95 : variantPrice;
     const result = cart.addItem(item, quantity, {
       weight: selectedWeight,
       variantSku,
-      variantPrice,
-      variantShippingWeight
+      variantPrice: unitPrice,
+      variantShippingWeight,
+      ...(purchaseMode === 'subscription' ? { subscriptionPlan } : {}),
     });
     forceUpdate();
 
@@ -60,12 +67,12 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     if (item.variants && item.variants.length > 0 && selectedWeight) {
       const variant = item.variants.find(v => v.weight === selectedWeight);
       if (variant && variant.price > 0) {
-        return (variant.price * quantity).toFixed(2);
+        return (variant.price * quantity * (purchaseMode === 'subscription' ? 0.95 : 1)).toFixed(2);
       }
     }
 
     // Use base price from Notion
-    return (item.price * quantity).toFixed(2);
+    return (item.price * quantity * (purchaseMode === 'subscription' ? 0.95 : 1)).toFixed(2);
   };
 
   const isSoldOut = () => {
@@ -131,6 +138,18 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         </div>
       </div>
 
+      <fieldset className="subscription-options">
+        <legend>Purchase option</legend>
+        <div className="subscription-plan-options">
+          <label className={purchaseMode === 'one-time' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'one-time'} onChange={() => setPurchaseMode('one-time')} /><span>One-time purchase</span></label>
+          <label className={purchaseMode === 'subscription' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'subscription'} onChange={() => { setPurchaseMode('subscription'); setQuantity((current) => Math.min(2, current)); }} /><span>Subscribe & save 5%</span></label>
+        </div>
+        {purchaseMode === 'subscription' && <div className="subscription-frequency"><p>Select delivery frequency</p><div className="subscription-plan-options">
+          <label className={subscriptionFrequency === 'every-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-session'} onChange={() => setSubscriptionFrequency('every-session')} /><span>Every roast session</span></label>
+          <label className={subscriptionFrequency === 'every-other-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-other-session'} onChange={() => setSubscriptionFrequency('every-other-session')} /><span>Every other roast session</span></label>
+        </div><p>You can skip or cancel anytime from your account.</p></div>}
+      </fieldset>
+
       <div className="option-group">
         <label className="option-label">Quantity</label>
         <div className="quantity-selector">
@@ -143,7 +162,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
           <span className="quantity-display">{quantity}</span>
           <button
             className="quantity-button"
-            onClick={() => setQuantity(quantity + 1)}
+            onClick={() => setQuantity(Math.min(purchaseMode === 'subscription' ? 2 : 99, quantity + 1))}
           >
             +
           </button>

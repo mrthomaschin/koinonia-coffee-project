@@ -159,6 +159,57 @@ For more details, see [Stripe's Apple Pay documentation](https://stripe.com/docs
 
 For detailed instructions, see [STRIPE_DEPLOYMENT_GUIDE.md](./STRIPE_DEPLOYMENT_GUIDE.md).
 
+## Account and order-history setup
+
+The `/account` page stores accounts in Firestore—not Notion. Each account has an immutable ID such as `acct_8b57…`, a unique username and email, profile data, and a salted scrypt password hash. The browser receives neither the password hash nor a Notion credential.
+
+The Functions backend is the only component with Firestore access. Notion remains the source for existing online-order history; it is queried by the signed-in account's email and cached briefly in Firestore.
+
+### Roast subscriptions
+
+Authenticated customers can manage four roast-session subscription plans from the `/account` page:
+
+| Plan | Delivery cadence | Coffee discount | Shipping |
+| --- | --- | --- | --- |
+| One bag every roast | Every roast session | 5% | Paid by customer |
+| Two bags every roast | Every roast session | 5% | Free |
+| One bag every other roast | Every second roast session | 5% | Paid by customer |
+| Two bags every other roast | Every second roast session | 5% | Free |
+
+A roast session is created around the roaster's confirmed schedule, which usually varies between two and three weeks. The current release manages enrollment and cancellation; charging and order creation should be triggered by a confirmed roast-session fulfillment workflow rather than a fixed calendar interval.
+
+Firestore is the source of truth for subscriptions, which permits multiple subscriptions per account and keeps customer actions independent of the Notion API. Optionally, each create or cancellation is mirrored to a separate Notion **Subscriptions** database for operations.
+
+To enable the mirror, create the database below, share it with the Functions Notion integration, then set its ID in `functions/.env.local` and as a Firebase secret. If the database is unconfigured or a sync fails, the Firestore subscription remains available to customers.
+
+| Property | Notion type |
+| --- | --- |
+| `Name` | Title |
+| `Subscription ID` | Text |
+| `Account ID` | Text |
+| `Plan` | Text |
+| `Bag Count` | Number |
+| `Cadence` | Text |
+| `Item SKU` | Text |
+| `Item Name` | Text |
+| `Weight` | Text |
+| `Discount Percent` | Number |
+| `Free Shipping` | Checkbox |
+| `Next Eligible Session` | Number |
+| `Status` | Select — add `active`, `paused`, and `canceled` |
+| `Skip Next Delivery` | Checkbox |
+| `Created At` | Date |
+| `Next Eligible Roast At` | Date |
+
+```env
+NOTION_SUBSCRIPTIONS_DATABASE_ID=your_notion_subscriptions_database_id
+NOTION_ROAST_DATES_DATABASE_ID=your_notion_roast_dates_database_id
+```
+
+```bash
+npx -y firebase-tools@latest functions:secrets:set NOTION_SUBSCRIPTIONS_DATABASE_ID
+```
+
 ## Technologies Used
 
 - **React 18** - UI library

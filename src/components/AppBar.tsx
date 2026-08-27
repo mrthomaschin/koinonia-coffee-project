@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useNavigation } from '../contexts/NavigationContext';
 import { useCart } from '../contexts/CartContext';
 import { PAGES, ICONS, PageType } from '../util/constants';
+import { useAccount } from '../contexts/AccountContext';
 import './AppBar.css';
 
 const AppBar: React.FC = () => {
   const { currentPage, navigateTo } = useNavigation();
   const { cart } = useCart();
+  const { account } = useAccount();
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [hoveredItem, setHoveredItem] = useState<PageType | null>(null);
 
@@ -81,6 +83,10 @@ const AppBar: React.FC = () => {
             )}
           </button>
 
+          <button className="profile-button" onClick={() => handleNavClick(PAGES.ACCOUNT)} aria-label="Your profile">
+            <span aria-hidden="true">◯</span> {account ? account.user.firstName.toUpperCase() : 'PROFILE'}
+          </button>
+
           <button className="contact-us-button" onClick={() => handleNavClick(PAGES.CONTACT)}>
             CONTACT US
           </button>
@@ -136,6 +142,10 @@ const AppBar: React.FC = () => {
           >
             <span className="dropdown-label">CART</span>
             {currentPage === PAGES.CART && <div className="dropdown-underline" />}
+          </div>
+          <div className="dropdown-item" onClick={() => handleNavClick(PAGES.ACCOUNT)}>
+            <span className="dropdown-label">{account ? 'PROFILE' : 'LOG IN'}</span>
+            {currentPage === PAGES.ACCOUNT && <div className="dropdown-underline" />}
           </div>
           <div className="dropdown-button-container">
             <button className="contact-us-button-mobile" onClick={() => handleNavClick(PAGES.CONTACT)}>

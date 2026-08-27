@@ -253,6 +253,17 @@ export const ItemView: React.FC<ItemViewProps> = ({
 
           <p className="detail-description">{item.itemDetails}</p>
 
+          {item.itemType === ItemType.coffee && item.nextRoastDate && (
+            <p className="next-roast-date">
+              Next roast: {new Intl.DateTimeFormat(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: 'America/Los_Angeles',
+              }).format(new Date(item.nextRoastDate))}
+            </p>
+          )}
+
           {renderExtraInfo && renderExtraInfo(item)}
 
           {renderOptions && (

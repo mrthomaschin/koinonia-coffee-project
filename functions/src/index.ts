@@ -1,20 +1,27 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
-import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
+import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
+import { AccountService } from "./services/account_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
 dotenv.config({ path: ".env.local" });
+// Reuse public EmailJS template configuration from the web app during local
+// emulator development. Production values must be Firebase secrets.
+dotenv.config({ path: "../.env" });
+process.env.EMAILJS_CUSTOMER_TEMPLATE_ID ||= process.env.REACT_APP_EMAILJS_CUSTOMER_TEMPLATE_ID;
+process.env.EMAILJS_PURCHASE_TEMPLATE_ID ||= process.env.REACT_APP_EMAILJS_PURCHASE_TEMPLATE_ID;
 
 const logger = createLogger('index');
 
@@ -26,12 +33,8 @@ setGlobalOptions({ maxInstances: 10 });
 let firestoreDb: FirebaseFirestore.Firestore | null = null;
 const getFirestoreDb = () => {
   if (!firestoreDb) {
-    if (!getApps().length) {
-      initializeApp({
-        credential: applicationDefault()
-      });
-    }
-    firestoreDb = getFirestore();
+    const defaultApp = getApps().find((app) => app.name === "[DEFAULT]") || initializeApp();
+    firestoreDb = getFirestore(defaultApp);
   }
   return firestoreDb;
 };
@@ -197,6 +200,48 @@ app.post("/uncheck-order-confirmed-email-sent", async (req: Request, res: Respon
 // Validate discount code
 app.post("/validate-discount-code", async (req: Request, res: Response) => NotionService.validateDiscountCode(req, res));
 
+// Account and subscription data live in Firestore. Notion is an operations-facing mirror.
+app.post("/account/login", AccountService.login);
+app.post("/account/create", AccountService.createAccount);
+app.get("/account/orders", AccountService.getOrders);
+app.get("/account/subscriptions", AccountService.getSubscriptions);
+app.post("/account/subscriptions", AccountService.createSubscription);
+app.post("/account/subscription-checkout/complete", AccountService.completeSubscriptionCheckout);
+app.post("/account/subscriptions/:subscriptionId/cancel", AccountService.cancelSubscription);
+app.post("/account/subscriptions/:subscriptionId/skip", AccountService.skipSubscription);
+app.post("/account/logout", AccountService.logout);
+
+// One-way Firestore -> Notion projection. Notion is an operations view only;
+// it never writes subscription state back to Firestore.
+export const syncSubscriptionToNotion = onDocumentWritten(
+  { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    await AccountService.syncSubscriptionMirrorById(event.params.subscriptionId);
+  }
+);
+
+// Time-based eligibility check. Firestore write checks below make a newly due
+// or edited subscription eligible immediately; this schedule catches passage
+// of time without a database write.
+export const checkDueSubscriptions = onSchedule(
+  { schedule: "every 15 minutes", timeZone: "America/Los_Angeles", region: "us-central1" },
+  () => AccountService.checkDueSubscriptions()
+);
+
+export const checkUpdatedSubscriptionForRenewal = onDocumentWritten(
+  { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    // Ignore writes made solely by the fulfillment processor itself. Eligibility
+    // must change before a database-write event starts another payment attempt.
+    if (before && before.upcomingRoastDate === after?.upcomingRoastDate && before.status === after?.status && before.skipNextDelivery === after?.skipNextDelivery) return;
+    await AccountService.checkDueSubscriptions(event.params.subscriptionId);
+  }
+);
+
 // Get shipping rates from EasyPost
 app.post("/get-shipping-rates", getShippingRates);
 
@@ -355,7 +400,9 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
     "NOTION_INVENTORY_DATABASE_ID",
     "NOTION_DISCOUNT_CODES_DATABASE_ID",
-    "NOTION_ORDER_PICKUP_DATABASE_ID"
+    "NOTION_SUBSCRIPTIONS_DATABASE_ID",
+    "NOTION_ORDER_PICKUP_DATABASE_ID",
+    "NOTION_ROAST_DATES_DATABASE_ID"
   ];
 }
 export const api = onRequest(apiOptions, app);

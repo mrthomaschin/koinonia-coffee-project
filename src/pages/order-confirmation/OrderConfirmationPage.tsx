@@ -6,6 +6,9 @@ import { sendPurchaseNotification, sendCustomerConfirmation } from '../../servic
 import { notionService } from '../../services/notionService';
 import './OrderConfirmationPage.css';
 import { createLogger } from '../../util/logger';
+import { useAccount } from '../../contexts/AccountContext';
+import { accountService } from '../../services/accountService';
+import { SubscriptionPlan } from '../../models/AccountModel';
 
 const logger = createLogger('OrderConfirmationPage');
 
@@ -23,6 +26,8 @@ interface SessionData {
 }
 
 interface EmbeddedOrderData {
+  paymentIntentId?: string;
+  subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string; shippingWeight?: number; unitAmount: number }>;
   items: Array<{
     name: string;
     quantity: number;
@@ -37,6 +42,8 @@ interface EmbeddedOrderData {
   discountAmount?: number;
   subtotalAfterDiscount?: number;
   shipping: number;
+  shippingAddress?: string | null;
+  shippingAddressData?: Record<string, unknown> | null;
   tax: number;
   total: number;
   timestamp: string;
@@ -49,11 +56,33 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { cart } = useCart();
+  const { token } = useAccount();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [embeddedOrderData, setEmbeddedOrderData] = useState<EmbeddedOrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const emailSentRef = React.useRef(false);
+  const subscriptionCreatedRef = React.useRef(false);
+
+  useEffect(() => {
+    const state = location.state as { orderData?: EmbeddedOrderData; fromEmbeddedCheckout?: boolean; customerPhone?: string };
+    const orderData = state?.orderData;
+    if (!state?.fromEmbeddedCheckout || !orderData?.paymentIntentId || !token || subscriptionCreatedRef.current) return;
+    if (!orderData.subscriptionItems?.length) return;
+    subscriptionCreatedRef.current = true;
+    const orderId = new Date(orderData.timestamp).getTime().toString().slice(-8).toUpperCase();
+    accountService.completeSubscriptionCheckout(
+      token,
+      orderData.paymentIntentId,
+      orderData.subscriptionItems.map((item) => ({ ...item, plan: item.plan as SubscriptionPlan })),
+      orderData.shippingAddress || "",
+      orderData.shippingAddressData || undefined,
+      orderId,
+      state.customerPhone,
+      orderData.isLocalPickup === true,
+      orderData.orderPickupId || undefined,
+    ).catch((checkoutError) => logger.error('Unable to activate paid subscriptions', checkoutError));
+  }, [location.state, token]);
 
   useEffect(() => {
     // Check if this is from embedded checkout

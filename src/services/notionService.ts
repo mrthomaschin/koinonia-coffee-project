@@ -60,6 +60,7 @@ export interface NotionInventoryItem {
   name: string;
   itemSummary: string;
   itemDetails: string;
+  nextRoastDate?: string | null;
   price: number;
   firebaseImageUrls: string[];
   itemType: string;
@@ -110,7 +111,7 @@ interface CachedInventory {
   lastSyncedAt: number;
 }
 
-const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache';
+const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache_v2';
 const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes to match backend scheduled sync
 
 const logger = createLogger('NotionService');
@@ -173,10 +174,10 @@ class NotionService {
     }
   }
 
-  async getOrderPickupOptions(targetDate: string): Promise<OrderPickupOption[]> {
+  async getOrderPickupOptions(containsCoffee: boolean): Promise<OrderPickupOption[]> {
     try {
       const response = await fetch(
-        `${this.backendUrl}/get-order-pickup-options?targetDate=${encodeURIComponent(targetDate)}`,
+        `${this.backendUrl}/get-order-pickup-options?containsCoffee=${containsCoffee ? 'true' : 'false'}`,
         { headers: { 'Content-Type': 'application/json' } }
       );
 

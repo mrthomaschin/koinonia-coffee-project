@@ -18,6 +18,71 @@ const getNotion = () => {
 };
 
 export class EmailService {
+    static async sendSubscriptionPurchaseNotification(params: { customerEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; unitAmount: number; totalAmount: number }): Promise<void> {
+        const serviceId = process.env.EMAILJS_SERVICE_ID;
+        const templateId = process.env.EMAILJS_PURCHASE_TEMPLATE_ID;
+        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+        if (!serviceId || !templateId || !publicKey || !privateKey) {
+            throw new Error("EmailJS service, purchase template, public key, and private key are required for purchase notifications");
+        }
+        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                service_id: serviceId,
+                template_id: templateId,
+                user_id: publicKey,
+                accessToken: privateKey,
+                template_params: {
+                    customer_email: params.customerEmail,
+                    customer_name: params.customerName,
+                    order_id: params.orderId,
+                    session_id: params.orderId,
+                    order_date: new Date().toISOString(),
+                    order_items: `1. ${params.itemName}\n   Quantity: ${params.quantity}\n   Unit Price: $${params.unitAmount.toFixed(2)}`,
+                    subtotal: `$${params.totalAmount.toFixed(2)}`,
+                    total_amount: `$${params.totalAmount.toFixed(2)}`,
+                    to_name: "Koinonia Coffee Project",
+                },
+            }),
+        });
+        if (!response.ok) throw new Error(`EmailJS purchase notification failed: ${response.status} - ${await response.text()}`);
+    }
+
+    static async sendSubscriptionOrderConfirmation(params: { toEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; totalAmount: number; shippingAmount: number }): Promise<void> {
+        const serviceId = process.env.EMAILJS_SERVICE_ID;
+        const templateId = process.env.EMAILJS_CUSTOMER_TEMPLATE_ID;
+        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+        if (!serviceId || !templateId || !publicKey || !privateKey) {
+            throw new Error("EmailJS service, customer template, public key, and private key are required for subscription confirmations");
+        }
+        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                service_id: serviceId,
+                template_id: templateId,
+                user_id: publicKey,
+                accessToken: privateKey,
+                template_params: {
+                    to_email: params.toEmail,
+                    customer_name: params.customerName,
+                    customer_first_name: EmailService.getFirstName(params.customerName),
+                    order_id: params.orderId,
+                    order_date: new Date().toISOString(),
+                    items_html: `<p>${params.quantity}x ${params.itemName}</p>`,
+                    subtotal: `$${(params.totalAmount - params.shippingAmount).toFixed(2)}`,
+                    shipping: `$${params.shippingAmount.toFixed(2)}`,
+                    tax: "$0.00",
+                    total: `$${params.totalAmount.toFixed(2)}`,
+                },
+            }),
+        });
+        if (!response.ok) throw new Error(`EmailJS subscription confirmation failed: ${response.status} - ${await response.text()}`);
+    }
+
     private static getFirstName(fullName: string): string {
         if (!fullName) return "Customer";
         const trimmed = fullName.trim();
