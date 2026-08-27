@@ -27,7 +27,7 @@ interface SessionData {
 
 interface EmbeddedOrderData {
   paymentIntentId?: string;
-  subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string }>;
+  subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string; unitAmount: number }>;
   items: Array<{
     name: string;
     quantity: number;
@@ -43,6 +43,7 @@ interface EmbeddedOrderData {
   subtotalAfterDiscount?: number;
   shipping: number;
   shippingAddress?: string | null;
+  shippingAddressData?: Record<string, unknown> | null;
   tax: number;
   total: number;
   timestamp: string;
@@ -67,11 +68,14 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     if (!state?.fromEmbeddedCheckout || !orderData?.paymentIntentId || !token || subscriptionCreatedRef.current) return;
     if (!orderData.subscriptionItems?.length) return;
     subscriptionCreatedRef.current = true;
+    const orderId = new Date(orderData.timestamp).getTime().toString().slice(-8).toUpperCase();
     accountService.completeSubscriptionCheckout(
       token,
       orderData.paymentIntentId,
       orderData.subscriptionItems.map((item) => ({ ...item, plan: item.plan as SubscriptionPlan })),
       orderData.shippingAddress || "",
+      orderData.shippingAddressData || undefined,
+      orderId,
     ).catch((checkoutError) => logger.error('Unable to activate paid subscriptions', checkoutError));
   }, [location.state, token]);
 
@@ -142,7 +146,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     items: purchaseItems,
                     totalAmount: state.orderData.total,
                     orderDate: state.orderData.timestamp,
-                    transactionId: orderId,
+                    transactionId: state.orderData.paymentIntentId || orderId,
                     shippingAddress: shippingAddress,
                     shipmentData: shipmentData,
                     shippingBox: shipmentData?.boxSize || '',

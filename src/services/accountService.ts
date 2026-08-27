@@ -62,10 +62,10 @@ class AccountService {
     });
   }
 
-  completeSubscriptionCheckout(token: string, paymentIntentId: string, subscriptionItems: Array<{ plan: SubscriptionPlan; itemSku: string; itemName: string; weight: string }>, shippingAddress: string): Promise<{ subscriptionIds: string[] }> {
+  completeSubscriptionCheckout(token: string, paymentIntentId: string, subscriptionItems: Array<{ plan: SubscriptionPlan; itemSku: string; itemName: string; weight: string; unitAmount: number }>, shippingAddress: string, shippingAddressData?: Record<string, unknown>, orderId?: string): Promise<{ subscriptionIds: string[] }> {
     return this.request('/account/subscription-checkout/complete', {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ paymentIntentId, subscriptionItems, shippingAddress }),
+      body: JSON.stringify({ paymentIntentId, subscriptionItems, shippingAddress, shippingAddressData, orderId }),
     });
   }
 

@@ -19,6 +19,7 @@ export interface Subscription {
     itemSku: string;
     itemName: string;
     weight: string;
+    unitAmount: number;
     discountPercent: 5;
     freeShipping: boolean;
     nextEligibleSession: number | null;

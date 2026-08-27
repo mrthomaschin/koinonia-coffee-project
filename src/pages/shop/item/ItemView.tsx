@@ -17,6 +17,7 @@ interface ItemViewProps {
   onBack?: () => void;
   renderMetadata?: (item: Item) => React.ReactNode;
   renderExtraInfo?: (item: Item) => React.ReactNode;
+  nextRoastDate?: string | null;
   renderOptions?: (item: Item) => React.ReactNode;
   renderDetailsSection?: (item: Item) => React.ReactNode;
   renderBrewingMethod?: (item: Item) => React.ReactNode;
@@ -31,6 +32,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
   onBack: onBackProp,
   renderMetadata,
   renderExtraInfo,
+  nextRoastDate,
   renderOptions,
   renderDetailsSection,
   renderBrewingMethod,
@@ -252,6 +254,10 @@ export const ItemView: React.FC<ItemViewProps> = ({
           </div>
 
           <p className="detail-description">{item.itemDetails}</p>
+
+          {item.itemType === ItemType.coffee && nextRoastDate && (
+            <p className="next-roast-date">Next roast: {nextRoastDate}</p>
+          )}
 
           {renderExtraInfo && renderExtraInfo(item)}
 

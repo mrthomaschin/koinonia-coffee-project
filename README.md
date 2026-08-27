@@ -203,6 +203,7 @@ To enable the mirror, create the database below, share it with the Functions Not
 
 ```env
 NOTION_SUBSCRIPTIONS_DATABASE_ID=your_notion_subscriptions_database_id
+NOTION_ROAST_DATES_DATABASE_ID=your_notion_roast_dates_database_id
 ```
 
 ```bash

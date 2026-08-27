@@ -6,12 +6,18 @@ import { Client } from "@notionhq/client";
 import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
+import { Address, fetchShippingRates } from "./easypost_service";
 
 const logger = createLogger("accounts");
 const scrypt = promisify(scryptCallback);
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-const CACHE_DURATION_MS = 5 * 60 * 1000;
-export const INITIAL_ROAST_DATE = "2026-09-01T09:00:00-07:00";
+// Used only when the Notion calendar is not configured during local setup.
+const FALLBACK_ROAST_SESSION_CALENDAR = [
+  "2026-09-01T09:00:00-07:00",
+] as const;
+export const INITIAL_ROAST_DATE = FALLBACK_ROAST_SESSION_CALENDAR[0];
+const ROAST_CALENDAR_CACHE_DURATION_MS = 5 * 60 * 1000;
+let roastCalendarCache: { dates: string[]; expiresAt: number } | null = null;
 
 const database = () => {
   // A trigger can run in an execution context where a named Admin app already
@@ -40,12 +46,21 @@ interface StoredAccount extends AccountProfile {
   passwordHash: string;
 }
 
+interface ShippingAddressData {
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+}
+
 interface Order {
   id: string;
   accountId: string;
   totalAmount: number;
-  date: string;
-  status: "pending" | "completed" | "cancelled";
+  createdAt: string;
+  status: "pending" | "completed" | "canceled";
 }
 
 type SubscriptionPlan =
@@ -62,6 +77,7 @@ interface Subscription {
   itemSku: string;
   itemName: string;
   weight: string;
+  unitAmount: number;
   discountPercent: 5;
   freeShipping: boolean;
   nextEligibleSession: number | null;
@@ -78,6 +94,58 @@ const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" 
   "two-bags-every-other-session": { bagCount: 2, cadence: "every-other-session", freeShipping: true },
 };
 
+const roastCalendarDatabaseId = (): string | null => process.env.NOTION_ROAST_DATES_DATABASE_ID || null;
+
+const normalizeRoastDate = (value: string): string | null => {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value}T09:00:00-07:00`;
+  return Number.isNaN(Date.parse(value)) ? null : value;
+};
+
+export const getRoastSessionCalendar = async (): Promise<string[]> => {
+  if (roastCalendarCache && roastCalendarCache.expiresAt > Date.now()) return roastCalendarCache.dates;
+  const databaseId = roastCalendarDatabaseId();
+  if (!databaseId) {
+    logger.warn("NOTION_ROAST_DATES_DATABASE_ID is not configured; using the local fallback roast date");
+    return [...FALLBACK_ROAST_SESSION_CALENDAR];
+  }
+  const response = await getNotion().databases.query({
+    database_id: databaseId,
+    sorts: [{ property: "Date", direction: "ascending" }],
+  });
+  const dates = response.results
+    .map((page: any) => normalizeRoastDate(page.properties?.Date?.date?.start || ""))
+    .filter((date: string | null): date is string => !!date)
+    .sort((first, second) => Date.parse(first) - Date.parse(second));
+  if (!dates.length) throw new Error("The Notion roast-date calendar has no valid Date values");
+  roastCalendarCache = { dates, expiresAt: Date.now() + ROAST_CALENDAR_CACHE_DURATION_MS };
+  return dates;
+};
+
+export const nextRoastSessionDate = async (
+  currentRoastDate: string,
+  cadence: Subscription["cadence"],
+): Promise<string | null> => {
+  const calendar = await getRoastSessionCalendar();
+  const currentIndex = calendar.findIndex((date) => date === currentRoastDate);
+  if (currentIndex < 0) return null;
+  const sessionsToAdvance = cadence === "every-session" ? 1 : 2;
+  return calendar[currentIndex + sessionsToAdvance] || null;
+};
+
+export const nextUpcomingRoastSessionDate = async (): Promise<string> => {
+  const calendar = await getRoastSessionCalendar();
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const nextDate = calendar.find((date) => date.slice(0, 10) >= today);
+  if (!nextDate) throw new Error("The Notion roast-date calendar has no upcoming dates");
+  return nextDate;
+};
+
 let notionInstance: Client | null = null;
 
 const getNotion = (): Client => {
@@ -92,6 +160,18 @@ const getNotion = (): Client => {
 const subscriptionMirrorDatabaseId = (): string | null =>
   process.env.NOTION_SUBSCRIPTIONS_DATABASE_ID || null;
 
+const normalizedShippingAddress = (value: unknown): ShippingAddressData | null => {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Record<string, unknown>;
+  const line1 = String(input.line1 || "").trim().slice(0, 200);
+  const city = String(input.city || "").trim().slice(0, 100);
+  const state = String(input.state || "").trim().slice(0, 100);
+  const postalCode = String(input.postal_code || "").trim().slice(0, 24);
+  const country = String(input.country || "US").trim().toUpperCase().slice(0, 2);
+  if (!line1 || !city || !state || !postalCode || !country) return null;
+  return { line1, line2: String(input.line2 || "").trim().slice(0, 200), city, state, postal_code: postalCode, country };
+};
+
 const text = (property: any): string => {
   if (!property) return "";
   if (property.type === "email") return property.email || "";
@@ -102,7 +182,7 @@ const text = (property: any): string => {
 const status = (property: any): Order["status"] => {
   const value = (property?.status?.name || property?.select?.name || "").toLowerCase();
   if (["paid", "completed", "delivered", "shipped"].includes(value)) return "completed";
-  if (["cancelled", "canceled", "refunded"].includes(value)) return "cancelled";
+  if (["cancelled", "canceled", "refunded"].includes(value)) return "canceled";
   return "pending";
 };
 
@@ -213,6 +293,93 @@ const syncSubscriptionMirror = async (subscription: StoredSubscription, account:
 };
 
 export class AccountService {
+  /** Returns due subscriptions without mutating them. Fulfillment is invoked separately. */
+  static async getDueSubscriptionIds(subscriptionId?: string): Promise<string[]> {
+    const now = new Date().toISOString();
+    if (subscriptionId) {
+      const snapshot = await database().collection("account_subscriptions").doc(subscriptionId).get();
+      const subscription = snapshot.data() as StoredSubscription | undefined;
+      return subscription && subscription.status === "active" && !subscription.skipNextDelivery && subscription.nextEligibleRoastAt <= now
+        ? [subscriptionId]
+        : [];
+    }
+    const response = await database().collection("account_subscriptions")
+      .where("nextEligibleRoastAt", "<=", now)
+      .get();
+    return response.docs
+      .map((document) => document.data() as StoredSubscription)
+      .filter((subscription) => subscription.status === "active" && !subscription.skipNextDelivery)
+      .map((subscription) => subscription.id);
+  }
+
+  static async checkDueSubscriptions(subscriptionId?: string): Promise<void> {
+    const dueSubscriptionIds = await AccountService.getDueSubscriptionIds(subscriptionId);
+    logger.info("Subscription due-date check completed", {
+      scope: subscriptionId ? "single-subscription" : "all-subscriptions",
+      dueCount: dueSubscriptionIds.length,
+      dueSubscriptionIds,
+    });
+    await Promise.all(dueSubscriptionIds.map((id) => AccountService.processDueSubscription(id)));
+  }
+
+  static async processDueSubscription(subscriptionId: string): Promise<void> {
+    const db = database();
+    const subscriptionRef = db.collection("account_subscriptions").doc(subscriptionId);
+    const now = new Date();
+    const subscription = await db.runTransaction(async (transaction): Promise<StoredSubscription | null> => {
+      const snapshot = await transaction.get(subscriptionRef);
+      const value = snapshot.data() as (StoredSubscription & { renewalLeaseUntil?: number }) | undefined;
+      if (!value || value.status !== "active" || value.skipNextDelivery || value.nextEligibleRoastAt > now.toISOString() || (value.renewalLeaseUntil || 0) > now.getTime()) return null;
+      transaction.update(subscriptionRef, { renewalLeaseUntil: now.getTime() + 10 * 60 * 1000, renewalProcessingDueAt: value.nextEligibleRoastAt });
+      return value;
+    });
+    if (!subscription) return;
+
+    try {
+      const nextRoastDate = await nextRoastSessionDate(subscription.nextEligibleRoastAt, subscription.cadence);
+      if (!nextRoastDate) throw new Error("No later roast date is available in the Notion calendar");
+      const accountSnapshot = await db.collection("accounts").doc(subscription.accountId).get();
+      const account = accountSnapshot.data() as (StoredAccount & { billing?: { stripeCustomerId?: string; stripePaymentMethodId?: string }; shippingAddressData?: ShippingAddressData; shippingAddress?: string }) | undefined;
+      const customerId = account?.billing?.stripeCustomerId;
+      const paymentMethodId = account?.billing?.stripePaymentMethodId;
+      const shippingAddress = account?.shippingAddressData;
+      if (!account || !customerId || !paymentMethodId || !shippingAddress) throw new Error("Subscription is missing a saved payment method or shipping address");
+      if (!Number.isSafeInteger(subscription.unitAmount) || subscription.unitAmount < 50) throw new Error("Subscription is missing a valid renewal price");
+
+      const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - subscription.discountPercent / 100));
+      let shippingAmount = 0;
+      if (!subscription.freeShipping) {
+        const address: Address = { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${account.user.firstName} ${account.user.lastName}`, email: account.user.email };
+        const rates = await fetchShippingRates(address, undefined, { length: 6, width: 4, height: 2, weight: Math.max(8, Math.ceil((Number.parseFloat(subscription.weight) || 200) / 28.35 * subscription.bagCount + 3)) });
+        shippingAmount = Math.round(Math.min(...rates.rates.map((rate) => rate.rate)) * 100);
+      }
+      const dueKey = `${subscription.id}:${subscription.nextEligibleRoastAt}`;
+      const generatedOrderId = Date.now().toString().slice(-8).toUpperCase();
+      const paymentIntent = await getStripe().paymentIntents.create({
+        amount: productAmount + shippingAmount,
+        currency: "usd",
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        metadata: { accountId: subscription.accountId, subscriptionId: subscription.id, dueRoastDate: subscription.nextEligibleRoastAt, orderNumber: generatedOrderId },
+        description: `Koinonia roast subscription: ${subscription.itemName}`,
+      }, { idempotencyKey: `renewal:${dueKey}` });
+      const orderId = paymentIntent.metadata.orderNumber || generatedOrderId;
+      await db.batch()
+        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal" })
+        .update(subscriptionRef, { nextEligibleRoastAt: nextRoastDate, renewalLeaseUntil: 0, renewalProcessingDueAt: null, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString() })
+        .commit();
+      logger.info("Subscription renewal payment succeeded", { subscriptionId, paymentIntentId: paymentIntent.id, orderId });
+    } catch (error: unknown) {
+      const stripeError = error as Stripe.StripeRawError;
+      const update: Record<string, unknown> = { renewalLeaseUntil: 0, renewalProcessingDueAt: null, lastRenewalError: stripeError.message || "Unknown renewal error" };
+      if (stripeError.type === "card_error") update.status = "paused";
+      await subscriptionRef.update(update);
+      logger.error("Subscription renewal failed", { subscriptionId, error: stripeError.message });
+    }
+  }
+
   /**
    * Firestore is authoritative. The Firestore write trigger calls this method
    * to keep Notion's operations view aligned with the latest subscription.
@@ -239,10 +406,16 @@ export class AccountService {
         return;
       }
       const paymentIntentId = String(req.body?.paymentIntentId || "");
+      const requestedOrderId = String(req.body?.orderId || "").trim().toUpperCase();
       const items = Array.isArray(req.body?.subscriptionItems) ? req.body.subscriptionItems : [];
       const shippingAddress = String(req.body?.shippingAddress || "").trim().slice(0, 500);
+      const shippingAddressData = normalizedShippingAddress(req.body?.shippingAddressData);
       if (!paymentIntentId || items.length === 0) {
         res.status(400).json({ error: "A paid subscription checkout is required." });
+        return;
+      }
+      if (!shippingAddressData) {
+        res.status(400).json({ error: "A complete shipping address is required for a subscription." });
         return;
       }
       const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
@@ -259,6 +432,7 @@ export class AccountService {
       }
       const paymentMethodId = typeof paymentIntent.payment_method === "string" ? paymentIntent.payment_method : null;
       const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : null;
+      const nextEligibleRoastAt = await nextUpcomingRoastSessionDate();
       const subscriptions: StoredSubscription[] = [];
       for (const item of items) {
         const plan = String(item?.plan || "") as SubscriptionPlan;
@@ -266,22 +440,37 @@ export class AccountService {
         const itemSku = String(item?.itemSku || "").trim().slice(0, 120);
         const itemName = String(item?.itemName || "").trim().slice(0, 120);
         const weight = String(item?.weight || "").trim().slice(0, 40);
-        if (!selectedPlan || !itemSku || !itemName || !weight) {
+        const unitAmount = Math.round(Number(item?.unitAmount) * 100);
+        if (!selectedPlan || !itemSku || !itemName || !weight || !Number.isSafeInteger(unitAmount) || unitAmount < 50) {
           res.status(400).json({ error: "Invalid subscription item." });
           return;
         }
         subscriptions.push({
           id: `sub_${randomUUID()}`, accountId: account.id, plan, ...selectedPlan,
-          itemSku, itemName, weight, discountPercent: 5, nextEligibleSession: null,
+          itemSku, itemName, weight, unitAmount, discountPercent: 5, nextEligibleSession: null,
           status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
-          nextEligibleRoastAt: INITIAL_ROAST_DATE,
+          nextEligibleRoastAt,
         });
       }
       const batch = database().batch();
+      const orderId = /^[A-Z0-9]{8}$/.test(requestedOrderId) ? requestedOrderId : paymentIntentId.slice(-8).toUpperCase();
+      const order: Order & { paymentIntentId: string; subscriptionIds: string[]; source: "subscription-checkout" } = {
+        id: orderId,
+        accountId: account.id,
+        totalAmount: paymentIntent.amount_received / 100,
+        createdAt: new Date(paymentIntent.created * 1000).toISOString(),
+        status: "completed",
+        paymentIntentId,
+        subscriptionIds: subscriptions.map((item) => item.id),
+        source: "subscription-checkout",
+      };
       batch.set(checkoutRef, { accountId: account.id, paymentIntentId, subscriptionIds: subscriptions.map((item) => item.id), createdAt: Date.now() });
+      batch.set(database().collection("account_orders").doc(order.id), order);
+      batch.delete(database().collection("account_order_cache").doc(account.id));
       batch.set(database().collection("accounts").doc(account.id), {
         billing: { stripeCustomerId: customerId, stripePaymentMethodId: paymentMethodId, paymentMethodSavedAt: Date.now() },
         shippingAddress: shippingAddress || null,
+        shippingAddressData,
         updatedAt: Date.now(),
       }, { merge: true });
       subscriptions.forEach((subscription) => batch.set(database().collection("account_subscriptions").doc(subscription.id), subscription));
@@ -365,29 +554,49 @@ export class AccountService {
         res.status(401).json({ error: "Your session has expired. Please log in again." });
         return;
       }
-      const cacheRef = database().collection("account_order_cache").doc(account.id);
-      const cached = await cacheRef.get();
-      const cachedData = cached.data();
-      if (cachedData && Date.now() - cachedData.cachedAt < CACHE_DURATION_MS) {
-        res.json({ orders: cachedData.orders });
-        return;
-      }
-      const response = await getNotion().databases.query({
-        database_id: process.env.NOTION_ONLINE_ORDERS_DATABASE_ID!,
+      const db = database();
+      // Backfill order history for subscription checkouts completed before we
+      // began writing account_orders. Stripe remains the source for the amount.
+      const checkoutSnapshots = await db.collection("subscription_checkouts").where("accountId", "==", account.id).get();
+      await Promise.all(checkoutSnapshots.docs.map(async (checkout) => {
+        const paymentIntentId = String(checkout.data().paymentIntentId || "");
+        if (!paymentIntentId) return;
+        const orderRef = db.collection("account_orders").doc(paymentIntentId.slice(-8).toUpperCase());
+        if ((await orderRef.get()).exists) return;
+        const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
+        if (paymentIntent.status !== "succeeded" || paymentIntent.metadata.accountId !== account.id) return;
+        await orderRef.set({
+          id: orderRef.id,
+          accountId: account.id,
+          totalAmount: paymentIntent.amount_received / 100,
+          createdAt: new Date(paymentIntent.created * 1000).toISOString(),
+          status: "completed",
+          paymentIntentId,
+          subscriptionIds: checkout.data().subscriptionIds || [],
+          source: "subscription-checkout",
+        });
+      }));
+
+      const accountOrderSnapshots = await db.collection("account_orders").where("accountId", "==", account.id).get();
+      const firestoreOrders = accountOrderSnapshots.docs.map((document) => document.data() as Order);
+      const notionDatabaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+      const notionOrders: Order[] = !notionDatabaseId ? [] : (await getNotion().databases.query({
+        database_id: notionDatabaseId,
         filter: { property: "Email", email: { equals: account.user.email } },
         sorts: [{ property: "Order created", direction: "descending" }],
-      });
-      const orders: Order[] = response.results.map((page: any) => {
+      })).results.map((page: any) => {
         const properties = page.properties || {};
         return {
           id: text(properties["Order #"]) || page.id,
           accountId: account.id,
           totalAmount: properties.Total?.number || 0,
-          date: properties["Order created"]?.date?.start || page.created_time,
+          createdAt: properties["Order created"]?.date?.start || page.created_time,
           status: status(properties.Status),
         };
       });
-      await cacheRef.set({ orders, cachedAt: Date.now() });
+      const orders = [...firestoreOrders, ...notionOrders]
+        .filter((order, index, all) => all.findIndex((candidate) => candidate.id === order.id) === index)
+        .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
       res.json({ orders });
     } catch (error: unknown) {
       logger.error("Unable to get account orders", { error: (error as Error).message });
@@ -431,7 +640,8 @@ export class AccountService {
       const itemSku = String(req.body?.itemSku || "").trim().slice(0, 120);
       const itemName = String(req.body?.itemName || "").trim().slice(0, 120);
       const weight = String(req.body?.weight || "").trim().slice(0, 40);
-      if (!itemSku || !itemName || !weight) {
+      const unitAmount = Math.round(Number(req.body?.unitAmount) * 100);
+      if (!itemSku || !itemName || !weight || !Number.isSafeInteger(unitAmount) || unitAmount < 50) {
         res.status(400).json({ error: "Choose a coffee and bag size for your subscription." });
         return;
       }
@@ -443,12 +653,13 @@ export class AccountService {
         itemSku,
         itemName,
         weight,
+        unitAmount,
         discountPercent: 5,
         nextEligibleSession: null,
         status: "active",
         skipNextDelivery: false,
         createdAt: new Date().toISOString(),
-        nextEligibleRoastAt: INITIAL_ROAST_DATE,
+        nextEligibleRoastAt: await nextUpcomingRoastSessionDate(),
       };
       await database().collection("account_subscriptions").doc(subscription.id).set(subscription);
       res.status(201).json({ subscription });

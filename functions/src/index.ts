@@ -12,7 +12,7 @@ import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
-import { AccountService } from "./services/account_service";
+import { AccountService, nextUpcomingRoastSessionDate } from "./services/account_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -177,6 +177,17 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
   }
 });
 
+// Get the next scheduled roast date from the Notion roast calendar.
+app.get("/get-next-roast-date", async (_req: Request, res: Response) => {
+  try {
+    const nextRoastDate = await nextUpcomingRoastSessionDate();
+    res.json({ nextRoastDate });
+  } catch (error: unknown) {
+    logger.error("Error fetching next roast date", { error: (error as Error).message });
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
 
@@ -210,6 +221,27 @@ export const syncSubscriptionToNotion = onDocumentWritten(
   async (event) => {
     if (!event.data?.after.exists) return;
     await AccountService.syncSubscriptionMirrorById(event.params.subscriptionId);
+  }
+);
+
+// Time-based eligibility check. Firestore write checks below make a newly due
+// or edited subscription eligible immediately; this schedule catches passage
+// of time without a database write.
+export const checkDueSubscriptions = onSchedule(
+  { schedule: "every 15 minutes", timeZone: "America/Los_Angeles", region: "us-central1" },
+  () => AccountService.checkDueSubscriptions()
+);
+
+export const checkUpdatedSubscriptionForRenewal = onDocumentWritten(
+  { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    // Ignore writes made solely by the fulfillment processor itself. Eligibility
+    // must change before a database-write event starts another payment attempt.
+    if (before && before.nextEligibleRoastAt === after?.nextEligibleRoastAt && before.status === after?.status && before.skipNextDelivery === after?.skipNextDelivery) return;
+    await AccountService.checkDueSubscriptions(event.params.subscriptionId);
   }
 );
 

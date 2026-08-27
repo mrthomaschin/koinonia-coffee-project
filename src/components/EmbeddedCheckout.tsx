@@ -34,7 +34,7 @@ interface DiscountCodeProp {
 }
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -634,7 +634,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   customerPhone,
                   shipmentData,
                   currentShippingAddress,
-                  taxAmount
+                  taxAmount,
+                  currentAddress
                 );
               } else {
                 logger.error('[shipment] Purchase shipment API call failed', {
@@ -642,17 +643,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   statusText: response.statusText
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress);
               }
             } else {
               logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress);
             }
           } catch (shipmentError) {
             logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress);
           }
         } else {
           logger.log('[shipment] Shipment purchase conditions not met, skipping', {
@@ -660,7 +661,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             selectedShippingId: selectedShipping.id
           });
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress);
         }
       }
     } catch (err) {
@@ -984,7 +985,7 @@ interface DiscountCode {
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any) => void;
   onCancel: () => void;
   discountCode?: DiscountCode | null;
   hasSubscription: boolean;
@@ -1027,9 +1028,9 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     });
   }, [clientSecret]);
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => {
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax);
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, shippingAddressData);
   };
   const options = {
     clientSecret,

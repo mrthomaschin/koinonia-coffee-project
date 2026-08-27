@@ -249,7 +249,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         phone?: string,
         shipmentData?: any,
         shippingAddress?: string,
-        tax?: number
+        tax?: number,
+        shippingAddressData?: any
     ) => {
         logger.log('CartView handleCheckoutSuccess called with shippingAddress:', shippingAddress);
         setShowCheckout(false);
@@ -273,6 +274,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 itemSku: item.variantSku || item.item.sku,
                 itemName: item.item.name,
                 weight: item.selections.weight || '',
+                unitAmount: item.variantPrice || viewModel.getItemPrice(item),
             })),
             items: viewModel.cartItems.map(item => ({
                 name: item.item.name,
@@ -297,6 +299,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             timestamp: new Date().toISOString(),
             shipmentData: shipmentData || null,
             shippingAddress: shippingAddress || null,
+            shippingAddressData: shippingAddressData || null,
             isLocalPickup: shippingOption?.id === 'local-pickup' || false
         };
 
