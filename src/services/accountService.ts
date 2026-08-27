@@ -1,4 +1,5 @@
-import { Account, CreateSubscriptionInput, Order, Subscription } from '../models/AccountModel';
+import { Account, Subscription, SubscriptionPlan } from '../models/AccountModel';
+import { Order } from '../models/OrderModel';
 
 type AccountProfile = Omit<Account, 'password' | 'orders'>;
 
@@ -46,23 +47,30 @@ class AccountService {
     return this.request('/account/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
   }
 
-  createSubscription(token: string, input: CreateSubscriptionInput): Promise<{ subscription: Subscription }> {
+  createSubscription(token: string, plan: SubscriptionPlan): Promise<{ subscription: Subscription }> {
     return this.request('/account/subscriptions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify(input),
-    });
-  }
-
-  cancelSubscription(token: string, subscriptionId: string): Promise<{ subscription: Subscription }> {
-    return this.request(`/account/subscriptions/${subscriptionId}/cancel`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ plan }),
     });
   }
 
   skipSubscription(token: string, subscriptionId: string): Promise<{ subscription: Subscription }> {
     return this.request(`/account/subscriptions/${subscriptionId}/skip`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  completeSubscriptionCheckout(token: string, paymentIntentId: string, subscriptionItems: Array<{ plan: SubscriptionPlan; itemSku: string; itemName: string; weight: string }>, shippingAddress: string): Promise<{ subscriptionIds: string[] }> {
+    return this.request('/account/subscription-checkout/complete', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ paymentIntentId, subscriptionItems, shippingAddress }),
+    });
+  }
+
+  cancelSubscription(token: string, subscriptionId: string): Promise<{ subscription: Subscription }> {
+    return this.request(`/account/subscriptions/${subscriptionId}/cancel`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });

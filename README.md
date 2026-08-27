@@ -161,31 +161,9 @@ For detailed instructions, see [STRIPE_DEPLOYMENT_GUIDE.md](./STRIPE_DEPLOYMENT_
 
 ## Account and order-history setup
 
-The `/account` page lets customers create an account, sign in, and see online orders whose Notion `Email` matches their account email. The browser never receives a Notion credential or a password hash.
+The `/account` page stores accounts in Firestore—not Notion. Each account has an immutable ID such as `acct_8b57…`, a unique username and email, profile data, and a salted scrypt password hash. The browser receives neither the password hash nor a Notion credential.
 
-Create a Notion **Accounts** database and share it with the same Notion integration used by the Functions backend. It needs these exact properties:
-
-| Property | Notion type |
-| --- | --- |
-| `Name` | Title — customer's full name |
-| `First Name` | Text |
-| `Last Name` | Text |
-| `Email` | Email |
-| `Username` | Text |
-| `Account ID` | Text |
-| `Password Hash` | Text |
-
-Set the database ID locally in `functions/.env.local` and in production as a Firebase secret:
-
-```env
-NOTION_ACCOUNTS_DATABASE_ID=your_notion_accounts_database_id
-```
-
-```bash
-npx -y firebase-tools@latest functions:secrets:set NOTION_ACCOUNTS_DATABASE_ID
-```
-
-Each new account receives an immutable, application-level ID such as `acct_8b57…`; it is stored in `Account ID` and used for sessions and cached orders. New account passwords are salted and scrypt-hashed before being written to Notion. Existing account rows need a `Password Hash` value in that format; plaintext password fields are intentionally not supported.
+The Functions backend is the only component with Firestore access. Notion remains the source for existing online-order history; it is queried by the signed-in account's email and cached briefly in Firestore.
 
 ### Roast subscriptions
 
@@ -212,7 +190,6 @@ To enable the mirror, create the database below, share it with the Functions Not
 | `Plan` | Text |
 | `Bag Count` | Number |
 | `Cadence` | Text |
-| `Coffee Preference` | Text |
 | `Item SKU` | Text |
 | `Item Name` | Text |
 | `Weight` | Text |
@@ -222,6 +199,7 @@ To enable the mirror, create the database below, share it with the Functions Not
 | `Status` | Select — add `active`, `paused`, and `canceled` |
 | `Skip Next Delivery` | Checkbox |
 | `Created At` | Date |
+| `Next Eligible Roast At` | Date |
 
 ```env
 NOTION_SUBSCRIPTIONS_DATABASE_ID=your_notion_subscriptions_database_id

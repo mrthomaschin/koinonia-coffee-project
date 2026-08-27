@@ -97,15 +97,13 @@ class StripeService {
     }
   }
 
-  async createPaymentIntent(amount: number, metadata?: Record<string, string>): Promise<{ clientSecret: string; paymentIntentId: string }> {
+  async createPaymentIntent(amount: number, metadata?: Record<string, string>, token?: string | null): Promise<{ clientSecret: string; paymentIntentId: string }> {
     try {
       logger.log('[stripeService] Creating payment intent', { amount, metadata, backendUrl: this.backendUrl });
 
       const response = await fetch(`${this.backendUrl}/create-payment-intent`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           amount: Math.round(amount * 100), // Convert to cents
           currency: 'usd',

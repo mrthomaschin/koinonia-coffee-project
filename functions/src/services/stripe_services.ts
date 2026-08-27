@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
+import { getFirestore } from "firebase-admin/firestore";
+import { sessionAccount } from "./account_service";
 
 const logger = createLogger("stripe");
 
@@ -23,6 +25,13 @@ export class StripeService {
     static async createPaymentIntent(req: Request, res: Response): Promise<void> {
         try {
             const { amount, currency = "usd", metadata, shippingOptions } = req.body;
+            const cartItems = JSON.parse(metadata?.items || "[]") as Array<{ subscriptionPlan?: string }>;
+            const hasSubscription = cartItems.some((item) => !!item.subscriptionPlan);
+            const account = hasSubscription ? await sessionAccount(req) : null;
+            if (hasSubscription && !account) {
+                res.status(401).json({ error: "Please sign in before purchasing a subscription." });
+                return;
+            }
 
             logger.info("Creating payment intent", { amount, currency, metadata });
 
@@ -31,13 +40,30 @@ export class StripeService {
                 return;
             }
 
+            let customerId: string | undefined;
+            if (account) {
+                const accountRef = getFirestore().collection("accounts").doc(account.id);
+                const existingCustomerId = accountRef && (await accountRef.get()).data()?.billing?.stripeCustomerId;
+                customerId = typeof existingCustomerId === "string" ? existingCustomerId : undefined;
+                if (!customerId) {
+                    const customer = await getStripe().customers.create({
+                        email: account.user.email,
+                        name: `${account.user.firstName} ${account.user.lastName}`.trim(),
+                        metadata: { accountId: account.id },
+                    });
+                    customerId = customer.id;
+                    await accountRef.set({ billing: { stripeCustomerId: customerId }, updatedAt: Date.now() }, { merge: true });
+                }
+            }
             const paymentIntent = await getStripe().paymentIntents.create({
                 amount: Math.round(amount),
                 currency,
+                customer: customerId,
+                setup_future_usage: hasSubscription ? "off_session" : undefined,
                 automatic_payment_methods: {
                     enabled: true,
                 },
-                metadata: metadata || {},
+                metadata: { ...(metadata || {}), ...(account ? { accountId: account.id } : {}) },
                 shipping: shippingOptions ? {
                     name: shippingOptions.name || "Customer",
                     address: shippingOptions.address,

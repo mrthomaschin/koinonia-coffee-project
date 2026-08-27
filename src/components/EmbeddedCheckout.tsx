@@ -42,6 +42,7 @@ interface CheckoutFormProps {
   onAddressChange?: (address: any) => void;
   discountCode?: DiscountCodeProp | null;
   originalShippingPrice?: number;
+  hasSubscription: boolean;
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -52,6 +53,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   selectedShipping,
   onAddressChange,
   discountCode
+  ,hasSubscription
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -968,6 +970,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             {isProcessing ? 'Processing...' : `Pay $${displayTotal.toFixed(2)}`}
           </button>
         </div>
+        {hasSubscription && <p className="subscription-disclosure">Your cart contains an automatically renewing subscription. By clicking "Pay now," <strong>you expressly and affirmatively agree that you will be automatically charged the recurring amount(s) shown in your cart (plus shipping and taxes) until the subscription(s) ends or you cancel.</strong> <strong>You may cancel anytime by going to your account or contacting the store.</strong></p>}
       </form>
     </>
   );
@@ -984,6 +987,7 @@ interface EmbeddedCheckoutProps {
   onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
   onCancel: () => void;
   discountCode?: DiscountCode | null;
+  hasSubscription: boolean;
 }
 
 const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
@@ -992,6 +996,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   onSuccess,
   onCancel,
   discountCode,
+  hasSubscription,
 }) => {
   const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
@@ -1068,6 +1073,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
           selectedShipping={selectedShipping}
           onAddressChange={handleAddressChange}
           discountCode={discountCode}
+          hasSubscription={hasSubscription}
         />
       </Elements>
     </div>

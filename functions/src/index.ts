@@ -1,11 +1,12 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
-import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
+import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
@@ -27,12 +28,8 @@ setGlobalOptions({ maxInstances: 10 });
 let firestoreDb: FirebaseFirestore.Firestore | null = null;
 const getFirestoreDb = () => {
   if (!firestoreDb) {
-    if (!getApps().length) {
-      initializeApp({
-        credential: applicationDefault()
-      });
-    }
-    firestoreDb = getFirestore();
+    const defaultApp = getApps().find((app) => app.name === "[DEFAULT]") || initializeApp();
+    firestoreDb = getFirestore(defaultApp);
   }
   return firestoreDb;
 };
@@ -195,15 +192,26 @@ app.post("/uncheck-order-confirmed-email-sent", async (req: Request, res: Respon
 // Validate discount code
 app.post("/validate-discount-code", async (req: Request, res: Response) => NotionService.validateDiscountCode(req, res));
 
-// Account data lives in Notion; Firestore holds only short-lived sessions and caches.
+// Account and subscription data live in Firestore. Notion is an operations-facing mirror.
 app.post("/account/login", AccountService.login);
 app.post("/account/create", AccountService.createAccount);
 app.get("/account/orders", AccountService.getOrders);
 app.get("/account/subscriptions", AccountService.getSubscriptions);
 app.post("/account/subscriptions", AccountService.createSubscription);
+app.post("/account/subscription-checkout/complete", AccountService.completeSubscriptionCheckout);
 app.post("/account/subscriptions/:subscriptionId/cancel", AccountService.cancelSubscription);
 app.post("/account/subscriptions/:subscriptionId/skip", AccountService.skipSubscription);
 app.post("/account/logout", AccountService.logout);
+
+// One-way Firestore -> Notion projection. Notion is an operations view only;
+// it never writes subscription state back to Firestore.
+export const syncSubscriptionToNotion = onDocumentWritten(
+  { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    await AccountService.syncSubscriptionMirrorById(event.params.subscriptionId);
+  }
+);
 
 // Get shipping rates from EasyPost
 app.post("/get-shipping-rates", getShippingRates);
@@ -363,7 +371,6 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
     "NOTION_INVENTORY_DATABASE_ID",
     "NOTION_DISCOUNT_CODES_DATABASE_ID",
-    "NOTION_ACCOUNTS_DATABASE_ID",
     "NOTION_SUBSCRIPTIONS_DATABASE_ID"
   ];
 }

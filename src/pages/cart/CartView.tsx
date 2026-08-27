@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CartItem } from './CartViewModel';
 import { ItemType } from '../shop/item/ItemModel';
 import { useCart } from '../../contexts/CartContext';
+import { useAccount } from '../../contexts/AccountContext';
 import { stripeService } from '../../services/stripeService';
 import EmbeddedCheckout from '../../components/EmbeddedCheckout';
 import { ShippingOption } from '../../components/ShippingSelector';
@@ -23,6 +24,7 @@ interface CartViewProps {
 const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const navigate = useNavigate();
     const { cart: viewModel, forceUpdate, showToast } = useCart();
+    const { isAuthenticated, token } = useAccount();
     const [pendingQuantities, setPendingQuantities] = useState<{ [key: number]: number }>({});
     const [updateTrigger, setUpdateTrigger] = useState(0);
     const [showCheckout, setShowCheckout] = useState(false);
@@ -166,6 +168,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     }, [viewModel, forceUpdate, showToast]);
 
     const handleCheckout = useCallback(async () => {
+        if (viewModel.cartItems.some((item) => item.selections.subscriptionPlan) && !isAuthenticated) {
+            showToast('Please sign in or create an account before checking out with a subscription.', 'error');
+            return;
+        }
         if (hasAnyChanges) {
             showToast('Please update your cart before proceeding to checkout', 'error');
             return;
@@ -215,11 +221,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         id: item.variantSku || item.item.sku,
                         name: item.item.name,
                         quantity: item.quantity,
-                        price: item.variantPrice || item.item.price
+                        price: item.variantPrice || item.item.price,
+                        subscriptionPlan: item.selections.subscriptionPlan || ''
                     }))),
                     discountCode: viewModel.discountCode?.code || '',
                     discountPercent: viewModel.discountCode?.percentOff?.toString() || ''
-                }
+                },
+                token
             );
 
             logger.log('[checkout] Payment intent created successfully');
@@ -231,7 +239,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         } finally {
             setIsLoadingCheckout(false);
         }
-    }, [hasAnyChanges, showToast, subtotalAfterDiscount, viewModel.cartItems, viewModel.discountCode]);
+    }, [hasAnyChanges, isAuthenticated, showToast, subtotalAfterDiscount, token, viewModel.cartItems, viewModel.discountCode]);
 
     const handleCheckoutSuccess = useCallback(async (
         paymentIntentId?: string,
@@ -259,6 +267,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
         // Store order data before clearing cart
         const orderData = {
+            paymentIntentId,
+            subscriptionItems: viewModel.cartItems.filter((item) => item.selections.subscriptionPlan).map((item) => ({
+                plan: item.selections.subscriptionPlan,
+                itemSku: item.variantSku || item.item.sku,
+                itemName: item.item.name,
+                weight: item.selections.weight || '',
+            })),
             items: viewModel.cartItems.map(item => ({
                 name: item.item.name,
                 quantity: item.quantity,
@@ -497,6 +512,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                             onSuccess={handleCheckoutSuccess}
                             onCancel={handleCheckoutCancel}
                             discountCode={viewModel.discountCode}
+                            hasSubscription={viewModel.cartItems.some((item) => !!item.selections.subscriptionPlan)}
                         />
                     </div>
                 </div>

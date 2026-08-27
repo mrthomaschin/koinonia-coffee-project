@@ -1,8 +1,9 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { getFirestore } from "firebase-admin/firestore";
-import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+import { getApps, initializeApp } from "firebase-admin/app";
 import { Client } from "@notionhq/client";
+import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
 
@@ -10,10 +11,23 @@ const logger = createLogger("accounts");
 const scrypt = promisify(scryptCallback);
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_DURATION_MS = 5 * 60 * 1000;
+export const INITIAL_ROAST_DATE = "2026-09-01T09:00:00-07:00";
 
 const database = () => {
-  if (!getApps().length) initializeApp({ credential: applicationDefault() });
-  return getFirestore();
+  // A trigger can run in an execution context where a named Admin app already
+  // exists, but the default app does not. Resolve the default app explicitly.
+  const defaultApp = getApps().find((app) => app.name === "[DEFAULT]") || initializeApp();
+  return getFirestore(defaultApp);
+};
+
+let stripeInstance: Stripe | null = null;
+const getStripe = (): Stripe => {
+  if (!stripeInstance) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
+    stripeInstance = new Stripe(key, { apiVersion: "2025-02-24.acacia" });
+  }
+  return stripeInstance;
 };
 
 export interface AccountProfile {
@@ -45,7 +59,6 @@ interface Subscription {
   plan: SubscriptionPlan;
   bagCount: 1 | 2;
   cadence: "every-session" | "every-other-session";
-  coffeePreference: string;
   itemSku: string;
   itemName: string;
   weight: string;
@@ -55,6 +68,7 @@ interface Subscription {
   status: "active" | "paused" | "canceled";
   skipNextDelivery: boolean;
   createdAt: string;
+  nextEligibleRoastAt: string;
 }
 
 const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" | "cadence" | "freeShipping">> = {
@@ -73,12 +87,6 @@ const getNotion = (): Client => {
     notionInstance = new Client({ auth: token });
   }
   return notionInstance;
-};
-
-const accountDatabaseId = (): string => {
-  const databaseId = process.env.NOTION_ACCOUNTS_DATABASE_ID;
-  if (!databaseId) throw new Error("NOTION_ACCOUNTS_DATABASE_ID is not configured");
-  return databaseId;
 };
 
 const subscriptionMirrorDatabaseId = (): string | null =>
@@ -112,34 +120,13 @@ const passwordMatches = async (password: string, storedHash: string): Promise<bo
   return expectedBuffer.length === actual.length && timingSafeEqual(expectedBuffer, actual);
 };
 
-const cacheAccount = async (account: StoredAccount): Promise<void> => {
-  await database().collection("account_cache").doc(account.id).set({ ...account, cachedAt: Date.now() });
-};
-
-const mapAccount = (page: any): StoredAccount => {
-  const properties = page.properties || {};
-  return {
-    // Use the app-level ID when present; retain the Notion page ID for accounts
-    // created before this property was introduced.
-    id: text(properties["Account ID"]) || page.id,
-    user: {
-      firstName: text(properties["First Name"]),
-      lastName: text(properties["Last Name"]),
-      email: text(properties.Email).toLowerCase(),
-    },
-    username: text(properties.Username),
-    passwordHash: text(properties["Password Hash"]),
-  };
-};
-
 const findAccount = async (username: string): Promise<StoredAccount | null> => {
-  const response = await getNotion().databases.query({ database_id: accountDatabaseId() });
-  const accountPage = response.results.find((page: any) =>
-    "properties" in page && text(page.properties.Username).toLowerCase() === username.toLowerCase());
-  if (!accountPage) return null;
-  const account = mapAccount(accountPage);
-  await cacheAccount(account);
-  return account;
+  const usernameKey = Buffer.from(username.trim().toLowerCase()).toString("base64url");
+  const usernameRecord = await database().collection("account_usernames").doc(usernameKey).get();
+  const accountId = usernameRecord.data()?.accountId;
+  if (!usernameRecord.exists || typeof accountId !== "string") return null;
+  const account = await database().collection("accounts").doc(accountId).get();
+  return account.exists ? account.data() as StoredAccount : null;
 };
 
 const publicProfile = (account: StoredAccount): AccountProfile => ({
@@ -157,7 +144,7 @@ const issueSession = async (account: StoredAccount): Promise<string> => {
   return token;
 };
 
-const sessionAccount = async (req: Request): Promise<AccountProfile | null> => {
+export const sessionAccount = async (req: Request): Promise<AccountProfile | null> => {
   const token = req.header("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const session = await database().collection("account_sessions").doc(token).get();
@@ -166,7 +153,7 @@ const sessionAccount = async (req: Request): Promise<AccountProfile | null> => {
     if (session.exists) await session.ref.delete();
     return null;
   }
-  const account = await database().collection("account_cache").doc(data.accountId).get();
+  const account = await database().collection("accounts").doc(data.accountId).get();
   const accountData = account.data() as StoredAccount | undefined;
   if (!accountData) return null;
   return publicProfile(accountData);
@@ -180,7 +167,9 @@ const accountSubscription = (accountId: string, subscriptionId: string) =>
 
 const syncSubscriptionMirror = async (subscription: StoredSubscription, account: AccountProfile): Promise<void> => {
   const databaseId = subscriptionMirrorDatabaseId();
-  if (!databaseId) return;
+  if (!databaseId) {
+    throw new Error("NOTION_SUBSCRIPTIONS_DATABASE_ID is not configured");
+  }
 
   try {
     const notion = getNotion();
@@ -191,7 +180,6 @@ const syncSubscriptionMirror = async (subscription: StoredSubscription, account:
       "Plan": { rich_text: [{ text: { content: subscription.plan } }] },
       "Bag Count": { number: subscription.bagCount },
       "Cadence": { rich_text: [{ text: { content: subscription.cadence } }] },
-      "Coffee Preference": { rich_text: [{ text: { content: subscription.coffeePreference } }] },
       "Item SKU": { rich_text: [{ text: { content: subscription.itemSku } }] },
       "Item Name": { rich_text: [{ text: { content: subscription.itemName } }] },
       "Weight": { rich_text: [{ text: { content: subscription.weight } }] },
@@ -201,23 +189,109 @@ const syncSubscriptionMirror = async (subscription: StoredSubscription, account:
       "Status": { select: { name: subscription.status } },
       "Skip Next Delivery": { checkbox: subscription.skipNextDelivery },
       "Created At": { date: { start: subscription.createdAt } },
+      "Next Eligible Roast At": { date: { start: subscription.nextEligibleRoastAt || INITIAL_ROAST_DATE } },
     };
     const response = await notion.databases.query({
       database_id: databaseId,
       filter: { property: "Subscription ID", rich_text: { equals: subscription.id } },
     });
     const page = response.results[0];
-    if (page) await notion.pages.update({ page_id: page.id, properties });
-    else await notion.pages.create({ parent: { database_id: databaseId }, properties });
+    if (page) {
+      await notion.pages.update({ page_id: page.id, properties });
+      logger.info("Subscription mirror updated in Notion", { subscriptionId: subscription.id, operation: "update" });
+    } else {
+      await notion.pages.create({ parent: { database_id: databaseId }, properties });
+      logger.info("Subscription mirror created in Notion", { subscriptionId: subscription.id, operation: "create" });
+    }
   } catch (error: unknown) {
-    logger.warn("Unable to sync subscription to Notion mirror", {
+    logger.error("Unable to sync subscription to Notion mirror", {
       subscriptionId: subscription.id,
       error: (error as Error).message,
     });
+    throw error;
   }
 };
 
 export class AccountService {
+  /**
+   * Firestore is authoritative. The Firestore write trigger calls this method
+   * to keep Notion's operations view aligned with the latest subscription.
+   */
+  static async syncSubscriptionMirrorById(subscriptionId: string): Promise<void> {
+    const subscriptionSnapshot = await database().collection("account_subscriptions").doc(subscriptionId).get();
+    if (!subscriptionSnapshot.exists) return;
+
+    const subscription = subscriptionSnapshot.data() as StoredSubscription;
+    logger.info("Syncing subscription mirror to Notion", { subscriptionId, accountId: subscription.accountId });
+    const accountSnapshot = await database().collection("accounts").doc(subscription.accountId).get();
+    if (!accountSnapshot.exists) {
+      logger.warn("Subscription mirror skipped because its account was not found", { subscriptionId, accountId: subscription.accountId });
+      return;
+    }
+    await syncSubscriptionMirror(subscription, publicProfile(accountSnapshot.data() as StoredAccount));
+  }
+
+  static async completeSubscriptionCheckout(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const paymentIntentId = String(req.body?.paymentIntentId || "");
+      const items = Array.isArray(req.body?.subscriptionItems) ? req.body.subscriptionItems : [];
+      const shippingAddress = String(req.body?.shippingAddress || "").trim().slice(0, 500);
+      if (!paymentIntentId || items.length === 0) {
+        res.status(400).json({ error: "A paid subscription checkout is required." });
+        return;
+      }
+      const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
+      if (paymentIntent.status !== "succeeded" || paymentIntent.metadata.accountId !== account.id) {
+        res.status(400).json({ error: "Payment could not be verified for this account." });
+        return;
+      }
+
+      const checkoutRef = database().collection("subscription_checkouts").doc(paymentIntentId);
+      const existing = await checkoutRef.get();
+      if (existing.exists) {
+        res.json({ created: false, subscriptionIds: existing.data()?.subscriptionIds || [] });
+        return;
+      }
+      const paymentMethodId = typeof paymentIntent.payment_method === "string" ? paymentIntent.payment_method : null;
+      const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : null;
+      const subscriptions: StoredSubscription[] = [];
+      for (const item of items) {
+        const plan = String(item?.plan || "") as SubscriptionPlan;
+        const selectedPlan = subscriptionPlans[plan];
+        const itemSku = String(item?.itemSku || "").trim().slice(0, 120);
+        const itemName = String(item?.itemName || "").trim().slice(0, 120);
+        const weight = String(item?.weight || "").trim().slice(0, 40);
+        if (!selectedPlan || !itemSku || !itemName || !weight) {
+          res.status(400).json({ error: "Invalid subscription item." });
+          return;
+        }
+        subscriptions.push({
+          id: `sub_${randomUUID()}`, accountId: account.id, plan, ...selectedPlan,
+          itemSku, itemName, weight, discountPercent: 5, nextEligibleSession: null,
+          status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
+          nextEligibleRoastAt: INITIAL_ROAST_DATE,
+        });
+      }
+      const batch = database().batch();
+      batch.set(checkoutRef, { accountId: account.id, paymentIntentId, subscriptionIds: subscriptions.map((item) => item.id), createdAt: Date.now() });
+      batch.set(database().collection("accounts").doc(account.id), {
+        billing: { stripeCustomerId: customerId, stripePaymentMethodId: paymentMethodId, paymentMethodSavedAt: Date.now() },
+        shippingAddress: shippingAddress || null,
+        updatedAt: Date.now(),
+      }, { merge: true });
+      subscriptions.forEach((subscription) => batch.set(database().collection("account_subscriptions").doc(subscription.id), subscription));
+      await batch.commit();
+      res.status(201).json({ created: true, subscriptionIds: subscriptions.map((item) => item.id) });
+    } catch (error: unknown) {
+      logger.error("Unable to complete subscription checkout", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to activate your subscription right now." });
+    }
+  }
   static async login(req: Request, res: Response): Promise<void> {
     try {
       const username = String(req.body?.username || "").trim();
@@ -249,27 +323,34 @@ export class AccountService {
         res.status(400).json({ error: "Enter a name, valid email, username, and password of at least 8 characters." });
         return;
       }
-      const existing = await findAccount(username);
-      if (existing) {
-        res.status(409).json({ error: "That username is already in use." });
+      const accountId = `acct_${randomUUID()}`;
+      const normalizedUsername = username.toLowerCase();
+      const usernameKey = Buffer.from(normalizedUsername).toString("base64url");
+      const emailKey = Buffer.from(email).toString("base64url");
+      const account: StoredAccount = {
+        id: accountId,
+        user: { firstName, lastName, email },
+        username,
+        passwordHash: await createPasswordHash(password),
+      };
+      const created = await database().runTransaction(async (transaction) => {
+        const usernameRef = database().collection("account_usernames").doc(usernameKey);
+        const emailRef = database().collection("account_emails").doc(emailKey);
+        const accountRef = database().collection("accounts").doc(accountId);
+        const [usernameSnapshot, emailSnapshot] = await Promise.all([
+          transaction.get(usernameRef),
+          transaction.get(emailRef),
+        ]);
+        if (usernameSnapshot.exists || emailSnapshot.exists) return false;
+        transaction.set(accountRef, { ...account, createdAt: Date.now() });
+        transaction.set(usernameRef, { accountId, username: normalizedUsername });
+        transaction.set(emailRef, { accountId, email });
+        return true;
+      });
+      if (!created) {
+        res.status(409).json({ error: "That username or email is already in use." });
         return;
       }
-      const notion = getNotion();
-      const accountId = `acct_${randomUUID()}`;
-      const page = await notion.pages.create({
-        parent: { database_id: accountDatabaseId() },
-        properties: {
-          "Name": { title: [{ text: { content: `${firstName} ${lastName}` } }] },
-          "First Name": { rich_text: [{ text: { content: firstName } }] },
-          "Last Name": { rich_text: [{ text: { content: lastName } }] },
-          "Email": { email },
-          "Username": { rich_text: [{ text: { content: username } }] },
-          "Account ID": { rich_text: [{ text: { content: accountId } }] },
-          "Password Hash": { rich_text: [{ text: { content: await createPasswordHash(password) } }] },
-        },
-      });
-      const account = mapAccount(page);
-      await cacheAccount(account);
       res.status(201).json({ account: publicProfile(account), token: await issueSession(account) });
     } catch (error: unknown) {
       logger.error("Unable to create account", { error: (error as Error).message });
@@ -359,7 +440,6 @@ export class AccountService {
         accountId: account.id,
         plan,
         ...selectedPlan,
-        coffeePreference: itemName,
         itemSku,
         itemName,
         weight,
@@ -368,9 +448,9 @@ export class AccountService {
         status: "active",
         skipNextDelivery: false,
         createdAt: new Date().toISOString(),
+        nextEligibleRoastAt: INITIAL_ROAST_DATE,
       };
       await database().collection("account_subscriptions").doc(subscription.id).set(subscription);
-      await syncSubscriptionMirror(subscription, account);
       res.status(201).json({ subscription });
     } catch (error: unknown) {
       logger.error("Unable to create subscription", { error: (error as Error).message });
@@ -393,7 +473,6 @@ export class AccountService {
       }
       const subscription = { ...snapshot.data(), status: "canceled" } as StoredSubscription;
       await snapshot.ref.update({ status: subscription.status });
-      await syncSubscriptionMirror(subscription, account);
       res.json({ subscription });
     } catch (error: unknown) {
       logger.error("Unable to cancel subscription", { error: (error as Error).message });
@@ -416,7 +495,6 @@ export class AccountService {
       }
       const subscription = { ...snapshot.data(), skipNextDelivery: true } as StoredSubscription;
       await snapshot.ref.update({ skipNextDelivery: subscription.skipNextDelivery });
-      await syncSubscriptionMirror(subscription, account);
       res.json({ subscription });
     } catch (error: unknown) {
       logger.error("Unable to skip subscription", { error: (error as Error).message });

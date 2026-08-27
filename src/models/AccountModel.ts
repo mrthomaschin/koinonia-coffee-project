@@ -16,7 +16,6 @@ export interface Subscription {
     plan: SubscriptionPlan;
     bagCount: 1 | 2;
     cadence: 'every-session' | 'every-other-session';
-    coffeePreference: string;
     itemSku: string;
     itemName: string;
     weight: string;
@@ -26,6 +25,7 @@ export interface Subscription {
     status: 'active' | 'paused' | 'canceled';
     skipNextDelivery: boolean;
     createdAt: string;
+    nextEligibleRoastAt: string;
 }
 
 export interface CreateSubscriptionInput {
