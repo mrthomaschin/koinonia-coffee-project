@@ -29,7 +29,17 @@ interface NotionOrderData {
   };
   shippingBox?: string;
   isLocalPickup?: boolean;
+  orderPickupId?: string;
   discountCode?: string;
+}
+
+export interface OrderPickupOption {
+  id: string;
+  name: string;
+  start: string;
+  end: string | null;
+  address: string;
+  pickupId: string;
 }
 
 export interface InventoryVariant {
@@ -159,6 +169,26 @@ class NotionService {
       logger.log('✅ Notion order created successfully:', result.pageId);
     } catch (error) {
       logger.error('❌ Failed to create Notion order:', error);
+      throw error;
+    }
+  }
+
+  async getOrderPickupOptions(targetDate: string): Promise<OrderPickupOption[]> {
+    try {
+      const response = await fetch(
+        `${this.backendUrl}/get-order-pickup-options?targetDate=${encodeURIComponent(targetDate)}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.options || [];
+    } catch (error) {
+      logger.error('❌ Failed to fetch order pickup options:', error);
       throw error;
     }
   }

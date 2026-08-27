@@ -179,6 +179,9 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
   }
 });
 
+// Get upcoming local pickup options from Notion
+app.get("/get-order-pickup-options", async (req: Request, res: Response) => NotionService.getOrderPickupOptions(req, res));
+
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
 
@@ -351,7 +354,8 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_TOKEN",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
     "NOTION_INVENTORY_DATABASE_ID",
-    "NOTION_DISCOUNT_CODES_DATABASE_ID"
+    "NOTION_DISCOUNT_CODES_DATABASE_ID",
+    "NOTION_ORDER_PICKUP_DATABASE_ID"
   ];
 }
 export const api = onRequest(apiOptions, app);
