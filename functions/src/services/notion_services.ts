@@ -247,6 +247,67 @@ export interface InventoryCache {
 }
 
 export class NotionService {
+    static async getOrderPickupOptions(req: Request, res: Response): Promise<void> {
+        try {
+            const databaseId = process.env.NOTION_ORDER_PICKUP_DATABASE_ID;
+            if (!databaseId) {
+                res.status(500).json({ error: "NOTION_ORDER_PICKUP_DATABASE_ID not configured" });
+                return;
+            }
+
+            const targetDate = typeof req.query.targetDate === "string" && req.query.targetDate
+                ? req.query.targetDate
+                : new Date().toISOString();
+
+            const notion = getNotion();
+            const response = await notion.databases.query({
+                database_id: databaseId,
+                page_size: 5,
+                filter: {
+                    property: "Timeframe",
+                    date: { on_or_after: targetDate },
+                },
+                sorts: [{ property: "Timeframe", direction: "ascending" }],
+            });
+
+            const options = response.results.flatMap((page: any) => {
+                if (!("properties" in page)) return [];
+
+                const properties = page.properties;
+                const timeframe = properties["Timeframe"]?.date;
+                const start = timeframe?.start;
+                if (!start) return [];
+
+                const nameProperty = properties["Name"];
+                const name = nameProperty?.title?.[0]?.plain_text
+                    || nameProperty?.rich_text?.[0]?.plain_text
+                    || "";
+                const address = properties["Address"]?.formula?.string || "";
+                const pickupUniqueId = properties["Pickup ID"]?.unique_id;
+                const pickupId = pickupUniqueId?.number;
+                if (pickupId == null) return [];
+                const pickupIdPrefix = pickupUniqueId?.prefix;
+                const formattedPickupId = pickupIdPrefix
+                    ? `${pickupIdPrefix}-${pickupId}`
+                    : String(pickupId);
+
+                return [{
+                    id: page.id,
+                    name,
+                    start,
+                    end: timeframe.end || null,
+                    address,
+                    pickupId: formattedPickupId,
+                }];
+            });
+
+            res.json({ options });
+        } catch (error: unknown) {
+            logger.error("Error fetching order pickup options", { error: (error as Error).message });
+            res.status(500).json({ error: (error as Error).message });
+        }
+    }
+
     static async fetchInventoryFromNotion(forceRefresh: boolean = false): Promise<InventoryCache> {
         const databaseId = process.env.NOTION_INVENTORY_DATABASE_ID;
         if (!databaseId) {
@@ -441,6 +502,7 @@ export class NotionService {
                 shippingAddress,
                 shipmentData,
                 isLocalPickup,
+                orderPickupId,
                 shippingBox,
                 discountCode,
             } = req.body;
@@ -517,6 +579,15 @@ export class NotionService {
                     },
                     "Local Pickup": {
                         checkbox: isLocalPickup || false,
+                    },
+                    "Order Pickup ID": {
+                        rich_text: [
+                            {
+                                text: {
+                                    content: orderPickupId || "",
+                                },
+                            },
+                        ],
                     },
                     "Items ordered": {
                         rich_text: [

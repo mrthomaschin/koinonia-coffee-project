@@ -47,6 +47,8 @@ interface EmbeddedOrderData {
   tax: number;
   total: number;
   timestamp: string;
+  isLocalPickup?: boolean;
+  orderPickupId?: string | null;
 }
 
 const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ availableHeight }) => {
@@ -128,6 +130,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
             const shippingAddress = (state as any).orderData?.shippingAddress || '';
             const shipmentData = (state as any).orderData?.shipmentData || null;
             const isLocalPickup = (state as any).orderData?.isLocalPickup || false;
+            const orderPickupId = (state as any).orderData?.orderPickupId || '';
 
             // Check if order confirmed email was already sent
             const { emailSent, orderExists } = await notionService.checkOrderConfirmedEmailSent(orderId);
@@ -152,6 +155,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     shipmentData: shipmentData,
                     shippingBox: shipmentData?.boxSize || '',
                     isLocalPickup: isLocalPickup,
+                    orderPickupId: orderPickupId,
                     discountCode: state.orderData.discountCode
                   });
                   logger.log('✅ Notion order created successfully!');
@@ -271,6 +275,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               // Get shipment data if available
               const shipmentData = (data as any).shipmentData || null;
               const isLocalPickup = (data as any).isLocalPickup || false;
+              const orderPickupId = (data as any).orderPickupId || '';
 
               // Check if order confirmed email was already sent
               const { emailSent, orderExists } = await notionService.checkOrderConfirmedEmailSent(orderId);
@@ -295,6 +300,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                       shipmentData: shipmentData,
                       shippingBox: shipmentData?.boxSize || '',
                       isLocalPickup: isLocalPickup,
+                      orderPickupId: orderPickupId,
                       discountCode: undefined
                     });
                     logger.log('✅ Notion order created successfully!');
