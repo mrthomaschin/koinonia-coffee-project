@@ -9,12 +9,12 @@ import { TaxCodes } from '../constants/TaxCodes';
 import { calculateParcel, formatParcelForEasyPost } from '../util/shipping';
 import { SHIPPING_RESTRICTION_MESSAGE, cartContainsCoffee } from '../services/shippingLocationsService';
 import { validateStripeAddress, type AddressValidationResult } from '../services/addressValidationService';
+import { notionService, type OrderPickupOption } from '../services/notionService';
+import { ItemType } from '../pages/shop/item/ItemModel';
+import { getCoffeeDataById } from '../pages/shop/item/coffee_bag/CoffeeData';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
-
-// Flag to enable/disable local pickup option
-const LOCAL_PICKUP_ENABLED = false;
 
 // Free shipping threshold
 const FREE_SHIPPING_THRESHOLD = 40;
@@ -28,13 +28,24 @@ const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
 });
 const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
+const formatPickupTimeframe = (start: string, end: string | null): string => {
+  const startDate = new Date(start);
+  const endDate = end ? new Date(end) : null;
+  const dateFormat: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+  const timeFormat: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+  const date = startDate.toLocaleDateString(undefined, dateFormat);
+  const startTime = startDate.toLocaleTimeString(undefined, timeFormat);
+  const endTime = endDate ? endDate.toLocaleTimeString(undefined, timeFormat) : null;
+  return `${date}, ${startTime}${endTime ? `–${endTime}` : ''}`;
+};
+
 interface DiscountCodeProp {
   code: string;
   percentOff: number;
 }
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, orderPickupId?: string) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -78,7 +89,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [currentAddress, setCurrentAddress] = useState<any>(null);
   const [showShippingRestriction, setShowShippingRestriction] = useState(false);
   const [addressValidation, setAddressValidation] = useState<AddressValidationResult | null>(null);
-  const [showPickupDisabledMessage, setShowPickupDisabledMessage] = useState(false);
+  const [pickupOptions, setPickupOptions] = useState<OrderPickupOption[]>([]);
+  const [selectedPickupId, setSelectedPickupId] = useState('');
+  const [isLoadingPickupOptions, setIsLoadingPickupOptions] = useState(false);
+  const [pickupOptionsError, setPickupOptionsError] = useState<string | null>(null);
   const [originalShippingPrice, setOriginalShippingPrice] = useState(0);
   const qualifiesForFreeShipping = totalAmount >= FREE_SHIPPING_THRESHOLD;
 
@@ -255,6 +269,61 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     }
     return [];
   };
+
+  const getPickupTargetDate = (): string => {
+    const roastDates = getCartItems()
+      .filter((cartItem: any) => cartItem.item?.itemType === ItemType.coffee)
+      .map((cartItem: any) => {
+        const sku = cartItem.variantSku || cartItem.item?.sku;
+        const roastDate = cartItem.item?.roastDate
+          || getCoffeeDataById(sku)?.roastDate
+          || getCoffeeDataById(cartItem.item?.sku)?.roastDate;
+        const date = roastDate ? new Date(roastDate) : null;
+        return date && !Number.isNaN(date.getTime()) ? date : null;
+      })
+      .filter((date: Date | null): date is Date => date !== null);
+
+    const now = Date.now();
+    const earliestRoastDate = roastDates.length > 0
+      ? Math.min(...roastDates.map((date) => date.getTime()))
+      : now;
+
+    // Pickup options must be upcoming. If a roast date is today or in the past,
+    // use the current time so already-passed slots are not returned.
+    return new Date(Math.max(now, earliestRoastDate)).toISOString();
+  };
+
+  useEffect(() => {
+    if (deliveryMethod !== 'pickup') return;
+
+    let cancelled = false;
+    const loadPickupOptions = async () => {
+      setIsLoadingPickupOptions(true);
+      setPickupOptionsError(null);
+      try {
+        const options = await notionService.getOrderPickupOptions(getPickupTargetDate());
+        if (!cancelled) {
+          setPickupOptions(options);
+          setSelectedPickupId((current) => options.some((option) => option.pickupId === current)
+            ? current
+            : options[0]?.pickupId || '');
+        }
+      } catch {
+        if (!cancelled) {
+          setPickupOptions([]);
+          setSelectedPickupId('');
+          setPickupOptionsError('Pickup times are temporarily unavailable. Please try again.');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPickupOptions(false);
+      }
+    };
+
+    loadPickupOptions();
+    return () => { cancelled = true; };
+    // Pickup options are loaded when the user chooses local pickup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryMethod]);
 
 
   const fetchShippingRatesFromEasyPost = async (address: any) => {
@@ -548,6 +617,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         });
 
         let currentShippingAddress = '';
+        // Capture the pickup ID before the shipping branch narrows deliveryMethod.
+        const orderPickupId = deliveryMethod === 'pickup' ? selectedPickupId : undefined;
 
         if (deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup') {
           logger.log('[shipment] Starting shipment purchase process');
@@ -632,7 +703,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   customerPhone,
                   shipmentData,
                   currentShippingAddress,
-                  taxAmount
+                  taxAmount,
+                  orderPickupId
                 );
               } else {
                 logger.error('[shipment] Purchase shipment API call failed', {
@@ -640,17 +712,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   statusText: response.statusText
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
               }
             } else {
               logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
             }
           } catch (shipmentError) {
             logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
           }
         } else {
           logger.log('[shipment] Shipment purchase conditions not met, skipping', {
@@ -658,7 +730,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             selectedShippingId: selectedShipping.id
           });
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount);
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, orderPickupId);
         }
       }
     } catch (err) {
@@ -684,6 +756,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     // Check email and phone validation
     if (!validateEmail(customerEmail) || !validatePhone(customerPhone)) {
       logger.log('[form] Form invalid: email or phone format incorrect');
+      return false;
+    }
+
+    if (deliveryMethod === 'pickup' && !selectedPickupId) {
       return false;
     }
 
@@ -830,12 +906,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               <span>Shipping</span>
             </div>
             <div
-              className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''} ${!LOCAL_PICKUP_ENABLED ? 'disabled' : ''}`}
+              className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
               onClick={() => {
-                if (!LOCAL_PICKUP_ENABLED) {
-                  setShowPickupDisabledMessage(!showPickupDisabledMessage);
-                  return;
-                }
                 setDeliveryMethod('pickup');
                 // Cancel any pending shipping rate fetches
                 if (debounceTimer) {
@@ -861,18 +933,35 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           </div>
         </div>
 
-        {!LOCAL_PICKUP_ENABLED && showPickupDisabledMessage && (
-          <div className="pickup-disabled-container expanded">
-            <div className="pickup-disabled-text">
-              Local pickup is not available at this time. We apologize for the inconvenience.
-            </div>
-          </div>
-        )}
-
         {deliveryMethod === 'pickup' && (
           <div className="pickup-info-container expanded">
             <div className="pickup-info-text">
-              Free local pickup is available in Lawndale and Arcadia, CA. Since we don’t have a storefront, we’ll contact you within 24 hours to arrange a pickup time and location.          </div>
+              <div>Choose a pickup time and location. Local pickup is free.</div>
+              <label htmlFor="pickup-option" className="pickup-select-label">Pickup time and location *</label>
+              {isLoadingPickupOptions ? (
+                <div className="loading-shipping">Loading pickup options...</div>
+              ) : pickupOptionsError ? (
+                <div className="field-error">{pickupOptionsError}</div>
+              ) : (
+                <select
+                  id="pickup-option"
+                  className="form-input pickup-select"
+                  value={selectedPickupId}
+                  onChange={(event) => setSelectedPickupId(event.target.value)}
+                  required
+                >
+                  <option value="" disabled>Select a pickup option</option>
+                  {pickupOptions.map((option) => (
+                    <option key={option.id} value={option.pickupId}>
+                      {formatPickupTimeframe(option.start, option.end)} — {option.address}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!isLoadingPickupOptions && !pickupOptionsError && pickupOptions.length === 0 && (
+                <div className="field-hint">No upcoming pickup options are available.</div>
+              )}
+            </div>
           </div>
         )}
 
@@ -981,7 +1070,7 @@ interface DiscountCode {
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, orderPickupId?: string) => void;
   onCancel: () => void;
   discountCode?: DiscountCode | null;
 }
@@ -1022,9 +1111,9 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     });
   }, [clientSecret]);
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number) => {
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, orderPickupId?: string) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax);
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, orderPickupId);
   };
   const options = {
     clientSecret,
