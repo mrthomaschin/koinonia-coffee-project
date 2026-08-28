@@ -4,6 +4,7 @@ import { createLogger } from "../logger";
 
 import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
+import { generateReceiptImage } from "./pictify_service";
 const logger = createLogger("notion");
 
 const getNextRoastDateForInventory = async (): Promise<string | null> => {
@@ -131,9 +132,53 @@ const getNotion = () => {
         if (!token) {
             throw new Error("NOTION_TOKEN is not configured");
         }
-        notionInstance = new Client({ auth: token });
+        notionInstance = new Client({ auth: token, notionVersion: "2022-06-28" });
     }
     return notionInstance;
+};
+
+const uploadFileToNotion = async (filename: string, contentType: string, file: Buffer): Promise<string> => {
+    const token = process.env.NOTION_TOKEN;
+    if (!token) throw new Error("NOTION_TOKEN is not configured");
+
+    const headers = {
+        Authorization: `Bearer ${token}`,
+        "Notion-Version": "2022-06-28",
+    };
+    const createResponse = await fetch("https://api.notion.com/v1/file_uploads", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            mode: "single_part",
+            filename,
+            content_type: contentType,
+        }),
+    });
+
+    if (!createResponse.ok) {
+        throw new Error(`Notion file upload initialization failed (${createResponse.status}): ${await createResponse.text()}`);
+    }
+
+    const upload = await createResponse.json() as { id?: string; upload_url?: string };
+    if (!upload.id || !upload.upload_url) throw new Error("Notion did not return a file upload URL");
+
+    const form = new FormData();
+    // Copy into an ArrayBuffer-backed view for the DOM Blob typings used by
+    // Node 20's fetch implementation.
+    const fileBytes = new Uint8Array(file.length);
+    file.copy(fileBytes);
+    form.append("file", new Blob([fileBytes], { type: contentType }), filename);
+    const sendResponse = await fetch(upload.upload_url, {
+        method: "POST",
+        headers,
+        body: form,
+    });
+
+    if (!sendResponse.ok) {
+        throw new Error(`Notion PDF upload failed (${sendResponse.status}): ${await sendResponse.text()}`);
+    }
+
+    return upload.id;
 };
 
 // Helper function to extract text/number from a Notion property object
@@ -501,6 +546,9 @@ export class NotionService {
                 orderId,
                 items,
                 totalAmount,
+                subtotal,
+                shipping,
+                tax,
                 orderDate,
                 transactionId,
                 shippingAddress,
@@ -548,6 +596,24 @@ export class NotionService {
 
 
             const notion = getNotion();
+            logger.info("Generating invoice receipt before creating Notion order", { orderId });
+            const receiptImage = await generateReceiptImage({
+                customerName,
+                customerEmail,
+                customerAddress: shippingAddress,
+                orderId,
+                items,
+                subtotal,
+                shipping,
+                tax,
+                totalAmount,
+                orderDate,
+                transactionId,
+                discountCode,
+            });
+            const receiptFilename = `receipt-${orderId}.png`;
+            const receiptUploadId = await uploadFileToNotion(receiptFilename, "image/png", receiptImage);
+
             const response = await notion.pages.create({
                 parent: {
                     database_id: databaseId,
@@ -638,6 +704,17 @@ export class NotionService {
                     "Receipt": {
                         url: `https://dashboard.stripe.com/payments/${transactionId}`,
                     },
+                    "Invoice Receipt": {
+                        files: [
+                            {
+                                name: receiptFilename,
+                                type: "file_upload",
+                                file_upload: {
+                                    id: receiptUploadId,
+                                },
+                            },
+                        ],
+                    },
                     "Total": {
                         number: totalAmount,
                     },
@@ -658,7 +735,7 @@ export class NotionService {
                             },
                         ],
                     },
-                },
+                } as any,
             });
 
             // Add shipping box if provided

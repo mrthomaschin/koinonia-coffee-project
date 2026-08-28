@@ -151,6 +151,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     orderId: orderId,
                     items: purchaseItems,
                     totalAmount: state.orderData.total,
+                    subtotal: state.orderData.subtotal,
+                    shipping: state.orderData.shipping,
+                    tax: state.orderData.tax,
                     orderDate: state.orderData.timestamp,
                     transactionId: orderId,
                     shippingAddress: shippingAddress,
@@ -278,6 +281,20 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               const shipmentData = (data as any).shipmentData || null;
               const isLocalPickup = (data as any).isLocalPickup || false;
               const orderPickupId = (data as any).orderPickupId || '';
+              const totalAmount = data.amount_total / 100;
+
+              // Extract tax and shipping from Stripe line items for the receipt.
+              let tax = 0;
+              let shipping = 0;
+              if ((data as any).line_items?.data) {
+                (data as any).line_items.data.forEach((item: any) => {
+                  const amount = item.amount / 100;
+                  const description = item.description?.toLowerCase() || '';
+                  if (description.includes('tax')) tax += amount;
+                  else if (description.includes('shipping')) shipping += amount;
+                });
+              }
+              if (shipping === 0) shipping = totalAmount - subtotal - tax;
 
               // Check if order confirmed email was already sent
               const { emailSent, orderExists } = await notionService.checkOrderConfirmedEmailSent(orderId);
@@ -296,6 +313,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                       orderId: orderId,
                       items: purchaseItems,
                       totalAmount: data.amount_total / 100,
+                      subtotal,
+                      shipping: shipping,
+                      tax,
                       orderDate: new Date().toISOString(),
                       transactionId: sessionId,
                       shippingAddress: (data as any).shipping_address || '',
@@ -326,28 +346,6 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
 
                   // Send customer confirmation email
                   logger.log('📧 Sending customer confirmation email...');
-                  const totalAmount = data.amount_total / 100;
-
-                  // Extract tax and shipping from Stripe line items
-                  let tax = 0;
-                  let shipping = 0;
-                  if (data.line_items && data.line_items.data) {
-                    data.line_items.data.forEach((item: any) => {
-                      const amount = item.amount / 100;
-                      const description = item.description?.toLowerCase() || '';
-                      if (description.includes('tax')) {
-                        tax += amount;
-                      } else if (description.includes('shipping')) {
-                        shipping += amount;
-                      }
-                    });
-                  }
-
-                  // If no explicit shipping line item, calculate from total
-                  if (shipping === 0) {
-                    shipping = totalAmount - subtotal - tax;
-                  }
-
                   await sendCustomerConfirmation({
                     customerEmail: data.customer_email,
                     customerName: data.customer_name || 'Valued Customer',

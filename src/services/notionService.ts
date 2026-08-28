@@ -16,6 +16,9 @@ interface NotionOrderData {
   orderId: string;
   items: OrderItem[];
   totalAmount: number;
+  subtotal?: number;
+  shipping?: number;
+  tax?: number;
   orderDate: string;
   transactionId: string;
   shippingAddress?: string;
