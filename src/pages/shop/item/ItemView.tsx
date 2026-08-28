@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 import { Item, ItemType } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
@@ -10,6 +11,8 @@ import './ItemView.css';
 import { useCart } from '../../../contexts/CartContext';
 import { ICONS } from '../../../util/constants';
 import { isLimitedTimeOfferAvailable, allowsUnlimitedPurchases } from '../../../util/limitedTimeOffer';
+import { useInventory } from '../../../contexts/InventoryContext';
+import { generateSlug } from '../shopData';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -39,20 +42,23 @@ export const ItemView: React.FC<ItemViewProps> = ({
   isSoldOut,
 }) => {
   const { cart } = useCart();
+  const navigate = useNavigate();
+  const { items: inventoryItems } = useInventory();
   const {
     item: viewModelItem,
     isLoading,
     handleBack: viewModelHandleBack,
     isDetailsDropdownOpen,
-    isBrewingMethodDropdownOpen,
     toggleDetailsDropdown,
-    toggleBrewingMethodDropdown,
     defaultCalculatePrice,
     defaultHandleAddToCart,
   } = useItemDetailViewModel(itemProp, cart);
 
   const item = itemProp || viewModelItem;
   const onBack = onBackProp || viewModelHandleBack;
+  const relatedItems = item
+    ? inventoryItems.filter((relatedItem) => relatedItem.sku !== item.sku).slice(0, 3)
+    : [];
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -272,7 +278,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
             </div>
           )}
 
-          <div className="detail-purchase">
+          <div className={`detail-purchase ${item.itemType === ItemType.coffee ? 'coffee-detail-purchase' : ''}`}>
             <div className="detail-price-section">
               <span className="detail-price-label">Price</span>
               <span className="detail-price">${(calculatePrice || defaultCalculatePrice)()}</span>
@@ -287,6 +293,17 @@ export const ItemView: React.FC<ItemViewProps> = ({
           </div>
         </div>
       </div>
+
+      {item.itemType === ItemType.coffee && (
+        <section className="coffee-story-section">
+          <div>
+            <p className="coffee-detail-eyebrow">THE COFFEE</p>
+            <h2>Approachable<br />without being<br />ordinary.</h2>
+          </div>
+          <p>{item.itemDetails || item.itemSummary}</p>
+        </section>
+      )}
+
       <div className="item-detail-dropdown">
         <button
           className="dropdown-toggle"
@@ -299,18 +316,37 @@ export const ItemView: React.FC<ItemViewProps> = ({
           {renderDetailsSection ? renderDetailsSection(item) : item.itemSummary ? <ReactMarkdown>{item.itemSummary}</ReactMarkdown> : <p>More details about this item will be displayed here.</p>}
         </div>
       </div>
-      {renderBrewingMethod && <div className="item-detail-dropdown">
-        <button
-          className="dropdown-toggle"
-          onClick={toggleBrewingMethodDropdown}
-        >
-          <h2>BREWING METHOD</h2>
-          <span className={`dropdown-arrow ${isBrewingMethodDropdownOpen ? 'open' : ''}`}>▼</span>
-        </button>
-        <div className={`dropdown-content ${isBrewingMethodDropdownOpen ? 'open' : ''}`}>
-          {renderBrewingMethod(item)}
-        </div>
-      </div>}
+      {renderBrewingMethod && renderBrewingMethod(item)}
+
+      {relatedItems.length > 0 && (
+        <section className="you-may-also-like">
+          <div className="related-heading">
+            <p className="related-eyebrow">KEEP GATHERING</p>
+            <h2>You might also like.</h2>
+          </div>
+          <div className="related-grid">
+            {relatedItems.map((relatedItem) => (
+              <button
+                type="button"
+                className="related-card"
+                key={relatedItem.sku}
+                onClick={() => navigate(`/shop/${generateSlug(relatedItem.name)}`)}
+              >
+                <span className="related-image-wrap">
+                  <img
+                    src={relatedItem.firebaseImageUrls?.[0] || ICONS.shopPlaceholder}
+                    alt={relatedItem.name}
+                  />
+                </span>
+                <span className="related-card-copy">
+                  <strong>{relatedItem.name}</strong>
+                  <small>{ItemType[relatedItem.itemType].replace(/([A-Z])/g, ' $1').toUpperCase()} · ${relatedItem.price.toFixed(2)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

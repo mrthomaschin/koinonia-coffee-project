@@ -4,6 +4,7 @@
   position: sticky;
   top: 40px;
   z-index: 1000;
+  border-bottom: 1px solid rgba(47, 43, 57, .16);
 }
 
 .app-bar-content {
@@ -26,7 +27,7 @@
 .app-bar-nav-desktop {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 30px;
 }
 
 .nav-item {
@@ -39,8 +40,8 @@
 
 .nav-label {
   font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 400;
   color: #2F2B39;
   letter-spacing: 1px;
 }
@@ -83,7 +84,7 @@
   background-color: #313D66;
   color: #FFFFFF;
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   min-width: 18px;
   height: 18px;
@@ -99,9 +100,11 @@
   0% {
     transform: scale(0);
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
   }
@@ -111,7 +114,7 @@
   background-color: #84825E;
   color: white;
   border: none;
-  padding: 16px 24px;
+  padding: 15px 22px;
   border-radius: 8px;
   font-family: 'ShipporiAntiqueB1', sans-serif;
   font-size: 12px;
@@ -144,13 +147,14 @@
 
 .app-bar-dropdown {
   position: absolute;
-  top: 120px;
-  right: 16px;
+  top: 80px;
+  right: 8px;
   background-color: #F8F5EB;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 8px 0;
-  min-width: 200px;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 8px 18px rgba(47, 43, 57, 0.14);
+  padding: 8px 0 14px;
+  width: 185px;
+  min-width: 185px;
   animation: slideDown 0.3s ease-out;
   transform-origin: top;
 }
@@ -160,6 +164,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -167,7 +172,7 @@
 }
 
 .dropdown-item {
-  padding: 12px 24px;
+  padding: 12px 8px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -180,8 +185,8 @@
 
 .dropdown-label {
   font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 400;
   color: #2F2B39;
   letter-spacing: 1px;
 }
@@ -194,7 +199,7 @@
 }
 
 .dropdown-button-container {
-  padding: 8px 24px;
+  padding: 10px 24px 0;
 }
 
 .contact-us-button-mobile {
@@ -202,16 +207,16 @@
   background-color: #84825E;
   color: white;
   border: none;
-  padding: 12px 20px;
+  padding: 13px 16px;
   border-radius: 8px;
   font-family: 'ShipporiAntiqueB1', sans-serif;
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 1px;
+  font-weight: 400;
+  letter-spacing: 1.4px;
   cursor: pointer;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 900px) {
   .app-bar-content {
     padding: 0 16px;
     gap: 4px;
@@ -240,9 +245,10 @@
   }
 
   .app-bar-dropdown {
-    top: 116px;
+    top: 80px;
   }
 }
+
 .profile-button {
   border: 0;
   background: transparent;

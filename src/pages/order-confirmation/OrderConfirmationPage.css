@@ -25,24 +25,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
+  font-size: 48px;
   margin: 0 auto 30px;
   font-weight: bold;
 }
 
 .warning-icon {
-  font-size: 4rem;
+  font-size: 64px;
   margin-bottom: 20px;
 }
 
 .error-icon {
-  font-size: 4rem;
+  font-size: 64px;
   margin-bottom: 20px;
 }
 
 .confirmation-title {
   font-family: 'HedvigLettersSerif_18pt', serif;
-  font-size: 2rem;
+  font-size: 32px;
   font-weight: 700;
   color: #2F2B39;
   margin-bottom: 15px;
@@ -50,7 +50,7 @@
 
 .confirmation-message {
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 1.125rem;
+  font-size: 18px;
   color: #59667E;
   margin-bottom: 40px;
   line-height: 1.6;
@@ -66,7 +66,7 @@
 
 .order-details h2 {
   font-family: 'HedvigLettersSerif_18pt', serif;
-  font-size: 1.25rem;
+  font-size: 20px;
   font-weight: 600;
   color: #2F2B39;
   margin-bottom: 20px;
@@ -88,20 +88,20 @@
   font-family: 'RethinkSans-Regular', sans-serif;
   font-weight: 600;
   color: #59667E;
-  font-size: 0.95rem;
+  font-size: 15.2px;
 }
 
 .detail-value {
   font-family: 'RethinkSans-Regular', sans-serif;
   color: #2F2B39;
-  font-size: 0.95rem;
+  font-size: 15.2px;
   text-align: right;
   word-break: break-word;
   max-width: 60%;
 }
 
 .detail-value.amount {
-  font-size: 1.125rem;
+  font-size: 18px;
   font-weight: 700;
   color: #84825E;
 }
@@ -122,7 +122,7 @@
 
 .confirmation-info p {
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 0.95rem;
+  font-size: 15.2px;
   color: #2F2B39;
   margin: 10px 0;
   line-height: 1.6;
@@ -137,7 +137,7 @@
   color: #FFFFFF;
   padding: 16px 40px;
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.5px;
   border: none;
@@ -175,7 +175,7 @@
 
 .loading-spinner p {
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 1rem;
+  font-size: 16px;
   color: #59667E;
 }
 
@@ -186,14 +186,14 @@
 
 .error-state h1 {
   font-family: 'HedvigLettersSerif_18pt', serif;
-  font-size: 1.75rem;
+  font-size: 28px;
   color: #dc3545;
   margin-bottom: 15px;
 }
 
 .error-state p {
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 1rem;
+  font-size: 16px;
   color: #59667E;
   margin-bottom: 30px;
 }
@@ -208,11 +208,11 @@
   }
 
   .confirmation-title {
-    font-size: 1.5rem;
+    font-size: 24px;
   }
 
   .confirmation-message {
-    font-size: 1rem;
+    font-size: 16px;
   }
 
   .order-details {
@@ -221,10 +221,177 @@
 
   .detail-value {
     max-width: 55%;
-    font-size: 0.875rem;
+    font-size: 14px;
   }
 
   .detail-label {
-    font-size: 0.875rem;
+    font-size: 14px;
+  }
+}
+
+/* Editorial confirmation treatment */
+.order-confirmation-page {
+  padding: 72px 5.5vw 100px;
+  background: #f8f5eb;
+  color: #2f2b39;
+}
+
+.confirmation-container {
+  max-width: 900px;
+}
+
+.confirmation-content {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.success-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 30px;
+  background: #84825e;
+  font: 400 40px 'RethinkSans-Regular', sans-serif;
+}
+
+.confirmation-title {
+  margin: 0 0 16px;
+  font: 400 50px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: .95;
+  letter-spacing: -2px;
+}
+
+.confirmation-message {
+  max-width: 620px;
+  margin: 0 auto 42px;
+  color: rgba(47, 43, 57, .7);
+  font: 16px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.6;
+}
+
+.order-details {
+  max-width: 660px;
+  margin: 0 auto 30px;
+  padding: 32px 36px 26px;
+  border-radius: 0;
+  background: #eeece4;
+}
+
+.order-details h2 {
+  margin: 0 0 20px;
+  font: 400 29px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: 1;
+  text-align: left;
+}
+
+.detail-row {
+  padding: 14px 0;
+  border-bottom-color: rgba(47, 43, 57, .2);
+}
+
+.detail-label,
+.detail-value {
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.4;
+}
+
+.detail-label {
+  color: rgba(47, 43, 57, .68);
+}
+
+.detail-value {
+  color: #2f2b39;
+}
+
+.detail-value.amount,
+.detail-value.status-paid {
+  color: #84825e;
+}
+
+.confirmation-info {
+  max-width: 660px;
+  margin: 0 auto 32px;
+  padding: 20px 24px;
+  border-left: 3px solid #84825e;
+  border-radius: 0;
+  background: #c8c4ba;
+}
+
+.confirmation-info p {
+  margin: 0;
+  color: rgba(47, 43, 57, .78);
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.6;
+}
+
+.confirmation-info p + p {
+  margin-top: 10px;
+}
+
+.continue-shopping-btn {
+  margin-top: 4px;
+  padding: 15px 30px;
+  border-radius: 8px;
+  background: #84825e;
+  font: 11px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.continue-shopping-btn:hover {
+  background: #6d6a4d;
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.loading-spinner,
+.error-state {
+  padding: 80px 20px;
+}
+
+.spinner {
+  width: 42px;
+  height: 42px;
+  border: 3px solid rgba(132, 130, 94, .2);
+  border-top-color: #84825e;
+}
+
+.loading-spinner p,
+.error-state p {
+  color: rgba(47, 43, 57, .7);
+  font: 16px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.6;
+}
+
+.error-state h1 {
+  color: #2f2b39;
+  font: 400 40px 'HedvigLettersSerif_18pt', Georgia, serif;
+}
+
+@media (max-width: 768px) {
+  .order-confirmation-page {
+    padding: 54px 24px 72px;
+  }
+
+  .confirmation-title {
+    font-size: 42px;
+  }
+
+  .order-details {
+    padding: 26px 22px 20px;
+  }
+
+  .order-details h2 {
+    font-size: 26px;
+  }
+
+  .detail-label,
+  .detail-value {
+    font-size: 13px;
+  }
+
+  .confirmation-info {
+    padding: 18px;
   }
 }

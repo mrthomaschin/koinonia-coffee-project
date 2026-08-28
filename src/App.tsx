@@ -44,6 +44,10 @@ const MainContent: React.FC = () => {
     trackingService.trackPageView(location.pathname + location.search);
   }, [location]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.search]);
+
   const { toasts, removeToast } = useCart();
 
   return (

@@ -16,6 +16,7 @@ interface ContactFormData {
   lastName: string;
   phone: string;
   email: string;
+  subject: string;
   message: string;
 }
 
@@ -71,6 +72,7 @@ export const submitContactForm = async (formData: ContactFormData): Promise<void
     const templateParams = {
       from_name: `${formData.firstName} ${formData.lastName}`,
       from_email: formData.email,
+      subject: formData.subject,
       phone: formData.phone,
       message: formData.message,
       to_name: 'Koinonia Coffee Project',

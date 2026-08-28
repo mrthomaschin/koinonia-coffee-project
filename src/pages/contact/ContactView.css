@@ -1,209 +1,365 @@
 .contact-page {
-  background-color: #F8F5EB;
-  padding: 40px;
+  background: #f8f5eb;
+  color: #2f2b39;
 }
 
-.contact-mobile {
+.contact-hero {
+  min-height: 210px;
+  padding: 68px 5.5% 42px;
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
   gap: 40px;
 }
 
-.contact-desktop {
-  display: flex;
-  gap: 60px;
-  align-items: flex-start;
+.eyebrow {
+  color: #84825e;
+  font: 10px 'ShipporiAntiqueB1', sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
 }
 
-.contact-left {
-  flex: 1;
-}
-
-.contact-right {
-  flex: 1;
-}
-
-.contact-text-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.contact-title {
+.contact-hero h1,
+.contact-intro h2,
+.instagram-copy h2,
+.contact-form-heading {
   font-family: 'HedvigLettersSerif_18pt', serif;
-  font-size: 40px;
-  font-weight: bold;
-  color: #2F2B39;
-  margin: 0;
+  font-weight: 400;
+  letter-spacing: -1.8px;
 }
 
-.contact-description {
-  font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 18px;
-  color: #2F2B39;
-  margin: 0;
-  line-height: 1.6;
+.contact-hero h1 {
+  font-size: clamp(52px, 5.5vw, 70px);
+  line-height: .95;
 }
 
-.contact-email-info {
-  margin-top: 4px;
+.hero-copy {
+  color: #5e5b62;
+  font: 13px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.45;
+  text-align: right;
+  padding-bottom: 2px;
 }
 
-.email-label {
-  font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 18px;
-  color: #2F2B39;
-  margin: 0 0 4px 0;
+.contact-main-section {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(470px, 1.55fr);
+  gap: 7%;
+  padding: 56px 5.5% 68px;
 }
 
-.email-address {
-  font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 18px;
-  color: #2F2B39;
-  margin: 0;
+.contact-intro {
+  padding-top: 4px;
 }
 
-.instagram-row {
-  margin-top: 40px;
+.contact-intro h2 {
+  font-size: clamp(37px, 4vw, 49px);
+  line-height: .91;
+  margin-bottom: 24px;
+}
+
+.intro-copy {
+  max-width: 330px;
+  color: #5e5b62;
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.55;
+  margin-bottom: 24px;
+}
+
+.contact-email {
+  display: inline-block;
+  color: #313d66;
+  padding-bottom: 8px;
+  font: 22px 'GentiumBookPlus-Regular', serif;
+  text-decoration: none;
+}
+
+.contact-links {
+  margin-top: 54px;
+  max-width: 326px;
+}
+
+.contact-links a {
+  color: #2f2b39;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 13px;
+  text-decoration: none;
+}
+
+.contact-links span {
+  font: 21px 'GentiumBookPlus-Regular', serif;
+}
+
+.contact-links small {
+  color: #313d66;
+  font: 12px 'ShipporiAntiqueB1', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.contact-form-column {
+  padding-top: 7px;
+}
+
+.contact-form-heading {
+  font-size: 30px;
+  margin-bottom: 23px;
+}
+
+.contact-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.contact-field {
+  border: 1px solid #bdb9ae;
+  min-height: 73px;
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  cursor: text;
+}
+
+.contact-field:focus-within {
+  border-color: #84825e;
+}
+
+.contact-field-label {
+  color: #77747a;
+  font: 10px 'ShipporiAntiqueB1', sans-serif;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.contact-field input,
+.contact-field select,
+.contact-field textarea {
+  border: 0;
+  outline: 0;
+  color: #2f2b39;
+  background: transparent;
+  font: 14px 'RethinkSans-Regular', sans-serif;
   width: 100%;
+  resize: vertical;
 }
 
-.contact-form-container {
-  background-color: #C3C8A4;
-  padding: 32px;
-  border-radius: 8px;
+.contact-field input::placeholder,
+.contact-field textarea::placeholder,
+.contact-field select:invalid {
+  color: #96928b;
+  opacity: 1;
 }
 
-.contact-form {
+.contact-field select {
+  appearance: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%2384825e'/%3E%3C/svg%3E") right center / 10px no-repeat;
+  padding-right: 18px;
+}
+
+.contact-message-field {
+  grid-column: 1 / -1;
+  min-height: 110px;
+}
+
+.contact-message-field .contact-field-label {
+  margin-bottom: 14px;
+}
+
+.contact-submit-row {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-}
-
-.form-field input,
-.form-field textarea {
-  font-family: 'RethinkSans-Regular', sans-serif;
-  padding: 12px;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  font-size: 16px;
-  background-color: #FFFFFF;
-  color: #2F2B39;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(47, 43, 57, 0.1);
-}
-
-.form-field input:focus,
-.form-field textarea:focus {
-  outline: none;
-  border: 2px solid #2F2B39;
-  box-shadow: 0 4px 12px rgba(47, 43, 57, 0.15);
-  transform: translateY(-2px);
-}
-
-.form-field input:hover:not(:focus),
-.form-field textarea:hover:not(:focus) {
-  box-shadow: 0 3px 8px rgba(47, 43, 57, 0.12);
-  border: 2px solid rgba(47, 43, 57, 0.2);
-}
-
-.form-field input.error,
-.form-field textarea.error {
-  border-color: #d32f2f;
-  animation: shake 0.4s ease;
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-8px); }
-  75% { transform: translateX(8px); }
-}
-
-.error-text {
-  font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 12px;
-  color: #d32f2f;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  align-items: flex-start;
+  gap: 13px;
+  margin-top: 16px;
 }
 
 .submit-button {
-  background-color: #84825E;
+  background: #84825e;
+  border: 0;
   color: white;
-  border: none;
-  padding: 16px;
-  border-radius: 8px;
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 1px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 8px rgba(132, 130, 94, 0.3);
+  min-width: 119px;
+  padding: 16px 18px;
+  text-transform: uppercase;
+  font: 12px 'ShipporiAntiqueB1', sans-serif;
+  letter-spacing: 1px;
 }
 
 .submit-button:hover {
-  background-color: #6d6a4d;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(132, 130, 94, 0.4);
-}
-
-.submit-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(132, 130, 94, 0.3);
+  background: #6d6a4d;
 }
 
 .submit-button:disabled {
-  background-color: #a8a695;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: 0 2px 4px rgba(132, 130, 94, 0.2);
-}
-
-.submit-button.success {
-  background-color: #5a8f5a;
+  opacity: .65;
   cursor: default;
-  animation: successPulse 0.5s ease;
 }
 
-@keyframes successPulse {
-  0% {
-    transform: scale(1);
+.submit-note {
+  color: #85817d;
+  font: 14px 'RethinkSans-Regular', sans-serif;
+}
+
+.error-text {
+  color: #a23d35;
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  margin-top: 5px;
+}
+
+.contact-field input.error,
+.contact-field select.error,
+.contact-field textarea.error {
+  color: #a23d35;
+}
+
+.instagram-section {
+  background: #c9c6bc;
+  min-height: 287px;
+  padding: 60px 5.5% 69px;
+  display: grid;
+  grid-template-columns: 1fr 1.55fr;
+  gap: 7%;
+  align-items: center;
+}
+
+.instagram-copy .eyebrow {
+  margin-bottom: 21px;
+}
+
+.instagram-copy h2 {
+  font-size: clamp(36px, 4vw, 48px);
+  line-height: .9;
+  margin-bottom: 18px;
+}
+
+.instagram-copy>p:last-child {
+  max-width: 300px;
+  color: #5e5b62;
+  font: 13px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.45;
+}
+
+.instagram-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.instagram-section .instagram-embed-container {
+  min-height: 360px;
+  justify-content: flex-end;
+}
+
+.instagram-section .instagram-embed-container .instagram-media {
+  width: 100% !important;
+  max-width: 620px !important;
+}
+
+.instagram-post {
+  aspect-ratio: 1;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: #b6b3a9;
+}
+
+.instagram-post img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(.8);
+  transition: transform .35s ease;
+}
+
+.instagram-post:hover img {
+  transform: scale(1.06);
+}
+
+.instagram-overlay {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 14px 10px 11px;
+  color: white;
+  background: linear-gradient(transparent, rgba(47, 43, 57, .7));
+  font: 12px 'ShipporiAntiqueB1', sans-serif;
+  letter-spacing: .8px;
+  opacity: 0;
+  transition: opacity .25s;
+}
+
+.instagram-post:hover .instagram-overlay,
+.instagram-post:focus .instagram-overlay {
+  opacity: 1;
+}
+
+@media (max-width: 800px) {
+  .contact-hero {
+    min-height: auto;
+    padding: 48px 24px 36px;
+    display: block;
   }
-  50% {
-    transform: scale(1.05);
+
+  .contact-hero h1 {
+    font-size: 52px;
   }
-  100% {
-    transform: scale(1);
+
+  .hero-copy {
+    text-align: left;
+    margin-top: 24px;
+  }
+
+  .desktop-break {
+    display: none;
+  }
+
+  .contact-main-section,
+  .instagram-section {
+    grid-template-columns: 1fr;
+    gap: 44px;
+    padding: 45px 24px 52px;
+  }
+
+  .contact-intro h2 {
+    font-size: 42px;
+  }
+
+  .contact-links {
+    margin-top: 38px;
+    max-width: none;
+  }
+
+  .contact-form-grid {
+    gap: 10px;
+  }
+
+  .instagram-section {
+    padding-top: 48px;
+    padding-bottom: 52px;
+  }
+
+  .instagram-grid {
+    gap: 6px;
+  }
+
+  .instagram-section .instagram-embed-container {
+    min-height: 300px;
   }
 }
 
-@media (max-width: 768px) {
-  .form-row {
-    flex-direction: column;
+@media (max-width: 520px) {
+  .contact-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-message-field {
+    grid-column: auto;
+  }
+
+  .contact-email {
+    font-size: 24px;
   }
 }

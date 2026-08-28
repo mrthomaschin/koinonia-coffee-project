@@ -114,14 +114,118 @@
   margin: 0;
 }
 
-.subscription-options { border: 1px solid #cbc5b9; margin: 0; padding: 16px; }
-.subscription-options legend { padding: 0 6px; font-weight: 600; }
-.subscription-options p { margin: 0 0 12px; color: #59667e; font-size: .9rem; }
-.subscription-plan-options { display: grid; gap: 8px; }
-.subscription-plan-options label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: .88rem; }
-.subscription-plan-options label.selected { color: #313d66; font-weight: 600; }
-.subscription-frequency { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2ddd2; }
-.subscription-frequency p { margin: 0 0 8px; }
+.subscription-options {
+  border: 1px solid #cbc5b9;
+  margin: 0;
+  padding: 16px;
+}
+
+.subscription-options legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.subscription-options p {
+  margin: 0 0 12px;
+  color: #59667e;
+  font-size: 14.4px;
+}
+
+.subscription-plan-options {
+  display: grid;
+  gap: 8px;
+}
+
+.subscription-plan-options label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: 14.08px;
+}
+
+.subscription-plan-options label.selected {
+  color: #313d66;
+  font-weight: 600;
+}
+
+.subscription-frequency {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e2ddd2;
+}
+
+.subscription-frequency p {
+  margin: 0 0 8px;
+}
+
+/* Product detail purchase treatment */
+.subscription-options {
+  border: 0;
+  border-top: 1px solid rgba(47, 43, 57, .22);
+  border-bottom: 1px solid rgba(47, 43, 57, .22);
+  padding: 18px 0 16px;
+}
+
+.subscription-options legend {
+  padding: 0;
+  margin-bottom: 15px;
+  color: #2f2b39;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.subscription-plan-options {
+  gap: 0;
+}
+
+.subscription-plan-options label {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 7px;
+  align-items: center;
+  min-height: 42px;
+  color: rgba(47, 43, 57, .82);
+  font: 12px 'RethinkSans-Regular', sans-serif;
+}
+
+.subscription-plan-options label input {
+  margin: 0;
+  accent-color: #313d66;
+}
+
+.subscription-plan-options label.selected {
+  color: #313d66;
+  font-weight: 400;
+}
+
+.subscription-plan-options label strong {
+  color: rgba(47, 43, 57, .68);
+  font: 12px 'RethinkSans-Regular', sans-serif;
+  font-weight: 400;
+}
+
+.subscription-frequency {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(47, 43, 57, .14);
+}
+
+.subscription-frequency p {
+  font: 10px 'RethinkSans-Regular', sans-serif;
+}
+
+.subscription-frequency .subscription-plan-options label {
+  min-height: 34px;
+  font-size: 11px;
+}
+
+.subscription-frequency>p:last-child {
+  margin-top: 10px;
+  color: rgba(47, 43, 57, .58);
+  font-size: 9px;
+}
 
 .detail-tasting-section {
   background: #faf8f5;
@@ -130,7 +234,7 @@
 }
 
 .detail-section-title {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
   margin: 0 0 12px 0;
   color: #2c2c2c;
@@ -230,7 +334,7 @@
 }
 
 .quantity-display {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
   min-width: 40px;
   text-align: center;

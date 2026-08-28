@@ -10,8 +10,9 @@ const Menu: React.FC<MenuProps> = ({ availableHeight }) => {
     <div className="menu-page" style={{ minHeight: availableHeight }}>
       <div className="menu-container">
         <div className="menu-header">
-          <h1 className="menu-title">Our Menu</h1>
-          <p className="menu-subtitle">we take our craft seriously, from the coffee bean to the cup.</p>
+          <div>
+            <h1 className="menu-title">Menu</h1>
+          </div>
         </div>
         <div className="menu-image-wrapper">
           <img

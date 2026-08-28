@@ -1046,7 +1046,7 @@ Add two new checkbox properties to your Notion order database:
   
   <!-- Tracking Info -->
   <div style="padding: 24px; background-color: #f7f7f7;">
-    <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #000000;">Tracking information</h2>
+    <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 600; color: #000000;">Tracking information</h2>
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
         <td style="padding: 8px 0; font-size: 14px; color: #666666;">Order number</td>
@@ -1074,7 +1074,7 @@ Add two new checkbox properties to your Notion order database:
   
   <!-- Items Section -->
   <div style="padding: 24px;">
-    <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #000000;">Items in this shipment</h2>
+    <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 600; color: #000000;">Items in this shipment</h2>
     
     <div style="border-top: 1px solid #e5e5e5; padding-top: 16px;">
       {{{items_html}}}
@@ -1158,7 +1158,7 @@ Add two new checkbox properties to your Notion order database:
   
   <!-- Items Section -->
   <div style="padding: 24px;">
-    <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #000000;">Items delivered</h2>
+    <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 600; color: #000000;">Items delivered</h2>
     
     <div style="border-top: 1px solid #e5e5e5; padding-top: 16px;">
       {{{items_html}}}

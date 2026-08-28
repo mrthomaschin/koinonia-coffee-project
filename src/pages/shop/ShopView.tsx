@@ -92,27 +92,15 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
   return (
     <div className="shop-page" style={{ minHeight: availableHeight }}>
-      <div className="shop-header">
-        <h1 className="shop-title">Products</h1>
-      </div>
-
-      {error && (
-        <div style={{
-          backgroundColor: '#fff3cd',
-          border: '1px solid #ffc107',
-          borderRadius: '4px',
-          padding: '12px 20px',
-          margin: '0 20px 20px 20px',
-          color: '#856404',
-          fontSize: '14px'
-        }}>
-          ⚠️ {error}
+      <header className="shop-header">
+        <div>
+          <h1 className="shop-title">Shop</h1>
         </div>
-      )}
+      </header>
 
       <div className="shop-controls">
         <div className="control-group">
-          <label htmlFor="filter-select" className="control-label">FILTER:</label>
+          <label htmlFor="filter-select" className="control-label">ALL PRODUCTS</label>
           <select
             id="filter-select"
             className="control-dropdown"
@@ -126,7 +114,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
         </div>
 
         <div className="control-group">
-          <label htmlFor="sort-select" className="control-label">SORT BY:</label>
+          <label htmlFor="sort-select" className="control-label">SORT BY</label>
           <select
             id="sort-select"
             className="control-dropdown"
@@ -142,10 +130,22 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
           </select>
         </div>
 
-        <div className="products-total">
-          <span className="products-count">{sortedItems.length} PRODUCTS</span>
-        </div>
+        <div className="products-total"><span className="products-count">{sortedItems.length} PRODUCTS</span></div>
       </div>
+
+      {error && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffc107',
+          borderRadius: '4px',
+          padding: '12px 20px',
+          margin: '0 20px 20px 20px',
+          color: '#856404',
+          fontSize: '14px'
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       <div className="shop-grid">
         {sortedItems.map((item) => {

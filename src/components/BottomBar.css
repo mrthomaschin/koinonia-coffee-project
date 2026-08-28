@@ -26,8 +26,8 @@
 
 .section-title {
   font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 400;
   color: #2F2B39;
   letter-spacing: 1px;
   margin: 0;
@@ -60,7 +60,9 @@
 .link-text {
   font-family: 'RethinkSans-Regular', sans-serif;
   font-size: 14px;
+  font-weight: 400;
   color: #2F2B39;
+  letter-spacing: .1px;
 }
 
 .bottom-bar-footer {

@@ -1126,22 +1126,24 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     appearance: {
       theme: 'stripe' as const,
       variables: {
-        colorPrimary: '#333333',
-        colorBackground: '#ffffff',
-        colorText: '#333333',
+        colorPrimary: '#84825E',
+        colorBackground: '#F8F5EB',
+        colorText: '#2F2B39',
         colorDanger: '#df1b41',
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: 'RethinkSans-Regular, sans-serif',
         spacingUnit: '4px',
-        borderRadius: '8px',
-        fontSizeBase: '16px',
+        borderRadius: '0px',
+        fontSizeBase: '14px',
       },
       rules: {
         '.Input': {
-          fontSize: '16px',
+          fontSize: '14px',
           padding: '12px',
+          borderColor: '#CBC5B9',
         },
         '.Label': {
-          fontSize: '14px',
+          fontSize: '10px',
+          letterSpacing: '1.5px',
         },
       },
     },

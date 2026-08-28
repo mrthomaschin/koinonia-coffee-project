@@ -367,7 +367,7 @@
   background: #F8F5EB;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
   color: #2F2B39;
   display: flex;
@@ -382,7 +382,7 @@
 }
 
 .quantity-display {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
   min-width: 30px;
   text-align: center;
@@ -548,5 +548,439 @@
 }
 
 .dropdown-content h4 {
-  font-size: 18px;
+  font-size: 24px;
+}
+
+/* Editorial shop detail treatment */
+.item-detail-page-wrapper {
+  max-width: none;
+  padding: 54px 5.5vw 75px;
+  background: #f8f5eb;
+}
+
+.detail-back-button {
+  margin-bottom: 34px;
+  color: #313d66;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.5px;
+}
+
+.detail-container {
+  max-width: 1180px;
+  margin: 0 auto;
+  grid-template-columns: minmax(0, 1.1fr) minmax(350px, .9fr);
+  gap: 8%;
+  padding: 0;
+}
+
+.carousel-container {
+  border-radius: 0;
+  background: #e7e2d7;
+}
+
+.detail-image {
+  aspect-ratio: 1 / 1;
+}
+
+.detail-info-section {
+  justify-content: center;
+  gap: 25px;
+}
+
+.detail-header {
+  padding-bottom: 17px;
+  border-bottom: 1px solid rgba(47, 43, 57, .22);
+}
+
+.detail-name {
+  margin: 0 0 12px;
+  color: #2f2b39;
+  font: 400 50px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: .95;
+  letter-spacing: -2px;
+}
+
+.detail-meta {
+  color: #84825e;
+  font: 12px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.category-badge {
+  padding: 0;
+  color: #84825e;
+  background: none;
+  border-radius: 0;
+  font: 12px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1px;
+}
+
+.detail-meta .origin-text {
+  font-size: 12px;
+}
+
+.detail-description {
+  color: rgba(47, 43, 57, .76);
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.7;
+}
+
+.detail-purchase {
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(47, 43, 57, .22);
+}
+
+.detail-price-label {
+  color: #84825e;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.detail-price {
+  color: #2f2b39;
+  font: 400 28px 'HedvigLettersSerif_18pt', Georgia, serif;
+}
+
+.detail-add-to-cart {
+  border-radius: 0;
+  padding: 15px;
+  background: #84825e;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.5px;
+}
+
+.detail-add-to-cart:hover {
+  background: #6d6a4d;
+}
+
+.item-detail-dropdown {
+  max-width: 1180px;
+  margin: 45px auto 0;
+  border-top: 1px solid rgba(47, 43, 57, .2);
+  padding-top: 19px;
+}
+
+.dropdown-toggle h2 {
+  color: #2f2b39;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.5px;
+}
+
+.dropdown-arrow {
+  color: #84825e;
+  font-size: 12px;
+}
+
+.coffee-detail-purchase .detail-price-section {
+  display: none;
+}
+
+/* Coffee option controls matching the product mockup */
+.detail-info-section .flavor-notes h3,
+.detail-info-section .option-label {
+  margin: 0 0 11px;
+  color: #6f6d50;
+  font: 600 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.2;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
+.detail-info-section .flavor-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.detail-info-section .flavor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 17px !important;
+}
+
+.detail-info-section .flavor-tag {
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 4px;
+  color: #3f3d42;
+  background: #e9e5db;
+  font: 13px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.2;
+}
+
+.detail-info-section .option-group {
+  gap: 0;
+}
+
+.detail-info-section .weight-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-info-section .weight-button {
+  min-width: 62px;
+  padding: 11px 16px;
+  border: 1px solid #c8c2b3;
+  border-radius: 4px;
+  color: #3f3d42;
+  background: #f8f5eb;
+  font: 13px 'RethinkSans-Regular', sans-serif;
+}
+
+.detail-info-section .weight-button:hover {
+  border-color: #84825e;
+  color: #2f2b39;
+}
+
+.detail-info-section .weight-button.selected {
+  border-color: #84825e;
+  color: #f8f5eb;
+  background: #84825e;
+}
+
+.coffee-story-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8%;
+  margin: 80px calc(-5.5vw) 0;
+  padding: 70px 5.5vw 68px;
+  background: #c7c2b8;
+}
+
+.coffee-detail-eyebrow {
+  margin: 0 0 23px;
+  color: #84825e;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 2px;
+}
+
+.coffee-story-section h2 {
+  margin: 0;
+  font: 400 50px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: .86;
+  letter-spacing: -2px;
+}
+
+.coffee-story-section>p {
+  max-width: 520px;
+  align-self: end;
+  margin: 0;
+  color: rgba(47, 43, 57, .74);
+  font: 13px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.75;
+}
+
+.coffee-brew-guide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8%;
+  margin: 0 -5.5vw;
+  padding: 68px 5.5vw 64px;
+  background: #f8f5eb;
+}
+
+.coffee-brew-guide-heading h3 {
+  margin: 0 0 22px;
+  font: 400 48px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: .88;
+  letter-spacing: -2px;
+}
+
+.coffee-brew-guide-heading>p:last-child {
+  max-width: 400px;
+  margin: 0;
+  color: rgba(47, 43, 57, .72);
+  font: 13px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.7;
+}
+
+.coffee-brew-methods {
+  padding-top: 0;
+}
+
+.coffee-brew-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: center;
+  min-height: 67px;
+  border-top: 1px solid rgba(47, 43, 57, .28);
+}
+
+.coffee-brew-row:last-child {
+  border-bottom: 1px solid rgba(47, 43, 57, .28);
+}
+
+.coffee-brew-row strong {
+  font: 23px 'HedvigLettersSerif_18pt', Georgia, serif;
+  font-weight: 400;
+}
+
+.coffee-brew-row span {
+  color: rgba(47, 43, 57, .68);
+  font: 11px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.4;
+}
+
+@media (max-width:700px) {
+  .item-detail-page-wrapper {
+    padding: 35px 24px 55px;
+  }
+
+  .detail-container {
+    grid-template-columns: 1fr;
+    gap: 35px;
+  }
+
+  .detail-info-section {
+    gap: 20px;
+  }
+
+  .detail-name {
+    font-size: 42px;
+  }
+
+  .item-detail-dropdown {
+    margin-top: 35px;
+  }
+
+  .coffee-story-section,
+  .coffee-brew-guide {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    margin-left: -24px;
+    margin-right: -24px;
+    padding: 55px 24px;
+  }
+
+  .coffee-story-section {
+    margin-top: 55px;
+  }
+
+  .coffee-story-section h2,
+  .coffee-brew-guide-heading h3 {
+    font-size: 43px;
+  }
+
+  .coffee-brew-row {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    padding: 15px 0;
+  }
+}
+
+.you-may-also-like {
+  margin: 80px calc(-5.5vw) -75px;
+  padding: 58px 5.5vw 64px;
+  background: #c2cad3;
+}
+
+.related-heading {
+  margin-bottom: 29px;
+}
+
+.related-eyebrow {
+  margin: 0 0 21px;
+  color: #84825e;
+  font: 10px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 2px;
+}
+
+.related-heading h2 {
+  margin: 0;
+  color: #2f2b39;
+  font: 400 43px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: .9;
+  letter-spacing: -1px;
+}
+
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-width: 1000px;
+}
+
+.related-card {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: #f8f5eb;
+  color: #2f2b39;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity .2s ease;
+}
+
+.related-card:hover {
+  opacity: .78;
+}
+
+.related-image-wrap {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.45;
+  overflow: hidden;
+  background: #ded8cc;
+}
+
+.related-image-wrap img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.related-card-copy {
+  display: block;
+  padding: 14px 14px 17px;
+}
+
+.related-card-copy strong {
+  display: block;
+  margin-bottom: 6px;
+  font: 18px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: 1.1;
+  font-weight: 400;
+}
+
+.related-card-copy small {
+  color: rgba(47, 43, 57, .62);
+  font: 12px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.3px;
+}
+
+@media (max-width:700px) {
+  .you-may-also-like {
+    margin: 60px -24px -55px;
+    padding: 48px 24px 54px;
+  }
+
+  .related-heading h2 {
+    font-size: 38px;
+  }
+
+  .related-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .related-card {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+  }
+
+  .related-image-wrap {
+    aspect-ratio: 1;
+  }
+
+  .related-card-copy {
+    align-self: center;
+  }
 }

@@ -18,6 +18,7 @@ export class ContactViewModel {
       lastName: '',
       phone: '',
       email: '',
+      subject: '',
       message: ''
     };
     this._errors = {};
@@ -45,8 +46,8 @@ export class ContactViewModel {
     return Object.keys(this._errors).length === 0 &&
       this._formData.firstName.trim() !== '' &&
       this._formData.lastName.trim() !== '' &&
-      this._formData.phone.trim() !== '' &&
       this._formData.email.trim() !== '' &&
+      this._formData.subject.trim() !== '' &&
       this._formData.message.trim() !== '';
   }
 
@@ -79,13 +80,13 @@ export class ContactViewModel {
     if (!this._formData.lastName.trim()) {
       newErrors.lastName = 'Please enter your last name';
     }
-    if (!this._formData.phone.trim()) {
-      newErrors.phone = 'Please enter your phone number';
-    }
     if (!this._formData.email.trim()) {
       newErrors.email = 'Please enter your email';
     } else if (!this._formData.email.includes('@')) {
       newErrors.email = 'Please enter a valid email';
+    }
+    if (!this._formData.subject.trim()) {
+      newErrors.subject = 'Please select a topic';
     }
     if (!this._formData.message.trim()) {
       newErrors.message = 'Please enter your message';
@@ -114,6 +115,7 @@ export class ContactViewModel {
         lastName: '',
         phone: '',
         email: '',
+        subject: '',
         message: ''
       };
       this._submitSuccess = true;
@@ -141,6 +143,7 @@ export class ContactViewModel {
       lastName: '',
       phone: '',
       email: '',
+      subject: '',
       message: ''
     };
     this._errors = {};

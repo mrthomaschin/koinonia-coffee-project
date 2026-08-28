@@ -1,13 +1,13 @@
 .shipping-selector {
-  margin: 1.5rem 0;
+  margin: 24px 0;
   display: block;
 }
 
 .shipping-title {
-  font-size: 1.1rem;
+  font-size: 17.6px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 1rem;
+  margin-bottom: 16px;
   display: block;
   position: relative;
   z-index: 1;
@@ -16,13 +16,13 @@
 .shipping-options {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
 .shipping-option {
   border: 2px solid #e0e0e0;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 16px;
   cursor: pointer;
   transition: all 0.2s;
   background: white;
@@ -41,7 +41,7 @@
 .shipping-option-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 16px;
 }
 
 .shipping-radio {
@@ -62,22 +62,22 @@
 .shipping-label {
   font-weight: 600;
   color: #333;
-  margin-bottom: 0.25rem;
+  margin-bottom: 4px;
 }
 
 .shipping-description {
-  font-size: 0.9rem;
+  font-size: 14.4px;
   color: #666;
 }
 
 .shipping-carrier {
-  font-size: 0.85rem;
+  font-size: 13.6px;
   color: #888;
-  margin-top: 0.25rem;
+  margin-top: 4px;
 }
 
 .loading-shipping {
-  padding: 2rem;
+  padding: 32px;
   text-align: center;
   color: #666;
   font-style: italic;
@@ -99,7 +99,7 @@
 .shipping-options {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 12px;
   animation: slideDown 0.4s ease-out;
 }
 
@@ -132,40 +132,40 @@
 .shipping-price {
   font-weight: 600;
   color: #4caf50;
-  font-size: 1.1rem;
+  font-size: 17.6px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.25rem;
+  gap: 4px;
 }
 
 .original-price {
-  font-size: 0.9rem;
+  font-size: 14.4px;
   color: #999;
   text-decoration: line-through;
   font-weight: 400;
 }
 
 .free-price {
-  font-size: 1.1rem;
+  font-size: 17.6px;
   color: #4caf50;
   font-weight: 600;
 }
 
 @media (max-width: 768px) {
   .shipping-option-content {
-    gap: 0.75rem;
+    gap: 12px;
   }
 
   .shipping-label {
-    font-size: 0.95rem;
+    font-size: 15.2px;
   }
 
   .shipping-description {
-    font-size: 0.85rem;
+    font-size: 13.6px;
   }
 
   .shipping-price {
-    font-size: 1rem;
+    font-size: 16px;
   }
 }

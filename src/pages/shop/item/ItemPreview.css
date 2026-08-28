@@ -1,132 +1,132 @@
 .item-preview {
-  background: white;
-  border-radius: 8px;
   overflow: hidden;
+  color: #2f2b39;
+  background: transparent;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: opacity .2s ease;
 }
 
 .item-preview:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  opacity: .78;
 }
 
 .preview-image-container {
   position: relative;
   width: 100%;
-  padding-top: 100%;
+  aspect-ratio: 1/1;
   overflow: hidden;
-  background: #f5f5f5;
+  background: #e7e2d7;
 }
 
 .preview-image {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
 }
 
 .preview-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.item-preview:hover .preview-overlay {
-  opacity: 1;
-}
-
-.preview-view-details {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  color: #CBC5B9;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  display: none;
 }
 
 .preview-content {
-  padding: 20px;
+  padding: 14px 3px 0;
 }
 
 .preview-header {
-  font-family: 'Besley-Italic', sans-serif;
-  font-size: 12px;
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .preview-name {
-  font-weight: 600;
-  letter-spacing: 1px;
-  margin: 0;
-  color: #2c2c2c;
   flex: 1;
+  margin: 0;
+  color: #2f2b39;
+  font: 13px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.2;
 }
 
 .preview-price {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 15px;
-  font-weight: 400;
-  color: #8b4513;
-  margin-left: 12px;
+  margin: 0;
+  color: rgba(47, 43, 57, .72);
+  white-space: nowrap;
+  font: 14px 'RethinkSans-Regular', sans-serif;
 }
 
 .preview-details {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: #666;
+  gap: 7px;
+  margin: 0;
+  color: rgba(47, 43, 57, .58);
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
 }
 
-.preview-description {
-  font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 14px;
-  color: #84825E;
-  line-height: 1.5;
-  margin: 0 0 12px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
+.preview-description,
 .preview-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: none;
 }
 
-@media (max-width: 768px) {
-  .preview-content {
-    padding: 16px;
-  }
-
+@media (max-width:700px) {
   .preview-name {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .preview-price {
-    font-size: 16px;
+    font-size: 14px;
+  }
+}
+
+/* Keep product words consistent with the editorial shop mockup after
+   category-specific preview styles are loaded. */
+.item-preview .preview-content {
+  padding: 14px 3px 0;
+}
+
+.item-preview .preview-name {
+  color: #2f2b39;
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.2;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.item-preview .preview-price {
+  margin-left: 12px;
+  color: rgba(47, 43, 57, .72);
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.item-preview .preview-details {
+  margin: 0;
+  color: rgba(47, 43, 57, .58);
+  font: 11px 'RethinkSans-Regular', sans-serif;
+  font-weight: 400;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+
+.item-preview .preview-category,
+.item-preview .preview-sizes,
+.item-preview .preview-colors {
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+@media (max-width:700px) {
+  .item-preview .preview-name {
+    font-size: 14px;
   }
 
-  .preview-details {
-    font-size: 13px;
+  .item-preview .preview-price {
+    font-size: 14px;
   }
 }

@@ -114,16 +114,6 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         navigate('/shop');
     }, [navigate]);
 
-    const handleClearCart = useCallback(() => {
-        if (window.confirm('Are you sure you want to clear your cart?')) {
-            viewModel.clearCart();
-            setPendingQuantities({});
-            setUpdateTrigger(prev => prev + 1);
-            forceUpdate();
-            showToast('Cart cleared', 'success');
-        }
-    }, [viewModel, forceUpdate, showToast]);
-
     const handleApplyDiscount = useCallback(async () => {
         if (!discountCodeInput.trim()) {
             showToast('Please enter a discount code', 'error');
@@ -365,6 +355,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                     )}
 
                     <p className="cart-item-price">${itemPrice.toFixed(2)} each</p>
+                    <button className="cart-item-remove" onClick={() => handleQuantityInputChange(index, -pendingQty)}>
+                        REMOVE
+                    </button>
                 </div>
 
                 <div className="cart-item-quantity">
@@ -394,10 +387,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     if (isEmpty) {
         return (
             <div className="cart-page" style={{ minHeight: availableHeight }}>
+                <header className="cart-intro"><div><h1>Your cart</h1></div></header>
                 <div className="cart-empty">
-                    <h1 className="cart-title">Your Cart</h1>
                     <div className="empty-cart-content">
-                        <p className="empty-cart-message">No items added to cart</p>
+                        <p className="empty-cart-message">No items added to cart.</p>
                         <button
                             className="continue-shopping-btn"
                             onClick={handleContinueShopping}
@@ -412,14 +405,18 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
 
     return (
         <div className="cart-page" style={{ minHeight: availableHeight }}>
-            <div className="cart-container">
-                <h1 className="cart-title">Your Cart</h1>
+            <header className="cart-intro"><div><h1>Your cart</h1></div></header>
 
-                <div className="cart-items-list">
-                    {viewModel.cartItems.map((cartItem, index) => renderCartItem(cartItem, index))}
-                </div>
+            <div className="cart-layout">
+                <section className="cart-selection">
+                    <div className="cart-items-list">
+                        {viewModel.cartItems.map((cartItem, index) => renderCartItem(cartItem, index))}
+                    </div>
+                    <button className="continue-shopping-btn-secondary" onClick={handleContinueShopping}>← CONTINUE SHOPPING</button>
+                </section>
 
-                <div className="cart-summary">
+                <aside className="cart-summary">
+                    <h2 className="summary-title">Order Summary</h2>
                     <div className="discount-code-section">
                         <h3>Discount Code</h3>
                         {!viewModel.discountCode ? (
@@ -463,9 +460,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                     )}
 
                     <div className="summary-row">
-                        <span className="summary-label">Subtotal:</span>
+                        <span className="summary-label">Subtotal</span>
                         <span className="summary-value">${subtotal.toFixed(2)}</span>
                     </div>
+                    <div className="summary-row shipping-row"><span className="summary-label">Shipping</span><span className="summary-value">Calculated at checkout</span></div>
                     {viewModel.discountCode && (
                         <>
                             <div className="summary-row discount-row">
@@ -479,37 +477,28 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         </>
                     )}
 
+                    <p className="shipping-footnote">Free shipping on orders over $40. Local pickup will be available when offered.</p>
+                    <div className="cart-total-row"><span>Total</span><strong>${subtotalAfterDiscount.toFixed(2)}</strong></div>
                     <div className="cart-actions">
-                        <button
-                            className="continue-shopping-btn-secondary"
-                            onClick={handleContinueShopping}
-                        >
-                            Continue Shopping
-                        </button>
                         {hasAnyChanges && (
                             <button
                                 className="update-cart-btn"
                                 onClick={handleUpdateCart}
                             >
-                                Update Cart
+                                UPDATE CART
                             </button>
                         )}
-                        <button
-                            className="clear-cart-btn"
-                            onClick={handleClearCart}
-                        >
-                            Clear Cart
-                        </button>
                         <button
                             className="checkout-btn"
                             onClick={handleCheckout}
                             disabled={isLoadingCheckout}
                         >
-                            {isLoadingCheckout ? 'Loading...' : 'Checkout'}
+                            {isLoadingCheckout ? 'LOADING...' : 'CHECKOUT'}
                         </button>
                     </div>
-                </div>
+                </aside>
             </div>
+            <section className="cart-values"><article><h3>Need help?</h3><p>Reach us anytime at hello@koinoniacoffeeproject.com.</p></article></section>
 
             {showCheckout && clientSecret && (
                 <div className="checkout-modal-overlay" onClick={handleCheckoutCancel}>

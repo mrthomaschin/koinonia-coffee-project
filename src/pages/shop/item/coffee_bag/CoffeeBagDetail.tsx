@@ -75,6 +75,11 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     return (item.price * quantity * (purchaseMode === 'subscription' ? 0.95 : 1)).toFixed(2);
   };
 
+  const getSelectedUnitPrice = (): number => {
+    const selectedVariant = item.variants?.find((variant) => variant.weight === selectedWeight);
+    return selectedVariant && selectedVariant.price > 0 ? selectedVariant.price : item.price;
+  };
+
   const isSoldOut = () => {
     // If variants exist, check the selected variant's isSoldOut flag (unless LTO unlimited purchases is enabled)
     if (item.variants && item.variants.length > 0 && selectedWeight) {
@@ -141,8 +146,8 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       <fieldset className="subscription-options">
         <legend>Purchase option</legend>
         <div className="subscription-plan-options">
-          <label className={purchaseMode === 'one-time' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'one-time'} onChange={() => setPurchaseMode('one-time')} /><span>One-time purchase</span></label>
-          <label className={purchaseMode === 'subscription' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'subscription'} onChange={() => { setPurchaseMode('subscription'); setQuantity((current) => Math.min(2, current)); }} /><span>Subscribe & save 5%</span></label>
+          <label className={purchaseMode === 'one-time' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'one-time'} onChange={() => setPurchaseMode('one-time')} /><span>One-time purchase</span><strong>${getSelectedUnitPrice().toFixed(2)}</strong></label>
+          <label className={purchaseMode === 'subscription' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'subscription'} onChange={() => { setPurchaseMode('subscription'); setQuantity((current) => Math.min(2, current)); }} /><span>Subscribe &amp; save 5%</span><strong>From ${(getSelectedUnitPrice() * 0.95).toFixed(2)}</strong></label>
         </div>
         {purchaseMode === 'subscription' && <div className="subscription-frequency"><p>Select delivery frequency</p><div className="subscription-plan-options">
           <label className={subscriptionFrequency === 'every-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-session'} onChange={() => setSubscriptionFrequency('every-session')} /><span>Every roast session</span></label>
@@ -227,49 +232,17 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     }
 
     return (
-      <div className="brewing-methods-section">
-        <div className="brewing-methods-grid">
+      <div className="coffee-brew-guide">
+        <div className="coffee-brew-guide-heading">
+          <p className="coffee-detail-eyebrow">BREW GUIDE</p>
+          <h3>Make a good cup at<br />home.</h3>
+          <p>We&apos;ve included a few starting points so you can find the version of {item.name} that feels most like yours.</p>
+        </div>
+        <div className="coffee-brew-methods">
           {brewingMethods.map((method, index) => (
-            <div key={index} className="brewing-method-card">
-              <div className="brewing-method-icon">
-                {method.icon}
-              </div>
-              <h4 className="brewing-method-name">{method.name}</h4>
-              <div className="brewing-recipe">
-                <div className="recipe-row">
-                  <span className="recipe-label">Coffee:</span>
-                  <span className="recipe-value">{method.coffee}</span>
-                </div>
-                <div className="recipe-row">
-                  <span className="recipe-label">Water:</span>
-                  <span className="recipe-value">{method.water}</span>
-                </div>
-                <div className="recipe-row">
-                  <span className="recipe-label">Water temp:</span>
-                  <span className="recipe-value">{method.waterTemperature}</span>
-                </div>
-                <div className="recipe-row">
-                  <span className="recipe-label">Ratio:</span>
-                  <span className="recipe-value">{method.ratio}</span>
-                </div>
-                {"milkRatio" in method && method.milkRatio && (
-                  <div className="recipe-row">
-                    <span className="recipe-label">Milk ratio:</span>
-                    <span className="recipe-value">{method.milkRatio}</span>
-                  </div>
-                )}
-                {"maxPressure" in method && method.maxPressure && (
-                  <div className="recipe-row">
-                    <span className="recipe-label">Max pressure:</span>
-                    <span className="recipe-value">{method.maxPressure}</span>
-                  </div>
-                )}
-                <div className="recipe-row">
-                  <span className="recipe-label">Time:</span>
-                  <span className="recipe-value">{method.time}</span>
-                </div>
-              </div>
-              <p className="brewing-description">{method.description}</p>
+            <div key={index} className="coffee-brew-row">
+              <strong>{method.name === 'Single Dripper' ? 'Pour-over' : method.name === 'Batch Dripper' ? 'Batch brew' : method.name === 'Milk Drink' ? 'Milk drink' : method.name}</strong>
+              <span>{method.coffee} coffee / {method.water} water<br />{method.waterTemperature} · {method.ratio}{method.time ? ` · ${method.time}` : ''}</span>
             </div>
           ))}
         </div>
