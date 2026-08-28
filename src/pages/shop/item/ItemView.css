@@ -766,13 +766,38 @@
   letter-spacing: -2px;
 }
 
-.coffee-story-section>p {
+.coffee-story-subtext {
+  max-width: 390px;
+  margin: 24px 0 0;
+  color: rgba(47, 43, 57, .72);
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.6;
+}
+
+.coffee-story-section>p,
+.coffee-story-copy {
   max-width: 520px;
   align-self: end;
   margin: 0;
   color: rgba(47, 43, 57, .74);
   font: 13px 'RethinkSans-Regular', sans-serif;
   line-height: 1.75;
+}
+
+.coffee-story-copy p {
+  margin: 0 0 20px;
+}
+
+.coffee-story-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.coffee-story-copy h2,
+.coffee-story-copy h3 {
+  margin: 28px 0 10px;
+  color: #2f2b39;
+  font: 400 24px 'HedvigLettersSerif_18pt', Georgia, serif;
+  line-height: 1;
 }
 
 .coffee-brew-guide {
@@ -808,7 +833,8 @@
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   align-items: center;
-  min-height: 67px;
+  min-height: 84px;
+  padding: 18px 0;
   border-top: 1px solid rgba(47, 43, 57, .28);
 }
 
@@ -817,14 +843,62 @@
 }
 
 .coffee-brew-row strong {
-  font: 23px 'HedvigLettersSerif_18pt', Georgia, serif;
+  font: 27px 'HedvigLettersSerif_18pt', Georgia, serif;
   font-weight: 400;
 }
 
-.coffee-brew-row span {
+.coffee-brew-method-column {
+  align-self: start;
+}
+
+.coffee-brew-method-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.coffee-brew-method-icon {
+  flex: 0 0 100px;
+  width: 100px;
+  height: 100px;
+}
+
+.coffee-brew-method-icon .brewing-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.coffee-brew-row span,
+.coffee-brew-row p {
   color: rgba(47, 43, 57, .68);
-  font: 11px 'RethinkSans-Regular', sans-serif;
-  line-height: 1.4;
+  font: 14px 'RethinkSans-Regular', sans-serif;
+  line-height: 1.5;
+}
+
+.coffee-brew-parameters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 0;
+  margin-left: 68px;
+}
+
+.coffee-brew-parameters b {
+  display: inline-block;
+  min-width: 112px;
+  margin-right: 8px;
+  color: #6f6d50;
+  font: 600 11px 'RethinkSans-Regular', sans-serif;
+  letter-spacing: 1.2px;
+}
+
+.coffee-brew-row p {
+  margin: 6px 0 0;
+  color: rgba(47, 43, 57, .76);
+  white-space: pre-wrap;
 }
 
 @media (max-width:700px) {
@@ -869,8 +943,16 @@
 
   .coffee-brew-row {
     grid-template-columns: 1fr;
-    gap: 7px;
-    padding: 15px 0;
+    gap: 12px;
+    padding: 22px 0;
+  }
+
+  .coffee-brew-parameters b {
+    min-width: 104px;
+  }
+
+  .coffee-brew-parameters {
+    margin-left: 68px;
   }
 }
 

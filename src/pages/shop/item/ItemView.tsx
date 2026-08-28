@@ -22,6 +22,7 @@ interface ItemViewProps {
   renderExtraInfo?: (item: Item) => React.ReactNode;
   renderOptions?: (item: Item) => React.ReactNode;
   renderDetailsSection?: (item: Item) => React.ReactNode;
+  hideDetailsDropdown?: boolean;
   renderBrewingMethod?: (item: Item) => React.ReactNode;
   calculatePrice?: () => string;
   handleAddToCart?: () => void;
@@ -36,6 +37,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
   renderExtraInfo,
   renderOptions,
   renderDetailsSection,
+  hideDetailsDropdown = false,
   renderBrewingMethod,
   calculatePrice,
   handleAddToCart,
@@ -298,13 +300,16 @@ export const ItemView: React.FC<ItemViewProps> = ({
         <section className="coffee-story-section">
           <div>
             <p className="coffee-detail-eyebrow">THE COFFEE</p>
-            <h2>Approachable<br />without being<br />ordinary.</h2>
+            <h2>About this coffee.</h2>
+            <p className="coffee-story-subtext">{item.itemDetails}</p>
           </div>
-          <p>{item.itemDetails || item.itemSummary}</p>
+          <div className="coffee-story-copy">
+            <ReactMarkdown>{item.itemSummary || item.itemDetails}</ReactMarkdown>
+          </div>
         </section>
       )}
 
-      <div className="item-detail-dropdown">
+      {!hideDetailsDropdown && <div className="item-detail-dropdown">
         <button
           className="dropdown-toggle"
           onClick={toggleDetailsDropdown}
@@ -315,14 +320,13 @@ export const ItemView: React.FC<ItemViewProps> = ({
         <div className={`dropdown-content ${isDetailsDropdownOpen ? 'open' : ''}`}>
           {renderDetailsSection ? renderDetailsSection(item) : item.itemSummary ? <ReactMarkdown>{item.itemSummary}</ReactMarkdown> : <p>More details about this item will be displayed here.</p>}
         </div>
-      </div>
+      </div>}
       {renderBrewingMethod && renderBrewingMethod(item)}
 
       {relatedItems.length > 0 && (
         <section className="you-may-also-like">
           <div className="related-heading">
-            <p className="related-eyebrow">KEEP GATHERING</p>
-            <h2>You might also like.</h2>
+            <h2>You might also like...</h2>
           </div>
           <div className="related-grid">
             {relatedItems.map((relatedItem) => (

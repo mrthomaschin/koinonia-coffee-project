@@ -241,8 +241,22 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         <div className="coffee-brew-methods">
           {brewingMethods.map((method, index) => (
             <div key={index} className="coffee-brew-row">
-              <strong>{method.name === 'Single Dripper' ? 'Pour-over' : method.name === 'Batch Dripper' ? 'Batch brew' : method.name === 'Milk Drink' ? 'Milk drink' : method.name}</strong>
-              <span>{method.coffee} coffee / {method.water} water<br />{method.waterTemperature} · {method.ratio}{method.time ? ` · ${method.time}` : ''}</span>
+              <div className="coffee-brew-method-column">
+                <div className="coffee-brew-method-heading">
+                  <div className="coffee-brew-method-icon">{method.icon}</div>
+                  <strong>{method.name === 'Single Dripper' ? 'Pour-over' : method.name === 'Batch Dripper' ? 'Batch brew' : method.name === 'Milk Drink' ? 'Milk drink' : method.name}</strong>
+                </div>
+                <div className="coffee-brew-parameters">
+                  {method.coffee && <span><b>COFFEE</b>{method.coffee}</span>}
+                  {method.water && <span><b>WATER</b>{method.water}</span>}
+                  {method.waterTemperature && <span><b>TEMPERATURE</b>{method.waterTemperature}</span>}
+                  {method.ratio && <span><b>RATIO</b>{method.ratio}</span>}
+                  {method.time && <span><b>TIME</b>{method.time}</span>}
+                  {method.milkRatio && <span><b>MILK RATIO</b>{method.milkRatio}</span>}
+                  {method.maxPressure && <span><b>MAX PRESSURE</b>{method.maxPressure}</span>}
+                </div>
+              </div>
+              {method.description && <p className="coffee-brew-description">{method.description}</p>}
             </div>
           ))}
         </div>
@@ -257,6 +271,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       renderMetadata={() => renderMetadata(item)}
       renderExtraInfo={() => renderExtraInfo(item)}
       renderOptions={renderOptions}
+      hideDetailsDropdown
       renderBrewingMethod={renderBrewingMethod}
       calculatePrice={calculatePrice}
       handleAddToCart={handleAddToCart}
