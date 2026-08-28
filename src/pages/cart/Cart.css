@@ -774,7 +774,65 @@
 }
 
 .cart-summary .discount-code-section {
-    display: none;
+    display: block;
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(47, 43, 57, .22);
+}
+
+.cart-summary .discount-code-section h3 {
+    margin: 0 0 12px;
+    color: rgba(47, 43, 57, .72);
+    font: 13px 'RethinkSans-Regular', sans-serif;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.cart-summary .discount-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.cart-summary .discount-input {
+    min-width: 0;
+    padding: 12px 13px;
+    border: 1px solid #bdb8aa;
+    border-radius: 0;
+    background: #f8f5eb;
+    color: #2f2b39;
+    font: 14px 'RethinkSans-Regular', sans-serif;
+}
+
+.cart-summary .apply-discount-btn {
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 8px;
+    background: #84825e;
+    color: #f8f5eb;
+    font: 11px 'RethinkSans-Regular', sans-serif;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+.cart-summary .discount-applied {
+    padding: 12px 13px;
+    border: 1px solid rgba(132, 130, 94, .4);
+    border-radius: 0;
+    background: rgba(132, 130, 94, .08);
+}
+
+.cart-summary .discount-code-text,
+.cart-summary .discount-percent {
+    color: #6f6d50;
+    font: 13px 'RethinkSans-Regular', sans-serif;
+}
+
+.cart-summary .remove-discount-btn {
+    padding: 5px 10px;
+    border: 1px solid #bdb8aa;
+    border-radius: 8px;
+    color: #2f2b39;
+    font: 11px 'RethinkSans-Regular', sans-serif;
 }
 
 .cart-summary .free-shipping-notice {
@@ -805,13 +863,11 @@
 
 .shipping-row {
     padding-bottom: 26px;
-    border-bottom: 1px solid rgba(47, 43, 57, .28);
 }
 
 .shipping-footnote {
     margin: 18px 0;
     padding-bottom: 18px;
-    border-bottom: 1px solid rgba(47, 43, 57, .28);
     color: rgba(47, 43, 57, .6);
     font: 13px 'RethinkSans-Regular', sans-serif;
     line-height: 1.45;

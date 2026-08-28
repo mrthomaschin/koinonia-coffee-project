@@ -477,7 +477,6 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         </>
                     )}
 
-                    <p className="shipping-footnote">Free shipping on orders over $40. Local pickup will be available when offered.</p>
                     <div className="cart-total-row"><span>Total</span><strong>${subtotalAfterDiscount.toFixed(2)}</strong></div>
                     <div className="cart-actions">
                         {hasAnyChanges && (
