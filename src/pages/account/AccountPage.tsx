@@ -33,7 +33,10 @@ const AccountPage: React.FC<AccountPageProps> = ({ initialMode = 'login', partne
     setSubmitting(true);
     try {
       if (initialMode === 'login') await login(username, password);
-      else await createAccount({ firstName, lastName, email, username, password, ...(partnerMode ? { label: partnerLabel } : {}) });
+      else {
+        await createAccount({ firstName, lastName, email, username, password, ...(partnerMode ? { label: partnerLabel } : {}) });
+        navigate('/account', { replace: true });
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Please try again.');
     } finally {
@@ -43,7 +46,7 @@ const AccountPage: React.FC<AccountPageProps> = ({ initialMode = 'login', partne
 
   if (isLoading) return <main className="account-page"><div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Welcome back.</h1></div></div><div className="account-login-wrap"><p className="account-empty">Loading your profile…</p></div></main>;
   if (initialMode === 'login' && (!isAuthenticated || !account)) return <Navigate to="/account-login" replace />;
-  if (isAuthenticated && account) return <AccountLayout />;
+  if (initialMode !== 'create' && isAuthenticated && account) return <AccountLayout />;
 
   return <main className="account-page">
     <div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Welcome back.</h1></div></div>

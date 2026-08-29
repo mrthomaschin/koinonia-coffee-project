@@ -50,7 +50,16 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isAuthenticated: !!account && !!token,
     isLoading,
     login: async (username, password) => saveSession(await accountService.login(username, password)),
-    createAccount: async (input) => saveSession(await accountService.createAccount(input)),
+    createAccount: async (input) => {
+      const previousToken = token;
+      const session = await accountService.createAccount(input);
+      saveSession(session);
+      // Replace the browser session with the newly created account, then
+      // revoke the previous session so it cannot remain active elsewhere.
+      if (previousToken && previousToken !== session.token) {
+        await accountService.logout(previousToken).catch(() => undefined);
+      }
+    },
     logout: async () => {
       const activeToken = token;
       setAccount(null);
