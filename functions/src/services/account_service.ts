@@ -608,7 +608,7 @@ export class AccountService {
       if (recoveredPhone) await accountSnapshot.ref.set({ phone: recoveredPhone, updatedAt: Date.now() }, { merge: true });
 
       const addOnWeight = subscription.addOnWeight || 0;
-      const discountPercent = account.label === "wholesale" ? 0 : subscription.discountPercent;
+      const discountPercent = account.label === "consumer" ? subscription.discountPercent : 0;
       const freeShipping = account.label === "wholesale" ? false : subscription.freeShipping;
       const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - discountPercent / 100)) + (subscription.addOnUnitAmount || 0);
       const totalWeight = weightInPounds(subscription.weight) + addOnWeight;
@@ -780,7 +780,7 @@ export class AccountService {
           id: `sub_${randomUUID()}`, accountId: account.id, plan, ...selectedPlan,
           itemSku, itemName, weight,
           ...(resolvedShippingWeight !== undefined ? { shippingWeight: resolvedShippingWeight } : {}),
-          unitAmount, discountPercent: account.label === "wholesale" ? 0 : 5,
+          unitAmount, discountPercent: account.label === "consumer" ? 5 : 0,
           freeShipping: account.label === "wholesale" ? false : selectedPlan.freeShipping,
           status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
           ...(isLocalPickup ? { isLocalPickup: true, orderPickupId } : {}),
@@ -993,8 +993,8 @@ export class AccountService {
       const subscriptions = response.docs
         .map((document) => {
           const subscription = document.data() as StoredSubscription;
-          return account.label === "wholesale"
-            ? { ...subscription, discountPercent: 0, freeShipping: false }
+          return account.label !== "consumer"
+            ? { ...subscription, discountPercent: 0, ...(account.label === "wholesale" ? { freeShipping: false } : {}) }
             : subscription;
         })
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
@@ -1038,7 +1038,7 @@ export class AccountService {
         itemName,
         weight,
         unitAmount,
-        discountPercent: account.label === "wholesale" ? 0 : 5,
+        discountPercent: account.label === "consumer" ? 5 : 0,
         freeShipping: account.label === "wholesale" ? false : selectedPlan.freeShipping,
         status: "active",
         skipNextDelivery: false,

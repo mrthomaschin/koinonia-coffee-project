@@ -1,0 +1,52 @@
+.catering-page { color:#2f2b39; background:#f8f5eb; }
+.catering-page h1,.catering-page h2,.catering-page h3 { font-family:'HedvigLettersSerif_18pt',Georgia,serif; font-weight:400; }
+.catering-page p { font-family:'RethinkSans-Regular',sans-serif; }
+.catering-eyebrow { margin:0 0 25px; color:#84825e; font: 10px 'RethinkSans-Regular',sans-serif !important; line-height: 1.2; letter-spacing:2px; }
+.catering-button { display:inline-block; padding:16px 18px; color:#f8f5eb; background:#84825e; text-decoration:none; font:10px 'RethinkSans-Regular',sans-serif; letter-spacing:1.5px; }
+.catering-hero { display:grid; grid-template-columns:45% 55%; min-height:485px; background:#c7c2b8; }
+.catering-hero-copy { padding:68px 12% 62px 13%; }
+.catering-hero-copy h1 { margin:0 0 26px; font-size:clamp(54px,6vw,76px); line-height:.8; letter-spacing:-3px; }
+.catering-hero-copy>p:not(.catering-eyebrow) { max-width:365px; margin-bottom:25px; color:rgba(47,43,57,.75); font-size:14px; line-height:1.65; }
+.catering-cart-art { position:relative; margin:50px 0; background:#b5a08b; overflow:hidden; }
+.catering-cart-art::before { content:''; position:absolute; inset:65px 12% 50px; background:linear-gradient(90deg,#c9b6a0 0 25%,#806f61 25% 30%,#b49e87 30% 66%,#786b60 66% 100%); transform:rotate(-2deg); }
+.catering-cart-art>span { position:absolute; right:20px; bottom:21px; color:#f8f5eb; font:9px 'RethinkSans-Regular',sans-serif; letter-spacing:2px; writing-mode:vertical-rl; }
+.catering-introduction { display:grid; grid-template-columns:40% 1fr; gap:8%; padding:57px 6% 50px; }
+.catering-introduction h2 { margin:0; font-size:48px; line-height:.87; letter-spacing:-2px; }
+.catering-introduction>p { max-width:560px; margin:3px 0 0; color:rgba(47,43,57,.76); font-size:14px; line-height:1.75; }
+.catering-pillars { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid rgba(47,43,57,.15); border-bottom:1px solid rgba(47,43,57,.15); }
+.catering-pillars article { min-height:168px; padding:35px 28px; border-right:1px solid rgba(47,43,57,.15); }
+.catering-pillars article:last-child { border:0; }
+.catering-pillars .catering-eyebrow { margin-bottom:22px; }
+.catering-pillars h3 { margin:0 0 10px; font-size:28px; line-height:1; }
+.catering-pillars article>p:last-child { max-width:285px; margin:0; color:rgba(47,43,57,.7); font-size:11px; line-height:1.55; }
+.catering-experience { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:7%; padding:70px 6% 65px; background:#eeece4; }
+.experience-copy h2 { margin:0 0 24px; font-size:48px; line-height:.88; letter-spacing:-2px; }
+.experience-copy>p:last-child { max-width:475px; margin:0; color:rgba(47,43,57,.76); font-size:13px; line-height:1.75; }
+.experience-details { padding-top:0; }
+.experience-details>div { display:flex; align-items:center; justify-content:space-between; min-height:50px; border-top:1px solid rgba(47,43,57,.28); }
+.experience-details>div:last-child { border-bottom:1px solid rgba(47,43,57,.28); }
+.experience-details strong { font:21px 'HedvigLettersSerif_18pt',Georgia,serif; font-weight:400; }
+.experience-details span { font:11px 'RethinkSans-Regular',sans-serif; }
+.experience-arrow { position:absolute; left:50%; bottom:28px; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1px solid rgba(47,43,57,.18); border-radius:50%; color:#2f2b39; background:#fff; text-decoration:none; font-size:21px; }
+.catering-inquiry { display:grid; grid-template-columns:1fr 1fr; gap:8%; padding:72px 6% 74px; }
+.inquiry-copy h2 { margin:0 0 24px; font-size:53px; line-height:.86; letter-spacing:-2px; }
+.inquiry-copy>p:last-child { max-width:390px; color:rgba(47,43,57,.75); font-size:13px; line-height:1.65; }
+.catering-form-embed { min-width:0; }
+.catering-form-embed iframe { display:block; height:560px !important; border-radius:0 !important; }
+@media (max-width:700px) {
+.catering-hero,.catering-introduction,.catering-experience,.catering-inquiry { grid-template-columns:1fr; }
+  .catering-hero { min-height:0; }
+  .catering-hero-copy { padding:60px 24px 52px; }
+  .catering-hero-copy h1 { font-size:58px; }
+  .catering-cart-art { min-height:295px; margin:0; }
+  .catering-introduction { gap:35px; padding:58px 24px 48px; }
+  .catering-introduction h2,.experience-copy h2 { font-size:46px; }
+  .catering-pillars { grid-template-columns:1fr; }
+  .catering-pillars article { min-height:0; border-right:0; border-bottom:1px solid rgba(47,43,57,.15); }
+  .catering-experience { gap:40px; padding:60px 24px 70px; }
+  .experience-details strong { font-size:19px; }
+  .experience-arrow { left:auto; right:24px; bottom:26px; }
+  .catering-inquiry { gap:38px; padding:60px 24px 65px; }
+  .inquiry-copy h2 { font-size:48px; }
+  .catering-form-embed iframe { height:600px !important; }
+}

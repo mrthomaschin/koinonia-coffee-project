@@ -13,7 +13,7 @@ const AppBar: React.FC = () => {
     { label: 'SHOP', page: PAGES.SHOP },
     { label: 'OUR STORY', page: PAGES.ABOUT },
     { label: 'GALLERY', page: PAGES.GALLERY },
-    { label: 'EVENTS', page: PAGES.EVENTS },
+    { label: 'CATERING', page: PAGES.CATERING },
     { label: 'CART', page: PAGES.CART },
     { label: 'ACCOUNT', page: PAGES.ACCOUNT }
   ];

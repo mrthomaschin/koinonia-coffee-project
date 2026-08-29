@@ -13,7 +13,7 @@ import Contact from './pages/contact/ContactView';
 import { PAGES, LAYOUT } from './util/constants';
 import { isPageEnabled } from './util/devConfig';
 import './App.css';
-import Events from './pages/events/Events';
+import Catering from './pages/catering/Catering';
 import Shop from './pages/shop/ShopView';
 import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
@@ -94,10 +94,10 @@ const MainContent: React.FC = () => {
             }
           />
           <Route
-            path="/events"
+            path="/catering"
             element={
-              isPageEnabled(PAGES.EVENTS) ? (
-                <Events availableHeight={availableHeight} />
+              isPageEnabled(PAGES.CATERING) ? (
+                <Catering availableHeight={availableHeight} />
               ) : (
                 <ComingSoon availableHeight={availableHeight} />
               )

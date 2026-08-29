@@ -8,7 +8,7 @@
 }
 
 .homepage-hero,
-.homepage-events,
+.homepage-catering,
 .homepage-blend,
 .homepage-about {
   display: grid;
@@ -222,7 +222,7 @@ p {
   letter-spacing: 2px;
 }
 
-.homepage-events {
+.homepage-catering {
   grid-template-columns: .85fr 1.15fr;
   align-items: center;
   gap: 8%;
@@ -230,21 +230,21 @@ p {
   background: #c2cad3;
 }
 
-.events-intro h2 {
+.catering-intro h2 {
   margin-bottom: 15px;
   font-size: 50px;
   line-height: .86;
   letter-spacing: -2px;
 }
 
-.events-intro>p:not(.eyebrow) {
+.catering-intro>p:not(.eyebrow) {
   max-width: 245px;
   color: rgba(47, 43, 57, .72);
   font: 12px 'RethinkSans-Regular', sans-serif;
   line-height: 1.5;
 }
 
-.event-row {
+.catering-row {
   display: grid;
   grid-template-columns: 92px 1fr 90px;
   align-items: center;
@@ -252,18 +252,18 @@ p {
   border-top: 1px solid rgba(47, 43, 57, .3);
 }
 
-.event-row span {
+.catering-row span {
   color: rgba(47, 43, 57, .65);
   font: 12px 'RethinkSans-Regular', sans-serif;
   letter-spacing: 1px;
 }
 
-.event-row strong {
+.catering-row strong {
   font: 22px 'HedvigLettersSerif_18pt', Georgia, serif;
   font-weight: 400;
 }
 
-.event-list .text-link {
+.catering-list .text-link {
   margin-top: 24px;
 }
 
@@ -308,7 +308,7 @@ p {
 
   .homepage-hero,
   .homepage-about,
-  .homepage-events,
+  .homepage-catering,
   .homepage-blend {
     grid-template-columns: 1fr;
   }
@@ -359,27 +359,27 @@ p {
     min-height: 260px;
   }
 
-  .homepage-events {
+  .homepage-catering {
     gap: 35px;
     padding: 55px 24px;
   }
 
-  .events-intro h2 {
+  .catering-intro h2 {
     font-size: 48px;
   }
 
-  .event-row {
+  .catering-row {
     grid-template-columns: 65px 1fr;
     gap: 10px;
   }
 
-  .event-row span:last-child {
+  .catering-row span:last-child {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
 
-  .event-row strong {
+  .catering-row strong {
     font-size: 24px;
   }
 

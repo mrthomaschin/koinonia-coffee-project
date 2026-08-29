@@ -8,7 +8,7 @@ export const isDevelopment = (): boolean => {
 
 export const DEV_FLAGS = {
   ENABLE_SHOP: true,
-  ENABLE_EVENTS: true,
+  ENABLE_CATERING: true,
   ENABLE_MENU: true,
   ENABLE_ABOUT: true,
   ENABLE_GALLERY: false,
@@ -23,7 +23,7 @@ export const isPageEnabled = (page: string): boolean => {
 
   const flagMap: Record<string, boolean> = {
     shop: DEV_FLAGS.ENABLE_SHOP,
-    events: DEV_FLAGS.ENABLE_EVENTS,
+    catering: DEV_FLAGS.ENABLE_CATERING,
     menu: DEV_FLAGS.ENABLE_MENU,
     about: DEV_FLAGS.ENABLE_ABOUT,
     gallery: DEV_FLAGS.ENABLE_GALLERY,
