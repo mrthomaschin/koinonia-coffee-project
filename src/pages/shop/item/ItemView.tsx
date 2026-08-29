@@ -13,6 +13,7 @@ import { ICONS } from '../../../util/constants';
 import { isLimitedTimeOfferAvailable, allowsUnlimitedPurchases } from '../../../util/limitedTimeOffer';
 import { useInventory } from '../../../contexts/InventoryContext';
 import { generateSlug } from '../shopData';
+import SEO, { SITE_URL } from '../../../components/SEO';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -182,9 +183,32 @@ export const ItemView: React.FC<ItemViewProps> = ({
     );
   }
 
+  const productUrl = `${SITE_URL}/shop/${generateSlug(item.name)}`;
+  const productImage = item.firebaseImageUrls?.[0] || `${SITE_URL}${ICONS.shopPlaceholder}`;
+  const productStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: item.name,
+    description: item.itemDetails || item.itemSummary,
+    image: item.firebaseImageUrls,
+    sku: item.sku,
+    url: productUrl,
+    brand: { '@type': 'Brand', name: 'Koinonia Coffee Project' },
+    offers: {
+      '@type': 'Offer',
+      url: productUrl,
+      priceCurrency: 'USD',
+      price: item.price.toFixed(2),
+      availability: item.quantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+    },
+  };
+
+  const productSeo = <SEO title={`${item.name} | Koinonia Coffee Project`} description={(item.itemDetails || item.itemSummary).slice(0, 160)} path={`/shop/${generateSlug(item.name)}`} image={productImage} structuredData={productStructuredData} />;
+
   if (!itemProp && availableHeight !== undefined) {
     return (
       <div className="shop-item-page" style={{ minHeight: availableHeight }}>
+        {productSeo}
         {item.itemType === ItemType.coffee && (
           <CoffeeBagDetail item={item as CoffeeBagItem} onBack={onBack} />
         )}
@@ -200,6 +224,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
 
   return (
     <div className="item-detail-page-wrapper">
+      {productSeo}
       <button className="detail-back-button" onClick={onBack}>
         ← BACK TO SHOP
       </button>
@@ -223,7 +248,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
                 <img
                   key={index}
                   src={imageUrl}
-                  alt={`${item.name} - Image ${index + 1}`}
+                  alt={`${item.name} ${index + 1}`}
                   className="detail-image"
                 />
               ))}

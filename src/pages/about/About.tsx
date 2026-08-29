@@ -1,11 +1,13 @@
 import React from 'react';
 import './About.css';
+import SEO from '../../components/SEO';
 
 interface AboutProps { availableHeight: number; }
 
 const About: React.FC<AboutProps> = () => {
     return (
         <div className="about-page">
+            <SEO title="About Koinonia Coffee Project" description="Learn how Koinonia Coffee Project uses specialty coffee to create spaces for meaningful connection." path="/about" />
             <section className="about-hero">
                 <div className="about-hero-copy"><span className="about-eyebrow">OUR STORY</span><h1>Rooted in fellowship,<br />brewed with intention.</h1><p>Some of the best conversations happen over a good cup of coffee. We’re here to make sure that keeps happening.</p></div>
                 <div className="about-hero-image"><img src="/assets/images/DSCF3464.jpg" alt="The Koinonia coffee cart ready to serve" /></div><span className="about-image-caption">PEOPLE / PLACE / PURPOSE</span>

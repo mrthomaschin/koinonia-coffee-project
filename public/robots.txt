@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /account-login
+Disallow: /create-account
+Disallow: /create-partner-account
+Disallow: /cart
+Disallow: /order-confirmation
+
+Sitemap: https://koinoniacoffeeproject.com/sitemap.xml

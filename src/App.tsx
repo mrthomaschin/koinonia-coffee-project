@@ -13,7 +13,7 @@ import Contact from './pages/contact/ContactView';
 import { PAGES, LAYOUT } from './util/constants';
 import { isPageEnabled } from './util/devConfig';
 import './App.css';
-import Events from './pages/events/Events';
+import Catering from './pages/catering/Catering';
 import Shop from './pages/shop/ShopView';
 import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
@@ -28,6 +28,7 @@ import AccountDetailsPage from './pages/account/AccountDetailsPage';
 import PartnerStorePage from './pages/account/PartnerStorePage';
 import AccountLoginPage from './pages/account/AccountLoginPage';
 import { AccountProvider } from './contexts/AccountContext';
+import SEO from './components/SEO';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -61,6 +62,9 @@ const MainContent: React.FC = () => {
       <NotificationBar enabled={true} message="Free shipping on orders over $40" />
       <AppBar />
       <div className="main-content">
+        {(/^(\/account(?:\/|$)|\/account-login$|\/create-account$|\/create-partner-account$|\/cart$|\/order-confirmation$)/).test(location.pathname) && (
+          <SEO title="Koinonia Coffee Project" description="Koinonia Coffee Project account and order page." path={location.pathname} noIndex />
+        )}
         <Routes>
           <Route path="/" element={<Homepage availableHeight={availableHeight} />} />
           <Route
@@ -94,10 +98,10 @@ const MainContent: React.FC = () => {
             }
           />
           <Route
-            path="/events"
+            path="/catering"
             element={
-              isPageEnabled(PAGES.EVENTS) ? (
-                <Events availableHeight={availableHeight} />
+              isPageEnabled(PAGES.CATERING) ? (
+                <Catering availableHeight={availableHeight} />
               ) : (
                 <ComingSoon availableHeight={availableHeight} />
               )

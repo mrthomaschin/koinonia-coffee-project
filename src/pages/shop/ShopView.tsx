@@ -9,6 +9,7 @@ import './Shop.css';
 import { generateSlug } from './shopData';
 import { SortBy, FilterBy } from './ShopViewModel';
 import { useInventory } from '../../contexts/InventoryContext';
+import SEO from '../../components/SEO';
 
 interface ShopProps {
   availableHeight: number;
@@ -80,6 +81,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
   if (isLoading) {
     return (
       <div className="shop-page" style={{ minHeight: availableHeight }}>
+        <SEO title="Shop Specialty Coffee & Merchandise | Koinonia Coffee Project" description="Shop thoughtfully roasted coffee, brewing tools, apparel, and merchandise from Koinonia Coffee Project." path="/shop" />
         <div className="shop-header">
           <h1 className="shop-title">Products</h1>
         </div>
@@ -98,6 +100,7 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
   return (
     <div className="shop-page" style={{ minHeight: availableHeight }}>
+      <SEO title="Shop Specialty Coffee & Merchandise | Koinonia Coffee Project" description="Shop thoughtfully roasted coffee, brewing tools, apparel, and merchandise from Koinonia Coffee Project." path="/shop" />
       <header className="shop-header">
         <div>
           <h1 className="shop-title">Shop</h1>
