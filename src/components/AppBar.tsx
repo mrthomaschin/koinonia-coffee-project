@@ -37,7 +37,7 @@ const AppBar: React.FC = () => {
           {navItems.map(({ label, page }) => (
             <Link
               key={page}
-              to={page === PAGES.HOME ? '/' : `/${page}`}
+              to={`/${page}`}
               className="nav-item"
               onMouseEnter={() => setHoveredItem(page)}
               onMouseLeave={() => setHoveredItem(null)}
@@ -71,7 +71,7 @@ const AppBar: React.FC = () => {
           {navItems.map(({ label, page }) => (
             <Link
               key={page}
-              to={page === PAGES.HOME ? '/' : `/${page}`}
+              to={`/${page}`}
               className="dropdown-item"
               onClick={() => setIsMenuOpen(false)}
             >
