@@ -84,6 +84,8 @@ export const uploadReceiptToNotion = async (filename: string, image: Buffer): Pr
     return upload.id;
 };
 
+export const receiptFilename = (orderId: string): string => `Invoice Receipt - Order ${orderId}.png`;
+
 /** Render the Pictify image template and return the PNG bytes. */
 export const generateReceiptImage = async (order: ReceiptOrderData): Promise<Buffer> => {
     const apiKey = requiredConfig("PICTIFY_API_KEY");

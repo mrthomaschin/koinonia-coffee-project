@@ -8,7 +8,7 @@ import { Request, Response } from "express";
 import { createLogger } from "../logger";
 import { Address, fetchShippingRates, purchaseShipment } from "./easypost_service";
 import { EmailService } from "./email_service";
-import { generateReceiptImage, uploadReceiptToNotion } from "./pictify_service";
+import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
 
 export type AccountLabel = "consumer" | "partner" | "wholesale" | "church-ministry";
 export type PartnerAccountLabel = Extract<AccountLabel, "wholesale" | "church-ministry">;
@@ -283,9 +283,9 @@ const createRenewalNotionOrder = async (params: { orderId: string; paymentIntent
         orderDate: new Date().toISOString(),
         transactionId: params.paymentIntentId,
       });
-      const receiptFilename = `receipt-${params.orderId}.png`;
-      const receiptUploadId = await uploadReceiptToNotion(receiptFilename, receiptImage);
-      invoiceReceiptProperties = { "Invoice Receipt": { files: [{ name: receiptFilename, type: "file_upload", file_upload: { id: receiptUploadId } }] } };
+      const filename = receiptFilename(params.orderId);
+      const receiptUploadId = await uploadReceiptToNotion(filename, receiptImage);
+      invoiceReceiptProperties = { "Invoice Receipt": { files: [{ name: filename, type: "file_upload", file_upload: { id: receiptUploadId } }] } };
       logger.info("Renewal invoice receipt attached", { orderId: params.orderId });
     } catch (error: unknown) {
       logger.error("Unable to generate renewal invoice receipt", { orderId: params.orderId, error: (error as Error).message });

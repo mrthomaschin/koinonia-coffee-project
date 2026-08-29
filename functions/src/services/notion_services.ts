@@ -4,7 +4,7 @@ import { createLogger } from "../logger";
 
 import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
-import { generateReceiptImage, uploadReceiptToNotion } from "./pictify_service";
+import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
 const logger = createLogger("notion");
 
 const getNextRoastDateForInventory = async (): Promise<string | null> => {
@@ -574,8 +574,8 @@ export class NotionService {
                 transactionId,
                 discountCode,
             });
-            const receiptFilename = `receipt-${orderId}.png`;
-            const receiptUploadId = await uploadReceiptToNotion(receiptFilename, receiptImage);
+            const filename = receiptFilename(orderId);
+            const receiptUploadId = await uploadReceiptToNotion(filename, receiptImage);
 
             const response = await notion.pages.create({
                 parent: {
@@ -670,7 +670,7 @@ export class NotionService {
                     "Invoice Receipt": {
                         files: [
                             {
-                                name: receiptFilename,
+                                name: filename,
                                 type: "file_upload",
                                 file_upload: {
                                     id: receiptUploadId,
