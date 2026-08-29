@@ -1,6 +1,8 @@
 import React from 'react';
 import { Item } from './ItemModel';
 import './ItemPreview.css';
+import { Link } from 'react-router-dom';
+import { generateSlug } from '../shopData';
 
 interface ItemPreviewProps {
   item: Item;
@@ -20,7 +22,7 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
     : "/assets/images/shop_placeholder.png";
 
   return (
-    <div className="item-preview" onClick={() => onClick(item)}>
+    <Link to={`/shop/${generateSlug(item.name)}`} className="item-preview" onClick={() => onClick(item)}>
       <div className="preview-image-container">
         <img
           src={imageUrl}
@@ -53,7 +55,7 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 };
 

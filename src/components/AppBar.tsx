@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigation } from '../contexts/NavigationContext';
+import { Link } from 'react-router-dom';
 import { PAGES, ICONS, PageType } from '../util/constants';
 import './AppBar.css';
 
@@ -26,20 +27,17 @@ const AppBar: React.FC = () => {
   return (
     <div className="app-bar">
       <div className="app-bar-content">
-        <img
-          src={ICONS.primary}
-          alt="Koinonia Coffee Project"
-          className="app-bar-logo"
-          onClick={() => navigateTo(PAGES.HOME)}
-          style={{ cursor: 'pointer' }}
-        />
+        <Link to="/" aria-label="Koinonia Coffee Project home">
+          <img src={ICONS.primary} alt="Koinonia Coffee Project" className="app-bar-logo" />
+        </Link>
 
         <div className="app-bar-spacer" />
 
         <nav className="app-bar-nav-desktop">
           {navItems.map(({ label, page }) => (
-            <div
+            <Link
               key={page}
+              to={page === PAGES.HOME ? '/' : `/${page}`}
               className="nav-item"
               onMouseEnter={() => setHoveredItem(page)}
               onMouseLeave={() => setHoveredItem(null)}
@@ -52,12 +50,12 @@ const AppBar: React.FC = () => {
                   width: (currentPage === page || hoveredItem === page) ? '40px' : '0'
                 }}
               />
-            </div>
+            </Link>
           ))}
 
-          <button className="contact-us-button" onClick={() => handleNavClick(PAGES.CONTACT)}>
+          <Link className="contact-us-button" to="/contact" onClick={() => setIsMenuOpen(false)}>
             CONTACT US
-          </button>
+          </Link>
         </nav>
 
         <button
@@ -71,19 +69,20 @@ const AppBar: React.FC = () => {
       {isMenuOpen && (
         <div className="app-bar-dropdown">
           {navItems.map(({ label, page }) => (
-            <div
+            <Link
               key={page}
+              to={page === PAGES.HOME ? '/' : `/${page}`}
               className="dropdown-item"
-              onClick={() => handleNavClick(page)}
+              onClick={() => setIsMenuOpen(false)}
             >
               <span className="dropdown-label">{label}</span>
               {currentPage === page && <div className="dropdown-underline" />}
-            </div>
+            </Link>
           ))}
           <div className="dropdown-button-container">
-            <button className="contact-us-button-mobile" onClick={() => handleNavClick(PAGES.CONTACT)}>
+            <Link className="contact-us-button-mobile" to="/contact" onClick={() => setIsMenuOpen(false)}>
               CONTACT US
-            </button>
+            </Link>
           </div>
         </div>
       )}

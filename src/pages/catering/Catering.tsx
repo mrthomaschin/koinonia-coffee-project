@@ -1,6 +1,7 @@
 import React from 'react';
 import './Catering.css';
 import { FlashquotesEmbed } from '../../components/FlashquotesEmbed';
+import SEO from '../../components/SEO';
 
 interface CateringProps {
   availableHeight: number;
@@ -9,6 +10,7 @@ interface CateringProps {
 const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }) => {
   return (
     <main className="catering-page">
+      <SEO title="Mobile Coffee Cart Catering | Koinonia Coffee Project" description="Book Koinonia Coffee Project for weddings, markets, corporate events, and private gatherings with a mobile coffee cart." path="/catering" />
       <section className="catering-hero">
         <div className="catering-hero-copy">
           <p className="catering-eyebrow">BRING THE CART TO YOU</p>

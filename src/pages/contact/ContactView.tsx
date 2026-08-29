@@ -3,6 +3,7 @@ import ContactViewModel from './ContactViewModel';
 import './ContactView.css';
 import { FormData, FormErrors } from './ContactModel';
 import InstagramEmbed from '../../components/InstagramEmbed';
+import SEO from '../../components/SEO';
 
 interface ContactProps { availableHeight: number; }
 interface FormSectionProps {
@@ -44,8 +45,9 @@ const Contact: React.FC<ContactProps> = ({ availableHeight }) => {
 
   return (
     <main className="contact-page" style={{ minHeight: availableHeight }}>
+      <SEO title="Contact Koinonia Coffee Project" description="Get in touch with Koinonia Coffee Project about coffee, collaborations, and event bookings." path="/contact" />
       <section className="contact-main-section">
-        <div className="contact-intro"><p className="eyebrow">Start here</p><h2>Good things<br />usually begin with<br />a conversation.</h2><p className="intro-copy">Questions, ideas, event plans, or just want to talk<br className="desktop-break" /> coffee? We’d love to hear from you.</p><a className="contact-email" href="mailto:hello@koinoniacoffeeproject.com">hello@koinoniacoffeeproject.com</a><div className="contact-links"><a href="mailto:hello@koinoniacoffeeproject.com"></a></div></div>
+        <div className="contact-intro"><p className="eyebrow">Start here</p><h1>Good things<br />usually begin with<br />a conversation.</h1><p className="intro-copy">Questions, ideas, event plans, or just want to talk<br className="desktop-break" /> coffee? We’d love to hear from you.</p><a className="contact-email" href="mailto:hello@koinoniacoffeeproject.com">hello@koinoniacoffeeproject.com</a></div>
         <div id="contact-form"><FormSection formData={viewModel.formData} errors={viewModel.errors} updateField={(field, value) => viewModel.updateField(field, value)} submitForm={() => viewModel.submitForm()} isSubmitting={viewModel.isSubmitting} submitSuccess={viewModel.submitSuccess} /></div>
       </section>
       <section className="instagram-section"><div className="instagram-copy"><p className="eyebrow">Follow along</p><h2>See where we're headed next.</h2><p>Find us at the next gathering and follow the project as it grows.</p></div><InstagramEmbed /></section>

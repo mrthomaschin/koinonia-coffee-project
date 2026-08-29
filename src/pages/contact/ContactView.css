@@ -22,6 +22,7 @@
 
 .contact-hero h1,
 .contact-intro h2,
+.contact-intro h1,
 .instagram-copy h2,
 .contact-form-heading {
   font-family: 'HedvigLettersSerif_18pt', serif;
@@ -53,7 +54,8 @@
   padding-top: 4px;
 }
 
-.contact-intro h2 {
+.contact-intro h2,
+.contact-intro h1 {
   font-size: clamp(37px, 4vw, 49px);
   line-height: .91;
   margin-bottom: 24px;
@@ -323,7 +325,8 @@
     padding: 45px 24px 52px;
   }
 
-  .contact-intro h2 {
+  .contact-intro h2,
+  .contact-intro h1 {
     font-size: 42px;
   }
 
