@@ -44,7 +44,7 @@ interface DiscountCodeProp {
 }
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string) => void;
+  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string, billingAddress?: string) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -89,6 +89,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [taxAmount, setTaxAmount] = useState(0);
   const [currentAddress, setCurrentAddress] = useState<any>(null);
+  const [billingAddress, setBillingAddress] = useState('');
   const [showShippingRestriction, setShowShippingRestriction] = useState(false);
   const [addressValidation, setAddressValidation] = useState<AddressValidationResult | null>(null);
   const [pickupOptions, setPickupOptions] = useState<OrderPickupOption[]>([]);
@@ -719,7 +720,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   currentShippingAddress,
                   taxAmount,
                   currentAddress,
-                  orderPickupId
+                  orderPickupId,
+                  billingAddress
                 );
               } else {
                 logger.error('[shipment] Purchase shipment API call failed', {
@@ -727,17 +729,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   statusText: response.statusText
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
+                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
               }
             } else {
               logger.log('[shipment] No address available, skipping shipment purchase');
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
+              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
             }
           } catch (shipmentError) {
             logger.error('[shipment] Error during shipment purchase:', shipmentError);
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
+            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
 
           }
         } else {
@@ -746,7 +748,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             selectedShippingId: selectedShipping.id
           });
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId);
+          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
         }
       }
     } catch (err) {
@@ -1025,9 +1027,21 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
         <div className="address-section">
           <h3>Billing Address</h3>
-          <AddressElement
-            options={{ mode: 'billing' }}
-            onReady={() => {
+              <AddressElement
+                options={{ mode: 'billing' }}
+                onChange={(event) => {
+                  const address = event.value?.address;
+                  if (!address) return;
+                  setBillingAddress([
+                    address.line1,
+                    address.line2,
+                    address.city,
+                    address.state,
+                    address.postal_code,
+                    address.country,
+                  ].filter(Boolean).join(', '));
+                }}
+                onReady={() => {
               logger.log('[stripe] Billing address element ready');
               setElementsMounted(prev => ({ ...prev, billing: true }));
             }}
@@ -1089,7 +1103,7 @@ interface DiscountCode {
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string) => void;
+  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string, billingAddress?: string) => void;
   onCancel: () => void;
   discountCode?: DiscountCode | null;
   hasSubscription: boolean;
@@ -1132,9 +1146,9 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
     });
   }, [clientSecret]);
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string) => {
+  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string, billingAddress?: string) => {
     logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, shippingAddressData, orderPickupId);
+    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, shippingAddressData, orderPickupId, billingAddress);
   };
 
   const options = {

@@ -23,6 +23,7 @@ interface NotionOrderData {
   orderDate: string;
   transactionId: string;
   shippingAddress?: string;
+  billingAddress?: string;
   shipmentData?: {
     trackingNumber: string;
     labelUrl: string;

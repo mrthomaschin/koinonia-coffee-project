@@ -256,7 +256,8 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         shippingAddress?: string,
         tax?: number,
         shippingAddressData?: any,
-        orderPickupId?: string
+        orderPickupId?: string,
+        billingAddress?: string
     ) => {
         logger.log('CartView handleCheckoutSuccess called with shippingAddress:', shippingAddress);
         setShowCheckout(false);
@@ -309,6 +310,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             timestamp: new Date().toISOString(),
             shipmentData: shipmentData || null,
             shippingAddress: shippingAddress || null,
+            billingAddress: billingAddress || null,
             shippingAddressData: shippingAddressData || null,
             isLocalPickup: shippingOption?.id === 'local-pickup' || false,
             orderPickupId: orderPickupId || null

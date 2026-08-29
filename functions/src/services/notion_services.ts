@@ -515,6 +515,7 @@ export class NotionService {
                 orderDate,
                 transactionId,
                 shippingAddress,
+                billingAddress,
                 shipmentData,
                 isLocalPickup,
                 orderPickupId,
@@ -563,7 +564,7 @@ export class NotionService {
             const receiptImage = await generateReceiptImage({
                 customerName,
                 customerEmail,
-                customerAddress: shippingAddress,
+                customerAddress: billingAddress || "N/A",
                 orderId,
                 items,
                 subtotal,

@@ -44,6 +44,7 @@ interface EmbeddedOrderData {
   subtotalAfterDiscount?: number;
   shipping: number;
   shippingAddress?: string | null;
+  billingAddress?: string | null;
   shippingAddressData?: Record<string, unknown> | null;
   tax: number;
   total: number;
@@ -158,7 +159,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     tax: state.orderData.tax,
                     orderDate: state.orderData.timestamp,
                     transactionId: orderId,
-                    shippingAddress: shippingAddress,
+            shippingAddress: shippingAddress,
+            billingAddress: (state.orderData as EmbeddedOrderData).billingAddress || '',
                     shipmentData: shipmentData,
                     shippingBox: shipmentData?.boxSize || '',
                     isLocalPickup: isLocalPickup,
