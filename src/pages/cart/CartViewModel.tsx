@@ -11,6 +11,7 @@ export interface CartItemSelection {
     variantPrice?: number;
     variantShippingWeight?: number;
     subscriptionPlan?: 'one-bag-every-session' | 'two-bags-every-session' | 'one-bag-every-other-session' | 'two-bags-every-other-session';
+    isPartnerOrder?: boolean;
 }
 
 export interface CartItem {
@@ -110,7 +111,7 @@ export class CartViewModel {
         }
 
         // Check stock limits only if unlimited purchases is not enabled
-        if (!allowsUnlimitedPurchases(itemForLTOCheck)) {
+        if (!allowsUnlimitedPurchases(itemForLTOCheck) && !selections.isPartnerOrder) {
             if (availableQuantity === 0) {
                 return { success: false, message: 'Item is out of stock' };
             }
@@ -127,7 +128,7 @@ export class CartViewModel {
         if (existingIndex >= 0) {
             const newQuantity = this.cartItems[existingIndex].quantity + quantity;
 
-            if (!allowsUnlimitedPurchases(itemForLTOCheck) && newQuantity > availableQuantity) {
+            if (!allowsUnlimitedPurchases(itemForLTOCheck) && !selections.isPartnerOrder && newQuantity > availableQuantity) {
                 return { success: false, message: `Only ${availableQuantity} available in stock` };
             }
 

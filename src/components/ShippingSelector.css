@@ -169,3 +169,140 @@
     font-size: 16px;
   }
 }
+
+/* Koinonia warm minimal checkout treatment */
+.shipping-selector {
+  margin: 30px 0;
+}
+
+.shipping-title {
+  margin: 0 0 19px;
+  color: #2f2b39;
+  font: 400 25px/0.95 'HedvigLettersSerif_18pt', Georgia, serif;
+  letter-spacing: -0.3px;
+}
+
+.shipping-options {
+  gap: 10px;
+  animation: none;
+}
+
+.shipping-option {
+  padding: 15px 16px;
+  border: 1px solid rgba(47, 43, 57, 0.18);
+  border-radius: 0;
+  background: transparent;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  animation: none;
+}
+
+.shipping-option:hover {
+  border-color: rgba(132, 130, 94, 0.75);
+  background: #eeece4;
+}
+
+.shipping-option.selected {
+  border: 1px solid #84825e;
+  background: #eeece4;
+}
+
+.shipping-option-content {
+  gap: 14px;
+}
+
+.shipping-radio input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  border: 1px solid rgba(47, 43, 57, 0.5);
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  place-content: center;
+  transition: border-color 0.2s ease;
+}
+
+.shipping-radio input[type='radio']::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #84825e;
+  transform: scale(0);
+  transition: transform 0.15s ease-in-out;
+}
+
+.shipping-radio input[type='radio']:checked {
+  border-color: #84825e;
+}
+
+.shipping-radio input[type='radio']:checked::before {
+  transform: scale(1);
+}
+
+.shipping-radio input[type='radio']:focus-visible {
+  outline: 2px solid rgba(49, 61, 102, 0.45);
+  outline-offset: 3px;
+}
+
+.shipping-details {
+  min-width: 0;
+}
+
+.shipping-label {
+  margin-bottom: 5px;
+  color: #2f2b39;
+  font: 500 14px/1.2 'RethinkSans-Regular', sans-serif;
+}
+
+.shipping-description {
+  color: rgba(47, 43, 57, 0.64);
+  font: 13px/1.35 'RethinkSans-Regular', sans-serif;
+}
+
+.shipping-price {
+  gap: 3px;
+  color: #84825e;
+  font: 500 16px/1.1 'RethinkSans-Regular', sans-serif;
+}
+
+.original-price {
+  color: rgba(47, 43, 57, 0.45);
+  font-size: 12px;
+}
+
+.free-price {
+  color: #84825e;
+  font: 500 16px/1.1 'RethinkSans-Regular', sans-serif;
+}
+
+.loading-shipping {
+  padding: 20px 0;
+  color: rgba(47, 43, 57, 0.6);
+  font: 12px/1.5 'RethinkSans-Regular', sans-serif;
+}
+
+@media (max-width: 768px) {
+  .shipping-option {
+    padding: 14px;
+  }
+
+  .shipping-option-content {
+    gap: 11px;
+  }
+
+  .shipping-label {
+    font-size: 13px;
+  }
+
+  .shipping-description {
+    font-size: 12px;
+  }
+
+  .shipping-price,
+  .free-price {
+    font-size: 14px;
+  }
+}

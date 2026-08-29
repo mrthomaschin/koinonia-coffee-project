@@ -7,6 +7,7 @@
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
+    "migrate:account-labels": "node scripts/migrate_account_labels.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },

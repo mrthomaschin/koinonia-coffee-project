@@ -224,10 +224,12 @@ app.post("/account/login", AccountService.login);
 app.post("/account/create", AccountService.createAccount);
 app.get("/account/orders", AccountService.getOrders);
 app.get("/account/subscriptions", AccountService.getSubscriptions);
+app.get("/account/partner-prices", AccountService.getPartnerPrices);
 app.post("/account/subscriptions", AccountService.createSubscription);
 app.post("/account/subscription-checkout/complete", AccountService.completeSubscriptionCheckout);
 app.post("/account/subscriptions/:subscriptionId/cancel", AccountService.cancelSubscription);
 app.post("/account/subscriptions/:subscriptionId/skip", AccountService.skipSubscription);
+app.post("/account/subscriptions/:subscriptionId/add-on", AccountService.addSubscriptionAddOn);
 app.post("/account/logout", AccountService.logout);
 
 // One-way Firestore -> Notion projection. Notion is an operations view only;

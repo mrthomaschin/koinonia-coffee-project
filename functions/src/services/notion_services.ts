@@ -4,7 +4,7 @@ import { createLogger } from "../logger";
 
 import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
-import { generateReceiptImage } from "./pictify_service";
+import { generateReceiptImage, uploadReceiptToNotion } from "./pictify_service";
 const logger = createLogger("notion");
 
 const getNextRoastDateForInventory = async (): Promise<string | null> => {
@@ -137,49 +137,6 @@ const getNotion = () => {
     return notionInstance;
 };
 
-const uploadFileToNotion = async (filename: string, contentType: string, file: Buffer): Promise<string> => {
-    const token = process.env.NOTION_TOKEN;
-    if (!token) throw new Error("NOTION_TOKEN is not configured");
-
-    const headers = {
-        Authorization: `Bearer ${token}`,
-        "Notion-Version": "2022-06-28",
-    };
-    const createResponse = await fetch("https://api.notion.com/v1/file_uploads", {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-            mode: "single_part",
-            filename,
-            content_type: contentType,
-        }),
-    });
-
-    if (!createResponse.ok) {
-        throw new Error(`Notion file upload initialization failed (${createResponse.status}): ${await createResponse.text()}`);
-    }
-
-    const upload = await createResponse.json() as { id?: string; upload_url?: string };
-    if (!upload.id || !upload.upload_url) throw new Error("Notion did not return a file upload URL");
-
-    const form = new FormData();
-    // Copy into an ArrayBuffer-backed view for the DOM Blob typings used by
-    // Node 20's fetch implementation.
-    const fileBytes = new Uint8Array(file.length);
-    file.copy(fileBytes);
-    form.append("file", new Blob([fileBytes], { type: contentType }), filename);
-    const sendResponse = await fetch(upload.upload_url, {
-        method: "POST",
-        headers,
-        body: form,
-    });
-
-    if (!sendResponse.ok) {
-        throw new Error(`Notion PDF upload failed (${sendResponse.status}): ${await sendResponse.text()}`);
-    }
-
-    return upload.id;
-};
 
 // Helper function to extract text/number from a Notion property object
 const propToString = (prop: any): string => {
@@ -425,6 +382,7 @@ export class NotionService {
                 }
                 const itemType = properties["Item Type"]?.select?.name || "";
                 const quantity = properties["Qty Available"]?.formula?.number ?? 0;
+                const isWholesale = properties["Wholesale"]?.checkbox || false;
                 const createdAt = properties["Created At"]?.date?.start || new Date().toISOString();
                 const firebaseImageUrlsArray = properties["Firebase Image URLs"]?.rich_text || [];
                 const firebaseImageUrls = firebaseImageUrlsArray
@@ -474,15 +432,18 @@ export class NotionService {
 
                     variantInventory = itemVariants
                         .filter((variantProps: any) => {
-                            const active = variantProps["Active"]?.checkbox !== false;
                             const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+                            const isWholesale = variantProps["Wholesale"]?.checkbox || variantSku.endsWith("-WS");
+                            const active = variantProps["Active"]?.checkbox !== false;
                             const variantWeight = variantProps["Variant Weight"]?.select?.name || "";
-                            logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, keep=${active}`);
-                            return active;
+                            const keep = active || isWholesale;
+                            logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, Wholesale=${isWholesale}, keep=${keep}`);
+                            return keep;
                         })
                         .map((variantProps: any) => {
                             const quantity = variantProps["Qty Available"]?.formula?.number ?? 0;
                             const variantSku = variantProps["SKU"]?.rich_text?.[0]?.plain_text || "";
+                            const isWholesale = variantProps["Wholesale"]?.checkbox || variantSku.endsWith("-WS");
                             const ltoEndDate = variantProps["LTO End Date"]?.date?.start || null;
                             const ltoUnlimitedPurchases = variantProps["LTO Unlimited Purchases"]?.checkbox || false;
 
@@ -498,9 +459,10 @@ export class NotionService {
                                 quantity: quantity,
                                 price: variantProps["Price"]?.number || 0,
                                 isSoldOut: quantity <= 0,
-                                active: variantProps["Active"]?.checkbox !== false,
+                                active: variantProps["Active"]?.checkbox !== false || isWholesale,
                                 ltoEndDate,
                                 ltoUnlimitedPurchases,
+                                isWholesale,
                             };
                         });
 
@@ -518,6 +480,7 @@ export class NotionService {
                     itemType,
                     createdAt,
                     quantity,
+                    isWholesale,
                     weights,
                     shippingWeight,
                     roastLevel,
@@ -584,7 +547,7 @@ export class NotionService {
                     const itemName = item.selections?.variations || item.variations ?
                         `${item.name} (${item.selections?.variations || item.variations})` :
                         item.name;
-                    return `${itemName},${item.sku},${item.quantity}`;
+                    return `${itemName},${item.sku},${item.internalQuantity ?? item.quantity}`;
                 })
                 .join("\n");
 
@@ -612,7 +575,7 @@ export class NotionService {
                 discountCode,
             });
             const receiptFilename = `receipt-${orderId}.png`;
-            const receiptUploadId = await uploadFileToNotion(receiptFilename, "image/png", receiptImage);
+            const receiptUploadId = await uploadReceiptToNotion(receiptFilename, receiptImage);
 
             const response = await notion.pages.create({
                 parent: {

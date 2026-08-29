@@ -7,6 +7,7 @@ import './CoffeeBagDetail.css';
 import { ItemType } from '../ItemModel';
 import { allowsUnlimitedPurchases } from '../../../../util/limitedTimeOffer';
 import { SubscriptionPlan } from '../../../../models/AccountModel';
+import { useAccount } from '../../../../contexts/AccountContext';
 
 interface CoffeeBagDetailProps {
   item: CoffeeBagItem;
@@ -15,9 +16,12 @@ interface CoffeeBagDetailProps {
 
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
+  const { account } = useAccount();
+  const isPartnerAccount = account?.label === 'wholesale' || account?.label === 'church-ministry';
   // Derive available weights from variants if they exist, otherwise use parent's weights
   const availableWeights = item.variants && item.variants.length > 0
     ? item.variants
+      .filter((variant) => isPartnerAccount || (!variant.isWholesale && !variant.sku.endsWith('-WS')))
       .map(v => v.weight)
       .filter((w): w is string => w !== '')
       .filter((weight, index, self) => self.indexOf(weight) === index)

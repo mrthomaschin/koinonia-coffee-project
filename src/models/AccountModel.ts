@@ -4,11 +4,27 @@ export interface User {
     email: string;
 }
 
+/** The account types supported by the account hierarchy. */
+export type AccountLabel = 'consumer' | 'partner' | 'wholesale' | 'church-ministry';
+
+export type PartnerAccountLabel = Extract<AccountLabel, 'wholesale' | 'church-ministry'>;
+
+export const DEFAULT_ACCOUNT_LABEL: AccountLabel = 'consumer';
+
+/** Parent relationship used when partner-specific features are introduced. */
+export const ACCOUNT_LABEL_PARENTS: Record<AccountLabel, AccountLabel | null> = {
+    consumer: null,
+    partner: null,
+    wholesale: 'partner',
+    'church-ministry': 'partner',
+};
+
 export interface Account {
     id: string;
     user: User;
     username: string;
     password: string;
+    label: AccountLabel;
 }
 
 export interface Subscription {
@@ -29,6 +45,8 @@ export interface Subscription {
     orderPickupId?: string;
     createdAt: string;
     upcomingRoastDate: string;
+    addOnWeight?: number;
+    addOnUnitAmount?: number;
 }
 
 export interface CreateSubscriptionInput {

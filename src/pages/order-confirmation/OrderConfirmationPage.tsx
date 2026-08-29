@@ -31,6 +31,7 @@ interface EmbeddedOrderData {
   items: Array<{
     name: string;
     quantity: number;
+    internalQuantity?: number;
     price: number;
     sku?: string;
     image?: string;
@@ -116,6 +117,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                 name: item.name,
                 sku: item.sku || 'N/A',
                 quantity: item.quantity,
+                internalQuantity: item.internalQuantity,
                 price: item.price,
                 variations: variations.length > 0 ? variations.join(', ') : undefined,
                 image: item.image

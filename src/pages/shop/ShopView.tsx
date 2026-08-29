@@ -14,6 +14,12 @@ interface ShopProps {
   availableHeight: number;
 }
 
+const isConsumerVisible = (item: Item): boolean => {
+  if (item.isWholesale) return false;
+  if (!item.variants?.length) return true;
+  return item.variants.some((variant) => !variant.isWholesale && !variant.sku.endsWith('-WS'));
+};
+
 const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
   const navigate = useNavigate();
   const { items, isLoading, error } = useInventory();
@@ -22,10 +28,10 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
   const sortedItems = useMemo(() => {
     // Filter items
-    let filteredItems = items;
+    let filteredItems = items.filter(isConsumerVisible);
     switch (filterBy) {
       case FilterBy.BEANS:
-        filteredItems = items.filter(item => item.itemType === ItemType.coffee);
+        filteredItems = filteredItems.filter(item => item.itemType === ItemType.coffee);
         break;
       case FilterBy.MERCH:
         filteredItems = items.filter(item =>

@@ -30,10 +30,12 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
   const createdAt = new Date(notionItem.createdAt);
   const ltoEndDate = notionItem.ltoEndDate ? new Date(notionItem.ltoEndDate) : null;
   const ltoUnlimitedPurchases = notionItem.ltoUnlimitedPurchases || false;
+  const isWholesale = notionItem.isWholesale || false;
 
   // Convert variant LTO date strings to Date objects
   const convertedVariants = notionItem.variants?.map((variant: any) => ({
     ...variant,
+    isWholesale: variant.isWholesale || false,
     ltoEndDate: variant.ltoEndDate ? new Date(variant.ltoEndDate) : null,
   }));
 
@@ -43,7 +45,7 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
     const weights = notionItem.weights || [];
     const roastLevel = notionItem.roastLevel || 'Medium';
 
-    return new CoffeeBagItem(
+    const item = new CoffeeBagItem(
       notionItem.sku,
       notionItem.name,
       notionItem.itemSummary || '',
@@ -63,6 +65,8 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       notionItem.brewingMethods,
       notionItem.nextRoastDate
     );
+    item.isWholesale = isWholesale;
+    return item;
   } else {
     const sizes = (notionItem.sizes || [])
       .map(mapMerchSize)

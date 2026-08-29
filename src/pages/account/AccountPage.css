@@ -6,12 +6,12 @@
 .account-layout { width: 100%; flex: 1; display: grid; grid-template-columns: clamp(188px, 19vw, 260px) minmax(0, 1fr); margin: 0 auto; }
 .account-sidebar { padding: 48px 24px; background: #eeeadf; border-right: 1px solid #d8d2c5; }
 .account-sidebar nav { display: grid; }
-.account-sidebar button { padding: 17px 0; border: 0; border-bottom: 1px solid #d2ccbf; background: transparent; color: #2f2b39; font: 10.88px 'RethinkSans-Regular', sans-serif; letter-spacing: .14em; text-align: left; text-transform: uppercase; cursor: pointer; }
-.account-sidebar button:first-child { padding-top: 0; }
-.account-sidebar button[aria-current='page'] { color: #313d66; font-weight: 600; }
+.account-sidebar a, .account-sidebar button { display: block; padding: 17px 0; border: 0; border-bottom: 1px solid #d2ccbf; background: transparent; color: #2f2b39; font: 10.88px 'RethinkSans-Regular', sans-serif; letter-spacing: .14em; text-align: left; text-transform: uppercase; text-decoration: none; cursor: pointer; }
+.account-sidebar a:first-child { padding-top: 0; }
+.account-sidebar a[aria-current='page'] { color: #313d66; font-weight: 600; }
 .account-sidebar .account-sign-out { margin-top: 42px; border-bottom: 0; color: #68656c; }
 .account-content { width: 100%; padding: clamp(34px, 4vw, 56px) clamp(24px, 5vw, 72px) 52px; }
-.account-content h2, .account-login-card h1, .account-detail-card h3 { font-family: 'HedvigLettersSerif_18pt', Georgia, serif; font-weight: 400; }
+.account-content h2, .account-login-card h1, .account-detail-card h3 { font-family: 'HedvigLettersSerif_18pt', Georgia, serif; font-weight: 400; font-variant-ligatures: none; font-feature-settings: 'liga' 0; }
 .account-content h2 { margin: 0 0 18px; font-size: 32px; }
 .account-section-kicker { margin: 0 0 24px; color: #84825e; font-size: 10.88px; letter-spacing: .2em; text-transform: uppercase; }
 .order-row { display: grid; grid-template-columns: 1.45fr 1fr auto; align-items: center; gap: 22px; padding: 15px 0 17px; border-top: 1px solid #c9c3b7; }
@@ -34,6 +34,9 @@
 .account-subscriptions .account-intro { color: #68656c; font-size: 12.48px; }
 .subscription-row { display: flex; justify-content: space-between; gap: 18px; padding: 16px 0; border-top: 1px solid #c9c3b7; }
 .subscription-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.subscription-add-on { display: flex; align-items: end; gap: 10px; margin-top: 8px; }
+.subscription-add-on label { display: grid; gap: 4px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+.subscription-add-on input { width: 80px; padding: 6px; border: 1px solid #aaa58f; background: transparent; color: inherit; font: inherit; }
 .account-cancel { padding: 0; border: 0; background: none; color: #a62929; font: inherit; text-decoration: underline; cursor: pointer; }
 .subscription-actions .account-cancel:first-child { color: #313d66; }
 .account-empty { color: #68656c; font-size: 13.12px; }
@@ -45,9 +48,10 @@
 .account-form { display: grid; gap: 16px; }
 .account-form label { display: grid; gap: 7px; font-size: 12.16px; letter-spacing: .03em; }
 .account-form input { width: 100%; padding: 12px; border: 1px solid #aaa58f; border-radius: 0; background: transparent; color: inherit; font: inherit; }
+.account-form select { width: 100%; padding: 12px; border: 1px solid #aaa58f; border-radius: 0; background: transparent; color: inherit; font: inherit; }
 .account-name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .account-submit { padding: 14px; border: 0; background: #313d66; color: #fff; font: 10.88px 'RethinkSans-Regular', sans-serif; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
 .account-submit:disabled { opacity: .65; cursor: wait; }
 .account-switch { padding: 0; margin-top: 20px; border: 0; background: none; color: #313d66; font: 10.56px 'RethinkSans-Regular', sans-serif; letter-spacing: .1em; text-transform: uppercase; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
-@media (max-width: 760px) { .account-hero { min-height: 190px; padding: 42px 24px; display: block; } .account-hero-copy { margin-top: 22px; text-align: left; } .account-layout { display: block; } .account-sidebar { padding: 0 24px; border-right: 0; border-bottom: 1px solid #d8d2c5; } .account-sidebar nav { grid-template-columns: repeat(2, 1fr); column-gap: 22px; } .account-sidebar button:first-child { padding-top: 17px; } .account-sidebar .account-sign-out { margin-top: 0; } .account-content { padding: 34px 24px 48px; } .order-row { grid-template-columns: 1fr 1fr; } .order-row > div:last-child { justify-items: start; } .account-view-order { grid-column: 1 / -1; justify-self: start; } }
+@media (max-width: 760px) { .account-hero { min-height: 190px; padding: 42px 24px; display: block; } .account-hero-copy { margin-top: 22px; text-align: left; } .account-layout { display: block; } .account-sidebar { padding: 0 24px; border-right: 0; border-bottom: 1px solid #d8d2c5; } .account-sidebar nav { grid-template-columns: repeat(2, 1fr); column-gap: 22px; } .account-sidebar a:first-child { padding-top: 17px; } .account-sidebar .account-sign-out { margin-top: 0; } .account-content { padding: 34px 24px 48px; } .order-row { grid-template-columns: 1fr 1fr; } .order-row > div:last-child { justify-items: start; } .account-view-order { grid-column: 1 / -1; justify-self: start; } }
 @media (max-width: 500px) { .account-detail-grid, .account-name-row { grid-template-columns: 1fr; } .account-login-card { padding: 30px 24px; } .order-row { grid-template-columns: 1fr; gap: 12px; } .order-row > div:last-child { justify-items: start; } .subscription-row { display: grid; } .subscription-row > div:last-child { justify-items: start; } }

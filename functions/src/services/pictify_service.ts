@@ -57,6 +57,33 @@ const formatDate = (value: string): string => {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-US");
 };
 
+/** Upload a generated receipt image to Notion and return its file-upload id. */
+export const uploadReceiptToNotion = async (filename: string, image: Buffer): Promise<string> => {
+    const token = requiredConfig("NOTION_TOKEN");
+    const headers = {
+        Authorization: `Bearer ${token}`,
+        "Notion-Version": "2022-06-28",
+    };
+    const createResponse = await fetch("https://api.notion.com/v1/file_uploads", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "single_part", filename, content_type: "image/png" }),
+    });
+    if (!createResponse.ok) {
+        throw new Error(`Notion file upload initialization failed (${createResponse.status}): ${await createResponse.text()}`);
+    }
+    const upload = await createResponse.json() as { id?: string; upload_url?: string };
+    if (!upload.id || !upload.upload_url) throw new Error("Notion did not return a file upload URL");
+
+    const fileBytes = new Uint8Array(image.length);
+    image.copy(fileBytes);
+    const form = new FormData();
+    form.append("file", new Blob([fileBytes], { type: "image/png" }), filename);
+    const sendResponse = await fetch(upload.upload_url, { method: "POST", headers, body: form });
+    if (!sendResponse.ok) throw new Error(`Notion receipt upload failed (${sendResponse.status}): ${await sendResponse.text()}`);
+    return upload.id;
+};
+
 /** Render the Pictify image template and return the PNG bytes. */
 export const generateReceiptImage = async (order: ReceiptOrderData): Promise<Buffer> => {
     const apiKey = requiredConfig("PICTIFY_API_KEY");

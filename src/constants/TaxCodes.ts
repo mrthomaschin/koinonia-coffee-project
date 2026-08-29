@@ -8,7 +8,8 @@ export const TaxCodes = {
    * Whole bean & ground coffee sold online
    * (8 oz bags, 12 oz bags, subscriptions, etc.)
    */
-  COFFEE: 'txcd_41050006', // Coffee Beans or Ground Coffee
+  // Packaged whole-bean/ground coffee intended for consumption off premises.
+  COFFEE: 'txcd_40040000', // Food for Non-Immediate Consumption
 
   /**
    * Shirts, hats, hoodies

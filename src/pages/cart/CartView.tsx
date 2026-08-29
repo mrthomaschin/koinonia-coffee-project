@@ -38,6 +38,21 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     const subtotalAfterDiscount = useMemo(() => viewModel.getSubtotalAfterDiscount(), [viewModel.discountCode, subtotal]);
     const isEmpty = useMemo(() => viewModel.cartItems.length === 0, [viewModel.cartItems, updateTrigger]);
     const qualifiesForFreeShipping = useMemo(() => subtotalAfterDiscount >= FREE_SHIPPING_THRESHOLD, [subtotalAfterDiscount]);
+    const isPartnerAccount = account?.label === 'wholesale' || account?.label === 'church-ministry';
+    const qualifiesForAccountFreeShipping = qualifiesForFreeShipping && !isPartnerAccount;
+    const getInternalQuantity = (cartItem: CartItem): number => {
+        if (!getCheckoutSku(cartItem).endsWith('-WS') || cartItem.item.itemType !== ItemType.coffee) return cartItem.quantity;
+        const weight = Number.parseFloat(cartItem.selections.weight || '');
+        return Number.isFinite(weight) && weight > 0 ? weight * cartItem.quantity : cartItem.quantity;
+    };
+    const getCheckoutSku = (cartItem: CartItem): string => {
+        if (cartItem.variantSku) return cartItem.variantSku;
+        if (isPartnerAccount && cartItem.selections.subscriptionPlan) {
+            const partnerVariant = cartItem.item.variants?.find((variant) => variant.sku.endsWith('-WS'));
+            if (partnerVariant) return partnerVariant.sku;
+        }
+        return cartItem.item.sku;
+    };
 
     const getPendingQuantity = useCallback((index: number) => {
         return pendingQuantities[index] ?? viewModel.cartItems[index]?.quantity ?? 1;
@@ -180,7 +195,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         ...item.item,
                         shippingWeight: item.item.shippingWeight,
                         variants: item.item.variants?.map(v => ({
-                            sku: v.sku,
+                            ...v,
                             shippingWeight: v.shippingWeight,
                         })),
                     },
@@ -192,7 +207,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         shippingWeight: item.item.shippingWeight,
                         variantSku: item.variantSku,
                         hasVariants: !!item.item.variants,
-                        quantity: item.quantity,
+                        quantity: getInternalQuantity(item),
                     })),
                 });
             } catch (storageError) {
@@ -208,7 +223,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                 totalAmount,
                 {
                     items: JSON.stringify(viewModel.cartItems.map(item => ({
-                        id: item.variantSku || item.item.sku,
+                        id: getCheckoutSku(item),
                         name: item.item.name,
                         quantity: item.quantity,
                         price: item.variantPrice || item.item.price,
@@ -229,7 +244,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         } finally {
             setIsLoadingCheckout(false);
         }
-    }, [hasAnyChanges, isAuthenticated, showToast, subtotalAfterDiscount, token, viewModel.cartItems, viewModel.discountCode]);
+    }, [account, getCheckoutSku, hasAnyChanges, isAuthenticated, showToast, subtotalAfterDiscount, token, viewModel.cartItems, viewModel.discountCode]);
 
     const handleCheckoutSuccess = useCallback(async (
         paymentIntentId?: string,
@@ -264,7 +279,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             paymentIntentId,
             subscriptionItems: viewModel.cartItems.filter((item) => item.selections.subscriptionPlan).map((item) => ({
                 plan: item.selections.subscriptionPlan,
-                itemSku: item.variantSku || item.item.sku,
+                itemSku: getCheckoutSku(item),
                 itemName: item.item.name,
                 weight: item.selections.weight || '',
                 shippingWeight: item.selections.variantShippingWeight || item.item.shippingWeight,
@@ -273,8 +288,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             items: viewModel.cartItems.map(item => ({
                 name: item.item.name,
                 quantity: item.quantity,
+                internalQuantity: getInternalQuantity(item),
                 price: item.variantPrice || viewModel.getItemPrice(item),
-                sku: item.variantSku || item.item.sku,
+                sku: getCheckoutSku(item),
                 image: item.item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png',
                 selections: {
                     ...item.selections,
@@ -345,7 +361,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         </p>
                     )}
                     {cartItem.selections.subscriptionPlan && (
-                        <p className="cart-item-selection">Subscription: {cartItem.selections.subscriptionPlan.includes('every-other') ? 'every other roast' : 'every roast'} · Save 5%</p>
+                        <p className="cart-item-selection">Subscription: {cartItem.selections.subscriptionPlan.includes('every-other') ? 'every other roast' : 'every roast'}{!isPartnerAccount && ' · Save 5%'}</p>
                     )}
 
                     {cartItem.selections.size && (
@@ -453,7 +469,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         )}
                     </div>
 
-                    {qualifiesForFreeShipping && (
+                    {qualifiesForAccountFreeShipping && (
                         <div className="free-shipping-notice">
                             🎉 You qualify for free USPS Ground Advantage shipping!
                         </div>

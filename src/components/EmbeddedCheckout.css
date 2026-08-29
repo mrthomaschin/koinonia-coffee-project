@@ -534,6 +534,7 @@
 .shipping-sections-container.expanded { max-height:none; }
 .shipping-selector-container,.free-shipping-notice-checkout { margin-top:20px; }
 .free-shipping-notice-checkout { padding:11px; border:1px solid rgba(132,130,94,.35); border-left:3px solid #84825e; border-radius:0; background:#eeece4; color:#6f6d50; font-size:11px; }
+.free-shipping-notice-checkout { margin: 0 0 20px; text-align: left; font: 11px/1.5 'RethinkSans-Regular', sans-serif; }
 .pickup-info-text { padding:14px; border-left:3px solid #84825e; border-radius:0; background:#eeece4; color:rgba(47,43,57,.7); font-size:12px; }
 .error-message { border-radius:0; }
 .checkout-actions { gap:12px; margin-top:26px; }

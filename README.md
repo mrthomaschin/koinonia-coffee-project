@@ -161,7 +161,9 @@ For detailed instructions, see [STRIPE_DEPLOYMENT_GUIDE.md](./STRIPE_DEPLOYMENT_
 
 ## Account and order-history setup
 
-The `/account` page stores accounts in Firestore—not Notion. Each account has an immutable ID such as `acct_8b57…`, a unique username and email, profile data, and a salted scrypt password hash. The browser receives neither the password hash nor a Notion credential.
+The `/account` page stores accounts in Firestore—not Notion. Each account has an immutable ID such as `acct_8b57…`, a unique username and email, profile data, an account `label`, and a salted scrypt password hash. Labels are `consumer` (the default public-signup account), `partner`, `wholesale`, or `church-ministry`; the last two are child programs of `partner`. The browser receives neither the password hash nor a Notion credential.
+
+Existing account documents can be backfilled once with `npm --prefix functions run migrate:account-labels`. The command uses Google Application Default Credentials and only adds `label: "consumer"` to account documents that do not already have a label.
 
 The Functions backend is the only component with Firestore access. Notion remains the source for existing online-order history; it is queried by the signed-in account's email and cached briefly in Firestore.
 

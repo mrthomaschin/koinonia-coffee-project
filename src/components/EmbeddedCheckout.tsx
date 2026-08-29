@@ -10,6 +10,7 @@ import { calculateParcel, formatParcelForEasyPost } from '../util/shipping';
 import { SHIPPING_RESTRICTION_MESSAGE, cartContainsCoffee } from '../services/shippingLocationsService';
 import { validateStripeAddress, type AddressValidationResult } from '../services/addressValidationService';
 import { notionService, type OrderPickupOption } from '../services/notionService';
+import { useAccount } from '../contexts/AccountContext';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
@@ -66,6 +67,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const { account } = useAccount();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(true);
@@ -97,7 +99,21 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const shippingRequestRef = useRef<AbortController | null>(null);
   const deliveryMethodRef = useRef(deliveryMethod);
   deliveryMethodRef.current = deliveryMethod;
-  const qualifiesForFreeShipping = totalAmount >= FREE_SHIPPING_THRESHOLD;
+  // Wholesale partner orders do not receive the consumer $40+ free-shipping
+  // promotion. Church & Ministry orders retain the standard behavior.
+  const qualifiesForFreeShipping = totalAmount >= FREE_SHIPPING_THRESHOLD
+    && account?.label !== 'wholesale'
+    && account?.label !== 'church-ministry';
+
+  // Prefill checkout contact information for signed-in account holders without
+  // overwriting values they may have already entered manually.
+  useEffect(() => {
+    if (!account) return;
+
+    const accountName = `${account.user.firstName} ${account.user.lastName}`.trim();
+    if (accountName && !customerName) setCustomerName(accountName);
+    if (account.user.email && !customerEmail) setCustomerEmail(account.user.email);
+  }, [account, customerEmail, customerName]);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { Account, Subscription, SubscriptionPlan } from '../models/AccountModel';
+import { Account, AccountLabel, Subscription, SubscriptionPlan } from '../models/AccountModel';
 import { Order } from '../models/OrderModel';
 
 type AccountProfile = Omit<Account, 'password' | 'orders'>;
@@ -14,6 +14,7 @@ interface CreateAccountInput {
   email: string;
   username: string;
   password: string;
+  label?: AccountLabel;
 }
 
 class AccountService {
@@ -47,6 +48,10 @@ class AccountService {
     return this.request('/account/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
   }
 
+  getPartnerPrices(token: string): Promise<{ prices: Record<string, number> }> {
+    return this.request('/account/partner-prices', { headers: { Authorization: `Bearer ${token}` } });
+  }
+
   createSubscription(token: string, plan: SubscriptionPlan): Promise<{ subscription: Subscription }> {
     return this.request('/account/subscriptions', {
       method: 'POST',
@@ -59,6 +64,14 @@ class AccountService {
     return this.request(`/account/subscriptions/${subscriptionId}/skip`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  addSubscriptionAddOn(token: string, subscriptionId: string, addOnWeight: number, addOnUnitAmount: number): Promise<{ subscription: Subscription }> {
+    return this.request(`/account/subscriptions/${subscriptionId}/add-on`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ addOnWeight, addOnUnitAmount }),
     });
   }
 

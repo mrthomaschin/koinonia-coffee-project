@@ -19,6 +19,7 @@ export interface InventoryVariant {
     active?: boolean;
     ltoEndDate?: Date | null;
     ltoUnlimitedPurchases?: boolean;
+    isWholesale?: boolean;
 }
 
 export interface Item {
@@ -32,6 +33,7 @@ export interface Item {
     itemType: ItemType;
     createdAt: Date;
     quantity: number;
+    isWholesale?: boolean;
     shippingWeight?: number;
     weights?: string[];
     variants?: InventoryVariant[] | null;

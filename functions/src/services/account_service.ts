@@ -8,6 +8,17 @@ import { Request, Response } from "express";
 import { createLogger } from "../logger";
 import { Address, fetchShippingRates, purchaseShipment } from "./easypost_service";
 import { EmailService } from "./email_service";
+import { generateReceiptImage, uploadReceiptToNotion } from "./pictify_service";
+
+export type AccountLabel = "consumer" | "partner" | "wholesale" | "church-ministry";
+export type PartnerAccountLabel = Extract<AccountLabel, "wholesale" | "church-ministry">;
+export const DEFAULT_ACCOUNT_LABEL: AccountLabel = "consumer";
+export const ACCOUNT_LABEL_PARENTS: Record<AccountLabel, AccountLabel | null> = {
+  consumer: null,
+  partner: null,
+  wholesale: "partner",
+  "church-ministry": "partner",
+};
 
 const logger = createLogger("accounts");
 const scrypt = promisify(scryptCallback);
@@ -41,6 +52,7 @@ export interface AccountProfile {
   id: string;
   user: { firstName: string; lastName: string; email: string };
   username: string;
+  label: AccountLabel;
 }
 
 interface StoredAccount extends AccountProfile {
@@ -83,7 +95,7 @@ interface Subscription {
   // Product/variant shipping weight in grams, captured at checkout.
   shippingWeight?: number;
   unitAmount: number;
-  discountPercent: 5;
+  discountPercent: number;
   freeShipping: boolean;
   status: "active" | "paused" | "canceled";
   skipNextDelivery: boolean;
@@ -91,6 +103,8 @@ interface Subscription {
   orderPickupId?: string;
   createdAt: string;
   upcomingRoastDate: string;
+  addOnWeight?: number;
+  addOnUnitAmount?: number;
 }
 
 const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" | "cadence" | "freeShipping">> = {
@@ -208,6 +222,19 @@ const renewalCalendarDate = (roastDate: string): string => calendarDateOffset(ro
 const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean =>
   renewalCalendarDate(roastDate) <= pacificCalendarDate(now);
 
+const weightInPounds = (value: string): number => {
+  const amount = Number.parseFloat(value);
+  if (!Number.isFinite(amount)) return 0;
+  const normalized = value.toLowerCase();
+  if (normalized.includes("kg")) return amount * 2.20462;
+  if (normalized.includes("g")) return amount / 453.592;
+  if (normalized.includes("oz")) return amount / 16;
+  return normalized.includes("lb") ? amount : 0;
+};
+
+const isPartnerLabel = (label: AccountLabel): label is "wholesale" | "church-ministry" =>
+  label === "wholesale" || label === "church-ministry";
+
 let notionInstance: Client | null = null;
 
 const getNotion = (): Client => {
@@ -234,11 +261,36 @@ const serviceDisplayName = (service?: string): string => {
   return services[service || ""] || "Standard";
 };
 
-const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment?: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
+const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAmount: number; shippingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment?: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
   const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
   if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
   const notion = getNotion();
   const existing = await notion.databases.query({ database_id: databaseId, filter: { property: "Order #", rich_text: { equals: params.orderId } } });
+  let invoiceReceiptProperties: Record<string, any> = {};
+  const existingPage = existing.results[0] as any;
+  if (!existingPage?.properties?.["Invoice Receipt"]?.files?.length) {
+    try {
+      logger.info("Generating renewal invoice receipt", { orderId: params.orderId });
+      const receiptImage = await generateReceiptImage({
+        customerName: `${params.account.user.firstName} ${params.account.user.lastName}`.trim(),
+        customerEmail: params.account.user.email,
+        customerAddress: params.shippingAddress,
+        orderId: params.orderId,
+        items: [{ name: params.subscription.itemName, sku: params.subscription.itemSku, quantity: params.subscription.bagCount, price: (params.subscription.unitAmount * (1 - params.subscription.discountPercent / 100)) / 100, variations: params.subscription.weight }],
+        subtotal: (params.subscription.unitAmount * params.subscription.bagCount * (1 - params.subscription.discountPercent / 100)) / 100,
+        shipping: params.shippingAmount,
+        totalAmount: params.totalAmount,
+        orderDate: new Date().toISOString(),
+        transactionId: params.paymentIntentId,
+      });
+      const receiptFilename = `receipt-${params.orderId}.png`;
+      const receiptUploadId = await uploadReceiptToNotion(receiptFilename, receiptImage);
+      invoiceReceiptProperties = { "Invoice Receipt": { files: [{ name: receiptFilename, type: "file_upload", file_upload: { id: receiptUploadId } }] } };
+      logger.info("Renewal invoice receipt attached", { orderId: params.orderId });
+    } catch (error: unknown) {
+      logger.error("Unable to generate renewal invoice receipt", { orderId: params.orderId, error: (error as Error).message });
+    }
+  }
   const shipmentProperties: Record<string, any> = params.shipment ? {
     "Shipping Price": { number: params.shippingLabelPrice },
     "Tracking Info": { rich_text: [{ text: { content: params.shipment.trackingNumber } }] },
@@ -253,7 +305,7 @@ const createRenewalNotionOrder = async (params: { orderId: string; paymentIntent
     "Order Pickup ID": { rich_text: [{ text: { content: params.subscription.orderPickupId || "" } }] },
   };
   if (existing.results.length) {
-    await notion.pages.update({ page_id: existing.results[0].id, properties: shipmentProperties });
+    await notion.pages.update({ page_id: existing.results[0].id, properties: { ...shipmentProperties, ...invoiceReceiptProperties } });
     return;
   }
   await notion.pages.create({
@@ -264,12 +316,13 @@ const createRenewalNotionOrder = async (params: { orderId: string; paymentIntent
       "Status": { status: { name: "Paid" } },
       "Fulfillment": { status: { name: "Pending" } },
       "Items ordered": { rich_text: [{ text: { content: `${params.subscription.bagCount}x ${params.subscription.itemName} (${params.subscription.weight})` } }] },
-      "Items ordered formatted": { rich_text: [{ text: { content: `${params.subscription.itemName},${params.subscription.itemSku},${params.subscription.bagCount}` } }] },
+      "Items ordered formatted": { rich_text: [{ text: { content: `${params.subscription.itemName},${params.subscription.itemSku},${weightInPounds(params.subscription.weight) * params.subscription.bagCount + (params.subscription.addOnWeight || 0)}` } }] },
       "Email": { email: params.account.user.email },
       "Phone": { phone_number: params.account.phone || null },
       "Shipping address": { rich_text: [{ text: { content: params.shippingAddress || "N/A" } }] },
       "Transaction ID": { rich_text: [{ text: { content: params.orderId } }] },
       "Receipt": { url: `https://dashboard.stripe.com/payments/${params.paymentIntentId}` },
+      ...invoiceReceiptProperties,
       "Total": { number: params.totalAmount },
       ...shipmentProperties,
       "Order created": { date: { start: new Date().toISOString() } },
@@ -326,13 +379,22 @@ const findAccount = async (username: string): Promise<StoredAccount | null> => {
   const accountId = usernameRecord.data()?.accountId;
   if (!usernameRecord.exists || typeof accountId !== "string") return null;
   const account = await database().collection("accounts").doc(accountId).get();
-  return account.exists ? account.data() as StoredAccount : null;
+  if (!account.exists) return null;
+  const accountData = account.data() as Partial<StoredAccount>;
+  // Existing records predate account labels. Treat them as consumers while
+  // writing the default so the migration is safe even if it is re-run.
+  if (!accountData.label) {
+    await account.ref.set({ label: DEFAULT_ACCOUNT_LABEL, updatedAt: Date.now() }, { merge: true });
+    accountData.label = DEFAULT_ACCOUNT_LABEL;
+  }
+  return accountData as StoredAccount;
 };
 
 const publicProfile = (account: StoredAccount): AccountProfile => ({
   id: account.id,
   user: account.user,
   username: account.username,
+  label: account.label || DEFAULT_ACCOUNT_LABEL,
 });
 
 const issueSession = async (account: StoredAccount): Promise<string> => {
@@ -354,9 +416,51 @@ export const sessionAccount = async (req: Request): Promise<AccountProfile | nul
     return null;
   }
   const account = await database().collection("accounts").doc(data.accountId).get();
-  const accountData = account.data() as StoredAccount | undefined;
+  const accountData = account.data() as Partial<StoredAccount> | undefined;
   if (!accountData) return null;
-  return publicProfile(accountData);
+  if (!accountData.label) {
+    await account.ref.set({ label: DEFAULT_ACCOUNT_LABEL, updatedAt: Date.now() }, { merge: true });
+    accountData.label = DEFAULT_ACCOUNT_LABEL;
+  }
+  return publicProfile(accountData as StoredAccount);
+};
+
+const PARTNER_PRICE_PROPERTIES: Record<string, string> = {
+  "B-KOIN-WS": "B-KOIN-WS Price",
+  "B-ETH-W-WS": "B-ETH-W-WS Price",
+};
+
+/**
+ * Reads optional per-pound pricing for a Church & Ministry account from the
+ * operations database. A missing or non-positive value means “use inventory
+ * pricing”.
+ */
+const churchMinistryPriceOverrides = async (email: string): Promise<Record<string, number>> => {
+  const databaseId = process.env.NOTION_CHURCH_AND_MINISTRY_DATABASE_ID;
+  if (!databaseId || !email) return {};
+
+  const response = await getNotion().databases.query({
+    database_id: databaseId,
+    filter: { property: "Email", email: { equals: email } },
+    page_size: 1,
+  });
+  const properties = (response.results[0] as any)?.properties || {};
+  return Object.entries(PARTNER_PRICE_PROPERTIES).reduce<Record<string, number>>((overrides, [sku, propertyName]) => {
+    const value = properties[propertyName]?.number;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) overrides[sku] = value;
+    return overrides;
+  }, {});
+};
+
+const partnerPriceOverridesFor = async (account: AccountProfile): Promise<Record<string, number>> => (
+  account.label === "church-ministry" ? churchMinistryPriceOverrides(account.user.email) : {}
+);
+
+const partnerPriceForWeight = (pricePerPound: number, weight: string): number => {
+  const pounds = weightInPounds(weight);
+  // Store the undiscounted per-delivery amount. Subscription renewal applies
+  // the account's discount when it charges the next delivery.
+  return Math.round(pricePerPound * pounds * 100);
 };
 
 type StoredSubscription = Subscription & { accountId: string };
@@ -503,13 +607,17 @@ export class AccountService {
       const renewalAccount = recoveredPhone ? { ...account, phone: recoveredPhone } : account;
       if (recoveredPhone) await accountSnapshot.ref.set({ phone: recoveredPhone, updatedAt: Date.now() }, { merge: true });
 
-      const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - subscription.discountPercent / 100));
-      const parcel = subscriptionParcel(subscription.shippingWeight, subscription.weight, subscription.bagCount);
+      const addOnWeight = subscription.addOnWeight || 0;
+      const discountPercent = account.label === "wholesale" ? 0 : subscription.discountPercent;
+      const freeShipping = account.label === "wholesale" ? false : subscription.freeShipping;
+      const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - discountPercent / 100)) + (subscription.addOnUnitAmount || 0);
+      const totalWeight = weightInPounds(subscription.weight) + addOnWeight;
+      const parcel = subscriptionParcel(totalWeight * 453.592, `${totalWeight}lb`, 1);
       const address: Address | null = shippingAddress ? { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`, email: renewalAccount.user.email, phone: renewalAccount.phone } : null;
       const shippingQuote = address ? await fetchShippingRates(address, undefined, parcel) : null;
       if (shippingQuote && !shippingQuote.rates.length) throw new Error("No shipping rates are available for this subscription order");
       const selectedRate = shippingQuote?.rates.reduce((lowest, rate) => rate.rate < lowest.rate ? rate : lowest);
-      const shippingAmount = selectedRate && !subscription.isLocalPickup && !subscription.freeShipping ? Math.round(selectedRate.rate * 100) : 0;
+      const shippingAmount = selectedRate && !subscription.isLocalPickup && !freeShipping ? Math.round(selectedRate.rate * 100) : 0;
       const dueKey = `${subscription.id}:${subscription.upcomingRoastDate}`;
       const generatedOrderId = Date.now().toString().slice(-8).toUpperCase();
       const paymentIntent = await getStripe().paymentIntents.create({
@@ -532,6 +640,7 @@ export class AccountService {
         account: renewalAccount,
         subscription,
         totalAmount: paymentIntent.amount_received / 100,
+        shippingAmount: shippingAmount / 100,
         shippingAddress: account.shippingAddress || "",
         shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0,
         shippingBox: parcel.boxSize,
@@ -541,18 +650,18 @@ export class AccountService {
       await Promise.all([
         EmailService.sendSubscriptionOrderConfirmation({
           toEmail: account.user.email, customerName, orderId,
-          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
+          itemName: `${subscription.itemName} (${totalWeight}lb)`, quantity: subscription.bagCount,
           totalAmount: paymentIntent.amount_received / 100, shippingAmount: shippingAmount / 100,
         }),
         EmailService.sendSubscriptionPurchaseNotification({
           customerEmail: account.user.email, customerName, orderId,
-          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
+          itemName: `${subscription.itemName} (${totalWeight}lb)`, quantity: subscription.bagCount,
           unitAmount: subscription.unitAmount / 100, totalAmount: paymentIntent.amount_received / 100,
         }),
       ]);
       await db.batch()
-        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${subscription.bagCount}x ${subscription.itemName} (${subscription.weight})`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}) , isLocalPickup: !!subscription.isLocalPickup })
-        .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString() })
+        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${totalWeight}lb ${subscription.itemName}`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}) , isLocalPickup: !!subscription.isLocalPickup })
+        .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString(), discountPercent, freeShipping, addOnWeight: FieldValue.delete(), addOnUnitAmount: FieldValue.delete() })
         .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
         .commit();
       logger.info("Subscription renewal payment succeeded", { subscriptionId, paymentIntentId: paymentIntent.id, orderId });
@@ -630,6 +739,7 @@ export class AccountService {
       const savedPhone = (customerPhone || paymentIntent.shipping?.phone || paymentMethod?.billing_details?.phone || stripeCustomerPhone || "").trim().slice(0, 40);
       if (customerId && savedPhone) await getStripe().customers.update(customerId, { phone: savedPhone });
       const upcomingRoastDate = await nextUpcomingRoastSessionDate();
+      const priceOverrides = await partnerPriceOverridesFor(account);
       const subscriptions: StoredSubscription[] = [];
       for (const item of items) {
         const plan = String(item?.plan || "") as SubscriptionPlan;
@@ -638,17 +748,42 @@ export class AccountService {
         const itemName = String(item?.itemName || "").trim().slice(0, 120);
         const weight = String(item?.weight || "").trim().slice(0, 40);
         const shippingWeight = Number(item?.shippingWeight);
-        const unitAmount = Math.round(Number(item?.unitAmount) * 100);
+        let unitAmount = Math.round(Number(item?.unitAmount) * 100);
+        const itemWeightInPounds = weightInPounds(weight);
+        const resolvedShippingWeight = Number.isFinite(shippingWeight) && shippingWeight > 0
+          ? shippingWeight
+          : itemWeightInPounds > 0 ? itemWeightInPounds * 453.592 : undefined;
+        if (isPartnerLabel(account.label)) {
+          const minimumWeight = account.label === "wholesale" ? 5 : 1;
+          if (!itemWeightInPounds || itemWeightInPounds < minimumWeight || itemWeightInPounds * 2 !== Math.round(itemWeightInPounds * 2)) {
+            res.status(400).json({ error: `Partner subscriptions must be at least ${minimumWeight} lb in half-pound increments.` });
+            return;
+          }
+          if (!/koin blend|ethiopia/i.test(itemName)) {
+            res.status(400).json({ error: "Partner subscriptions are available for Koin Blend and Ethiopian coffee." });
+            return;
+          }
+          if (!["B-KOIN-WS", "B-ETH-W-WS"].includes(itemSku)) {
+            res.status(400).json({ error: "Partner subscriptions must use the partner coffee SKUs." });
+            return;
+          }
+          const overridePrice = priceOverrides[itemSku];
+          if (overridePrice !== undefined) {
+            unitAmount = partnerPriceForWeight(overridePrice, weight);
+          }
+        }
         if (!selectedPlan || !itemSku || !itemName || !weight || !Number.isSafeInteger(unitAmount) || unitAmount < 50) {
           res.status(400).json({ error: "Invalid subscription item." });
           return;
         }
         subscriptions.push({
           id: `sub_${randomUUID()}`, accountId: account.id, plan, ...selectedPlan,
-          itemSku, itemName, weight, shippingWeight: Number.isFinite(shippingWeight) && shippingWeight > 0 ? shippingWeight : undefined, unitAmount, discountPercent: 5,
+          itemSku, itemName, weight,
+          ...(resolvedShippingWeight !== undefined ? { shippingWeight: resolvedShippingWeight } : {}),
+          unitAmount, discountPercent: account.label === "wholesale" ? 0 : 5,
+          freeShipping: account.label === "wholesale" ? false : selectedPlan.freeShipping,
           status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
-          isLocalPickup,
-          orderPickupId: isLocalPickup ? orderPickupId : undefined,
+          ...(isLocalPickup ? { isLocalPickup: true, orderPickupId } : {}),
           upcomingRoastDate,
         });
       }
@@ -710,6 +845,12 @@ export class AccountService {
       const email = String(req.body?.email || "").trim().toLowerCase();
       const username = String(req.body?.username || email).trim();
       const password = String(req.body?.password || "");
+      const requestedLabel = String(req.body?.label || DEFAULT_ACCOUNT_LABEL).trim() as AccountLabel;
+      const partnerLabels: AccountLabel[] = ["wholesale", "church-ministry"];
+      if (![DEFAULT_ACCOUNT_LABEL, ...partnerLabels].includes(requestedLabel)) {
+        res.status(400).json({ error: "Select a valid account type." });
+        return;
+      }
       if (!firstName || !lastName || !email || !username || password.length < 8 || !/^\S+@\S+\.\S+$/.test(email)) {
         res.status(400).json({ error: "Enter a name, valid email, username, and password of at least 8 characters." });
         return;
@@ -722,6 +863,7 @@ export class AccountService {
         id: accountId,
         user: { firstName, lastName, email },
         username,
+        label: requestedLabel,
         passwordHash: await createPasswordHash(password),
       };
       const created = await database().runTransaction(async (transaction) => {
@@ -849,7 +991,12 @@ export class AccountService {
         .where("accountId", "==", account.id)
         .get();
       const subscriptions = response.docs
-        .map((document) => document.data() as StoredSubscription)
+        .map((document) => {
+          const subscription = document.data() as StoredSubscription;
+          return account.label === "wholesale"
+            ? { ...subscription, discountPercent: 0, freeShipping: false }
+            : subscription;
+        })
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
       res.json({ subscriptions });
     } catch (error: unknown) {
@@ -874,7 +1021,10 @@ export class AccountService {
       const itemSku = String(req.body?.itemSku || "").trim().slice(0, 120);
       const itemName = String(req.body?.itemName || "").trim().slice(0, 120);
       const weight = String(req.body?.weight || "").trim().slice(0, 40);
-      const unitAmount = Math.round(Number(req.body?.unitAmount) * 100);
+      let unitAmount = Math.round(Number(req.body?.unitAmount) * 100);
+      const priceOverrides = await partnerPriceOverridesFor(account);
+      const overridePrice = priceOverrides[itemSku];
+      if (overridePrice !== undefined) unitAmount = partnerPriceForWeight(overridePrice, weight);
       if (!itemSku || !itemName || !weight || !Number.isSafeInteger(unitAmount) || unitAmount < 50) {
         res.status(400).json({ error: "Choose a coffee and bag size for your subscription." });
         return;
@@ -888,7 +1038,8 @@ export class AccountService {
         itemName,
         weight,
         unitAmount,
-        discountPercent: 5,
+        discountPercent: account.label === "wholesale" ? 0 : 5,
+        freeShipping: account.label === "wholesale" ? false : selectedPlan.freeShipping,
         status: "active",
         skipNextDelivery: false,
         createdAt: new Date().toISOString(),
@@ -899,6 +1050,20 @@ export class AccountService {
     } catch (error: unknown) {
       logger.error("Unable to create subscription", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to create your subscription right now." });
+    }
+  }
+
+  static async getPartnerPrices(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account || !isPartnerLabel(account.label)) {
+        res.status(401).json({ error: "Please sign in with a partner account." });
+        return;
+      }
+      res.json({ prices: await partnerPriceOverridesFor(account) });
+    } catch (error: unknown) {
+      logger.error("Unable to load partner price overrides", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to load partner pricing right now." });
     }
   }
 
@@ -943,6 +1108,47 @@ export class AccountService {
     } catch (error: unknown) {
       logger.error("Unable to skip subscription", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to skip your next delivery right now." });
+    }
+  }
+
+  static async addSubscriptionAddOn(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      if (account.label !== "church-ministry") {
+        res.status(403).json({ error: "Only Church & Ministry accounts can add coffee to the next subscription round." });
+        return;
+      }
+      const subscriptionId = String(req.params.subscriptionId || "");
+      const snapshot = await accountSubscription(account.id, subscriptionId);
+      if (!snapshot) {
+        res.status(404).json({ error: "Subscription not found." });
+        return;
+      }
+      const addOnWeight = Number(req.body?.addOnWeight);
+      const addOnUnitAmount = Math.round(Number(req.body?.addOnUnitAmount) * 100);
+      if (!Number.isFinite(addOnWeight) || addOnWeight <= 0 || addOnWeight * 2 !== Math.round(addOnWeight * 2) || !Number.isSafeInteger(addOnUnitAmount) || addOnUnitAmount < 50) {
+        res.status(400).json({ error: "Add-ons must be a valid half-pound amount and price." });
+        return;
+      }
+      const current = snapshot.data() as StoredSubscription;
+      if (current.status !== "active") {
+        res.status(400).json({ error: "Only active subscriptions can receive an add-on." });
+        return;
+      }
+      const subscription: StoredSubscription = {
+        ...current,
+        addOnWeight: (current.addOnWeight || 0) + addOnWeight,
+        addOnUnitAmount: (current.addOnUnitAmount || 0) + addOnUnitAmount,
+      };
+      await snapshot.ref.update({ addOnWeight: subscription.addOnWeight, addOnUnitAmount: subscription.addOnUnitAmount, updatedAt: Date.now() });
+      res.json({ subscription });
+    } catch (error: unknown) {
+      logger.error("Unable to add subscription coffee", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to add coffee to your next subscription right now." });
     }
   }
 

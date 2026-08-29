@@ -164,13 +164,17 @@ export class StripeService {
             };
 
             const state = shippingAddress.state?.toUpperCase() || 'CA';
-            const taxRate = stateTaxRates[state] || 0.0725;
+            const isCaliforniaWholeBeanCoffeeOrder = state === 'CA'
+                && lineItems.length > 0
+                && lineItems.every((item: any) => item.tax_code === 'txcd_40040000');
+            const taxRate = isCaliforniaWholeBeanCoffeeOrder ? 0 : (stateTaxRates[state] || 0.0725);
             const taxAmount = Math.round(totalAmount * taxRate);
             const totalWithTax = totalAmount + taxAmount;
 
             logger.info("Tax calculated using fallback rates", {
                 state,
                 taxRate,
+                isCaliforniaWholeBeanCoffeeOrder,
                 taxAmount,
                 totalWithTax
             });

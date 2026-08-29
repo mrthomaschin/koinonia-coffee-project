@@ -4,6 +4,7 @@ interface OrderItem {
   name: string;
   sku: string;
   quantity: number;
+  internalQuantity?: number;
   price: number;
   variations?: string;
   image?: string;
@@ -56,6 +57,7 @@ export interface InventoryVariant {
   isSoldOut?: boolean;
   ltoEndDate?: string | null;
   ltoUnlimitedPurchases?: boolean;
+  isWholesale?: boolean;
 }
 
 export interface NotionInventoryItem {
@@ -69,6 +71,7 @@ export interface NotionInventoryItem {
   itemType: string;
   createdAt: string;
   quantity: number;
+  isWholesale?: boolean;
   // Coffee-specific
   shippingWeight?: number;
   weights?: string[];

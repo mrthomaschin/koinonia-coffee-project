@@ -22,6 +22,11 @@ import CartView from './pages/cart/CartView';
 import OrderConfirmationPage from './pages/order-confirmation/OrderConfirmationPage';
 import trackingService from './services/trackingService';
 import AccountPage from './pages/account/AccountPage';
+import AccountOrdersPage from './pages/account/AccountOrdersPage';
+import AccountSubscriptionsPage from './pages/account/AccountSubscriptionsPage';
+import AccountDetailsPage from './pages/account/AccountDetailsPage';
+import PartnerStorePage from './pages/account/PartnerStorePage';
+import AccountLoginPage from './pages/account/AccountLoginPage';
 import { AccountProvider } from './contexts/AccountContext';
 
 const MainContent: React.FC = () => {
@@ -142,7 +147,17 @@ const MainContent: React.FC = () => {
             path="/order-confirmation"
             element={<OrderConfirmationPage availableHeight={availableHeight} />}
           />
-          <Route path="/account" element={<AccountPage />} />
+          <Route path="/account" element={<AccountPage />}>
+            <Route index element={<Navigate to="orders" replace />} />
+            <Route path="orders" element={<AccountOrdersPage />} />
+            <Route path="subscriptions" element={<AccountSubscriptionsPage />} />
+            <Route path="details" element={<AccountDetailsPage />} />
+            <Route path="partner-store" element={<PartnerStorePage />} />
+          </Route>
+          <Route path="/account-login" element={<AccountLoginPage />} />
+          <Route path="/partner-account" element={<Navigate to="/account-login" replace />} />
+          <Route path="/create-account" element={<AccountPage initialMode="create" />} />
+          <Route path="/create-partner-account" element={<AccountPage initialMode="create" partnerMode />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <BottomBar />
