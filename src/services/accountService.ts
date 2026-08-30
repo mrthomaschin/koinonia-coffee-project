@@ -75,10 +75,10 @@ class AccountService {
     });
   }
 
-  completeSubscriptionCheckout(token: string, paymentIntentId: string, subscriptionItems: Array<{ plan: SubscriptionPlan; itemSku: string; itemName: string; weight: string; shippingWeight?: number; unitAmount: number }>, shippingAddress: string, shippingAddressData?: Record<string, unknown>, orderId?: string, customerPhone?: string, isLocalPickup?: boolean, orderPickupId?: string): Promise<{ subscriptionIds: string[] }> {
+  completeSubscriptionCheckout(token: string, paymentIntentId: string, subscriptionItems: Array<{ plan: SubscriptionPlan; itemSku: string; itemName: string; weight: string; shippingWeight?: number; unitAmount: number }>, shippingAddress: string, shippingAddressData?: Record<string, unknown>, orderId?: string, customerPhone?: string, isLocalPickup?: boolean, orderPickupId?: string, orderItems?: Array<{ name: string; sku?: string; quantity: number; internalQuantity?: number; price: number; selections?: Record<string, unknown> }>, shippingAmount?: number, shipmentData?: Record<string, unknown>): Promise<{ subscriptionIds: string[] }> {
     return this.request('/account/subscription-checkout/complete', {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ paymentIntentId, subscriptionItems, shippingAddress, shippingAddressData, orderId, customerPhone, isLocalPickup, orderPickupId }),
+      body: JSON.stringify({ paymentIntentId, subscriptionItems, orderItems, shippingAddress, shippingAddressData, orderId, customerPhone, isLocalPickup, orderPickupId, shippingAmount, shipmentData }),
     });
   }
 

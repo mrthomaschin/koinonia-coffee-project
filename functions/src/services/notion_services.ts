@@ -560,23 +560,34 @@ export class NotionService {
 
 
             const notion = getNotion();
-            logger.info("Generating invoice receipt before creating Notion order", { orderId });
-            const receiptImage = await generateReceiptImage({
-                customerName,
-                customerEmail,
-                customerAddress: billingAddress || "N/A",
-                orderId,
-                items,
-                subtotal,
-                shipping,
-                tax,
-                totalAmount,
-                orderDate,
-                transactionId,
-                discountCode,
-            });
-            const filename = receiptFilename(orderId);
-            const receiptUploadId = await uploadReceiptToNotion(filename, receiptImage);
+            let receiptUploadId: string | null = null;
+            let filename = "";
+            try {
+                logger.info("Generating invoice receipt before creating Notion order", { orderId });
+                const receiptImage = await generateReceiptImage({
+                    customerName,
+                    customerEmail,
+                    customerAddress: billingAddress || "N/A",
+                    orderId,
+                    items,
+                    subtotal,
+                    shipping,
+                    tax,
+                    totalAmount,
+                    orderDate,
+                    transactionId,
+                    discountCode,
+                });
+                filename = receiptFilename(orderId);
+                receiptUploadId = await uploadReceiptToNotion(filename, receiptImage);
+            } catch (receiptError) {
+                // Receipt generation is an enhancement; it must not prevent the
+                // paid order itself from reaching the operations database.
+                logger.warn("Invoice receipt unavailable; continuing without attachment", {
+                    orderId,
+                    error: (receiptError as Error).message,
+                });
+            }
 
             const response = await notion.pages.create({
                 parent: {
@@ -668,17 +679,9 @@ export class NotionService {
                     "Receipt": {
                         url: `https://dashboard.stripe.com/payments/${transactionId}`,
                     },
-                    "Invoice Receipt": {
-                        files: [
-                            {
-                                name: filename,
-                                type: "file_upload",
-                                file_upload: {
-                                    id: receiptUploadId,
-                                },
-                            },
-                        ],
-                    },
+                    ...(receiptUploadId ? { "Invoice Receipt": {
+                        files: [{ name: filename, type: "file_upload", file_upload: { id: receiptUploadId } }],
+                    } } : {}),
                     "Total": {
                         number: totalAmount,
                     },

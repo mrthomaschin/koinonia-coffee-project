@@ -70,13 +70,33 @@ interface ShippingAddressData {
 
 interface Order {
   id: string;
-  accountId: string;
+  accountId?: string;
+  customerName?: string;
+  email?: string;
+  emailNormalized?: string;
+  phone?: string;
   totalAmount: number;
   createdAt: string;
   status: "pending" | "completed" | "canceled";
   paymentIntentId?: string;
   itemsSummary?: string;
+  items?: Array<{ name: string; sku?: string; quantity: number; internalQuantity?: number; price: number; selections?: Record<string, unknown> }>;
+  subscriptionIds?: string[];
+  source?: string;
+  isLocalPickup?: boolean;
+  orderPickupId?: string;
+  shippingAddress?: string;
+  shippingCharged?: number;
+  shippingLabelPrice?: number;
+  shippingBox?: string;
+  shipmentId?: string;
+  trackingNumber?: string;
+  trackingLabelUrl?: string;
+  shippingCarrier?: string | null;
+  shippingService?: string | null;
 }
+
+type PurchasedItem = NonNullable<Order["items"]>[number];
 
 type SubscriptionPlan =
   | "one-bag-every-session"
@@ -660,7 +680,7 @@ export class AccountService {
         }),
       ]);
       await db.batch()
-        .set(db.collection("account_orders").doc(orderId), { id: orderId, accountId: subscription.accountId, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${totalWeight}lb ${subscription.itemName}`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}) , isLocalPickup: !!subscription.isLocalPickup })
+        .set(db.collection("orders").doc(orderId), { id: orderId, accountId: subscription.accountId, customerName: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`.trim(), email: renewalAccount.user.email, emailNormalized: renewalAccount.user.email.toLowerCase(), phone: renewalAccount.phone || null, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${totalWeight}lb ${subscription.itemName}`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}) , isLocalPickup: !!subscription.isLocalPickup })
         .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString(), discountPercent, freeShipping, addOnWeight: FieldValue.delete(), addOnUnitAmount: FieldValue.delete() })
         .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
         .commit();
@@ -692,6 +712,103 @@ export class AccountService {
     await syncSubscriptionMirror(subscription, publicProfile(accountSnapshot.data() as StoredAccount));
   }
 
+  static async syncOrderMirrorById(orderId: string): Promise<void> {
+    const orderSnapshot = await database().collection("orders").doc(orderId).get();
+    if (!orderSnapshot.exists) return;
+    const order = orderSnapshot.data() as Order;
+    if (!order.accountId) return;
+    const accountSnapshot = await database().collection("accounts").doc(order.accountId).get();
+    if (!accountSnapshot.exists) return;
+    const storedAccount = accountSnapshot.data() as StoredAccount & { phone?: string };
+    const account = publicProfile(storedAccount);
+    const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+    if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
+
+    const items = order.items || [];
+    const subscriptions = order.subscriptionIds?.length
+      ? (await Promise.all(order.subscriptionIds.map(async (subscriptionId) => {
+        const snapshot = await database().collection("account_subscriptions").doc(subscriptionId).get();
+        return snapshot.exists ? snapshot.data() as Subscription : null;
+      }))).filter((subscription): subscription is Subscription => !!subscription)
+      : [];
+    const subscriptionBySku = new Map(subscriptions.map((subscription) => [subscription.itemSku, subscription]));
+    const orderLines = items.map((item) => {
+      const subscription = item.sku ? subscriptionBySku.get(item.sku) : undefined;
+      const subscriptionLabel = subscription
+        ? ` — Subscription ${subscription.id} (${subscription.plan})`
+        : "";
+      return `${item.quantity}x ${item.name}${item.selections?.weight ? ` (${item.selections.weight})` : ""}${subscriptionLabel}`;
+    });
+    const itemsOrdered = orderLines.length
+      ? orderLines.join("\\n")
+      : order.itemsSummary || "";
+    const itemsOrderedFormatted = items.map((item) => {
+      const variation = item.selections?.weight ? ` (${item.selections.weight})` : "";
+      const subscription = item.sku ? subscriptionBySku.get(item.sku) : undefined;
+      const subscriptionLabel = subscription ? `,subscription:${subscription.id}` : "";
+      return `${item.name}${variation},${item.sku || ""},${item.internalQuantity ?? item.quantity}${subscriptionLabel}`;
+    }).join("\\n");
+    const notion = getNotion();
+    const properties: Record<string, unknown> = {
+      "Customer": { title: [{ text: { content: `${account.user.firstName} ${account.user.lastName}`.trim() } }] },
+      "Order #": { rich_text: [{ text: { content: order.id } }] },
+      "Status": { status: { name: "Paid" } },
+      "Fulfillment": { status: { name: "Pending" } },
+      "Local Pickup": { checkbox: order.isLocalPickup === true },
+      "Order Pickup ID": { rich_text: [{ text: { content: order.orderPickupId || "" } }] },
+      "Items ordered": { rich_text: [{ text: { content: itemsOrdered } }] },
+      "Items ordered formatted": { rich_text: [{ text: { content: itemsOrderedFormatted } }] },
+      "Email": { email: account.user.email },
+      "Phone": { phone_number: storedAccount.phone || null },
+      "Shipping address": { rich_text: [{ text: { content: order.shippingAddress || "N/A" } }] },
+      "Shipping Price": { number: order.shippingLabelPrice ?? order.shippingCharged ?? 0 },
+      ...(order.shippingBox ? { "Shipping Box": { rich_text: [{ text: { content: order.shippingBox } }] } } : {}),
+      ...(order.trackingNumber ? { "Tracking Info": { rich_text: [{ text: { content: order.trackingNumber } }] } } : {}),
+      ...(order.shipmentId ? { "Shipment ID": { rich_text: [{ text: { content: order.shipmentId } }] } } : {}),
+      ...(order.shippingCarrier ? { "Tracking Carrier": { select: { name: carrierDisplayName(order.shippingCarrier) } } } : {}),
+      ...(order.shippingService ? { "Carrier Type": { select: { name: serviceDisplayName(order.shippingService) } } } : {}),
+      ...(order.trackingLabelUrl ? { "Tracking Label": { url: order.trackingLabelUrl } } : {}),
+      "Transaction ID": { rich_text: [{ text: { content: order.paymentIntentId || order.id } }] },
+      "Receipt": { url: order.paymentIntentId ? `https://dashboard.stripe.com/payments/${order.paymentIntentId}` : null },
+      "Total": { number: order.totalAmount },
+      "Order created": { date: { start: order.createdAt } },
+    };
+    const existing = await notion.databases.query({ database_id: databaseId, filter: { property: "Order #", rich_text: { equals: order.id } } });
+    if (existing.results.length) {
+      await notion.pages.update({ page_id: existing.results[0].id, properties: properties as any });
+      logger.info("Order mirror updated in Notion", { orderId });
+    } else {
+      await notion.pages.create({ parent: { database_id: databaseId }, properties: properties as any });
+      logger.info("Order mirror created in Notion", { orderId });
+    }
+  }
+
+  /** Link guest orders to an account when the account is created or updated. */
+  static async linkOrdersToAccount(accountId: string): Promise<void> {
+    const accountSnapshot = await database().collection("accounts").doc(accountId).get();
+    if (!accountSnapshot.exists) return;
+    const account = accountSnapshot.data() as StoredAccount;
+    const email = account.user.email.trim().toLowerCase();
+    if (!email) return;
+
+    // Read/filter instead of relying only on emailNormalized so older orders
+    // imported before that field existed are linked as well.
+    const orderSnapshots = await database().collection("orders").get();
+    const matchingOrders = orderSnapshots.docs.filter((order) => {
+      const data = order.data() as Order;
+      return (data.emailNormalized || data.email || "").trim().toLowerCase() === email;
+    });
+    if (!matchingOrders.length) return;
+
+    const batch = database().batch();
+    matchingOrders.forEach((order) => batch.set(order.ref, {
+      accountId,
+      emailNormalized: email,
+    }, { merge: true }));
+    await batch.commit();
+    logger.info("Linked historical orders to account", { accountId, email, orderCount: matchingOrders.length });
+  }
+
   static async completeSubscriptionCheckout(req: Request, res: Response): Promise<void> {
     try {
       const account = await sessionAccount(req);
@@ -703,10 +820,13 @@ export class AccountService {
       const requestedOrderId = String(req.body?.orderId || "").trim().toUpperCase();
       const customerPhone = String(req.body?.customerPhone || "").trim().slice(0, 40);
       const items = Array.isArray(req.body?.subscriptionItems) ? req.body.subscriptionItems : [];
+      const orderItems = Array.isArray(req.body?.orderItems) ? req.body.orderItems : [];
       const shippingAddress = String(req.body?.shippingAddress || "").trim().slice(0, 500);
       const shippingAddressData = normalizedShippingAddress(req.body?.shippingAddressData);
       const isLocalPickup = req.body?.isLocalPickup === true;
       const orderPickupId = String(req.body?.orderPickupId || "").trim().slice(0, 120);
+      const shippingAmount = Number(req.body?.shippingAmount);
+      const submittedShipment = req.body?.shipmentData && typeof req.body.shipmentData === "object" ? req.body.shipmentData : null;
       if (!paymentIntentId || items.length === 0) {
         res.status(400).json({ error: "A paid subscription checkout is required." });
         return;
@@ -792,16 +912,36 @@ export class AccountService {
       const order: Order & { paymentIntentId: string; subscriptionIds: string[]; source: "subscription-checkout" } = {
         id: orderId,
         accountId: account.id,
+        customerName: `${account.user.firstName} ${account.user.lastName}`.trim(),
+        email: account.user.email,
+        emailNormalized: account.user.email.toLowerCase(),
+        phone: savedPhone || undefined,
         totalAmount: paymentIntent.amount_received / 100,
         createdAt: new Date(paymentIntent.created * 1000).toISOString(),
         status: "completed",
         paymentIntentId,
         subscriptionIds: subscriptions.map((item) => item.id),
-        itemsSummary: subscriptions.map((item) => `${item.bagCount}x ${item.itemName} (${item.weight})`).join(", "),
+        itemsSummary: orderItems.length
+          ? orderItems.map((item: PurchasedItem) => `${item.quantity}x ${item.name}${item.selections?.weight ? ` (${item.selections.weight})` : ""}`).join(", ")
+          : subscriptions.map((item) => `${item.bagCount}x ${item.itemName} (${item.weight})`).join(", "),
+        ...(orderItems.length ? { items: orderItems } : {}),
+        isLocalPickup,
+        ...(orderPickupId ? { orderPickupId } : {}),
+        ...(shippingAddress ? { shippingAddress } : {}),
+        ...(Number.isFinite(shippingAmount) ? { shippingCharged: shippingAmount } : {}),
+        ...(submittedShipment ? {
+          ...(Number.isFinite(Number(submittedShipment.shippingPrice)) ? { shippingLabelPrice: Number(submittedShipment.shippingPrice) } : {}),
+          ...(submittedShipment.boxSize ? { shippingBox: String(submittedShipment.boxSize).slice(0, 80) } : {}),
+          ...(submittedShipment.shipmentId ? { shipmentId: String(submittedShipment.shipmentId).slice(0, 120) } : {}),
+          ...(submittedShipment.trackingNumber ? { trackingNumber: String(submittedShipment.trackingNumber).slice(0, 120) } : {}),
+          ...(submittedShipment.labelUrl ? { trackingLabelUrl: String(submittedShipment.labelUrl).slice(0, 500) } : {}),
+          ...(submittedShipment.carrier ? { shippingCarrier: String(submittedShipment.carrier).slice(0, 80) } : {}),
+          ...(submittedShipment.service ? { shippingService: String(submittedShipment.service).slice(0, 80) } : {}),
+        } : {}),
         source: "subscription-checkout",
       };
       batch.set(checkoutRef, { accountId: account.id, paymentIntentId, orderId, subscriptionIds: subscriptions.map((item) => item.id), createdAt: Date.now() });
-      batch.set(database().collection("account_orders").doc(order.id), order);
+      batch.set(database().collection("orders").doc(order.id), order);
       batch.delete(database().collection("account_order_cache").doc(account.id));
       batch.set(database().collection("accounts").doc(account.id), {
         billing: { stripeCustomerId: customerId, stripePaymentMethodId: paymentMethodId, paymentMethodSavedAt: Date.now() },
@@ -900,7 +1040,7 @@ export class AccountService {
       }
       const db = database();
       // Backfill order history for subscription checkouts completed before we
-      // began writing account_orders. Stripe remains the source for the amount.
+      // began writing orders. Stripe remains the source for the amount.
       const checkoutSnapshots = await db.collection("subscription_checkouts").where("accountId", "==", account.id).get();
       await Promise.all(checkoutSnapshots.docs.map(async (checkout) => {
         const checkoutData = checkout.data();
@@ -908,7 +1048,7 @@ export class AccountService {
         if (!paymentIntentId) return;
 
         const fallbackOrderId = paymentIntentId.slice(-8).toUpperCase();
-        const existingOrders = await db.collection("account_orders")
+        const existingOrders = await db.collection("orders")
           .where("paymentIntentId", "==", paymentIntentId)
           .get();
         const accountOrders = existingOrders.docs.filter((document) => document.data().accountId === account.id);
@@ -923,7 +1063,7 @@ export class AccountService {
 
         const storedOrderId = String(checkoutData.orderId || "").trim().toUpperCase();
         const orderId = /^[A-Z0-9]{8}$/.test(storedOrderId) ? storedOrderId : fallbackOrderId;
-        const orderRef = db.collection("account_orders").doc(orderId);
+        const orderRef = db.collection("orders").doc(orderId);
         if ((await orderRef.get()).exists) return;
         const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
         if (paymentIntent.status !== "succeeded" || paymentIntent.metadata.accountId !== account.id) return;
@@ -939,7 +1079,7 @@ export class AccountService {
         });
       }));
 
-      const accountOrderSnapshots = await db.collection("account_orders").where("accountId", "==", account.id).get();
+      const accountOrderSnapshots = await db.collection("orders").where("accountId", "==", account.id).get();
       const firestoreOrders = accountOrderSnapshots.docs.map((document) => document.data() as Order);
       const notionDatabaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
       const notionOrders: Order[] = !notionDatabaseId ? [] : (await getNotion().databases.query({

@@ -234,8 +234,14 @@ app.post("/account/logout", AccountService.logout);
 
 // One-way Firestore -> Notion projection. Notion is an operations view only;
 // it never writes subscription state back to Firestore.
+const notionMirrorOptions = {
+  region: "us-central1" as const,
+  retry: true,
+  secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "NOTION_SUBSCRIPTIONS_DATABASE_ID"],
+};
+
 export const syncSubscriptionToNotion = onDocumentWritten(
-  { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
+  { ...notionMirrorOptions, document: "account_subscriptions/{subscriptionId}" },
   async (event) => {
     if (!event.data?.after.exists) return;
     if (await hasProcessedEvent("syncSubscriptionToNotion", event.id)) {
@@ -244,6 +250,29 @@ export const syncSubscriptionToNotion = onDocumentWritten(
     }
     await AccountService.syncSubscriptionMirrorById(event.params.subscriptionId);
     await markEventProcessed("syncSubscriptionToNotion", event.id, event.params.subscriptionId);
+  }
+);
+
+// Project durable orders to the operations database. This keeps Notion
+// independent of the customer's redirect/browser state and makes retries safe.
+export const syncAccountOrderToNotion = onDocumentWritten(
+  { ...notionMirrorOptions, document: "orders/{orderId}" },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    if (await hasProcessedEvent("syncAccountOrderToNotion", event.id)) return;
+    await AccountService.syncOrderMirrorById(event.params.orderId);
+    await markEventProcessed("syncAccountOrderToNotion", event.id, event.params.orderId);
+  }
+);
+
+// When a customer creates an account after placing guest orders, associate
+// those existing order-history records by normalized email. This does not
+// create accounts or subscriptions and is safe to retry.
+export const linkHistoricalOrdersToAccount = onDocumentWritten(
+  { document: "accounts/{accountId}", region: "us-central1", retry: true },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    await AccountService.linkOrdersToAccount(event.params.accountId);
   }
 );
 
@@ -373,15 +402,30 @@ const schedulerOptions: any = {
 // Only add secrets in production (not in emulator)
 if (process.env.FUNCTIONS_EMULATOR !== "true") {
   schedulerOptions.secrets = [
+    // Notion
     "NOTION_TOKEN",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
+    "NOTION_INVENTORY_DATABASE_ID",
+    "NOTION_DISCOUNT_CODES_DATABASE_ID",
+    "NOTION_SUBSCRIPTIONS_DATABASE_ID",
+    "NOTION_ROAST_DATES_DATABASE_ID",
+    "NOTION_ORDER_PICKUP_DATABASE_ID",
+    "NOTION_CHURCH_AND_MINISTRY_DATABASE_ID",
+
+    // EmailJS
     "EMAILJS_SERVICE_ID",
     "EMAILJS_PUBLIC_KEY",
     "EMAILJS_PRIVATE_KEY",
     "EMAILJS_SHIPPED_TEMPLATE_ID",
     "EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID",
     "EMAILJS_DELIVERED_TEMPLATE_ID",
+
+    // EasyPost
     "EASYPOST_API_KEY",
+
+    // Pictify
+    "PICTIFY_API_KEY",
+    "PICTIFY_RECEIPT_TEMPLATE_UID",
   ];
 }
 

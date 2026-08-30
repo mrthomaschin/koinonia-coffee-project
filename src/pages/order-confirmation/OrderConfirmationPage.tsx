@@ -28,6 +28,7 @@ interface SessionData {
 interface EmbeddedOrderData {
   paymentIntentId?: string;
   subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string; shippingWeight?: number; unitAmount: number }>;
+  orderItems?: EmbeddedOrderData['items'];
   items: Array<{
     name: string;
     quantity: number;
@@ -51,6 +52,15 @@ interface EmbeddedOrderData {
   timestamp: string;
   isLocalPickup?: boolean;
   orderPickupId?: string | null;
+  shipmentData?: {
+    trackingNumber?: string;
+    shipmentId?: string;
+    carrier?: string;
+    service?: string;
+    labelUrl?: string;
+    shippingPrice?: number;
+    boxSize?: string;
+  } | null;
 }
 
 const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ availableHeight }) => {
@@ -83,6 +93,9 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
       state.customerPhone,
       orderData.isLocalPickup === true,
       orderData.orderPickupId || undefined,
+      orderData.items,
+      orderData.shipping,
+      orderData.shipmentData || undefined,
     ).catch((checkoutError) => logger.error('Unable to activate paid subscriptions', checkoutError));
   }, [location.state, token]);
 
@@ -144,7 +157,10 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
               logger.log('ℹ️ Order exists and email already sent, skipping email sending');
             } else {
               // Create Notion database entry (only if order doesn't exist)
-              if (!orderExists) {
+              // Subscription checkouts are mirrored from the durable Firestore
+              // account order by the backend trigger. The browser must not race
+              // that trigger and create a duplicate Notion row.
+              if (!orderExists && !state.orderData.subscriptionItems?.length) {
                 logger.log('📝 Creating Notion order entry...');
                 try {
                   await notionService.createOrder({
