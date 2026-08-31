@@ -28,8 +28,8 @@ const FALLBACK_ROAST_SESSION_CALENDAR = [
   "2026-09-01T09:00:00-07:00",
 ] as const;
 export const INITIAL_ROAST_DATE = FALLBACK_ROAST_SESSION_CALENDAR[0];
-const ROAST_CALENDAR_CACHE_DURATION_MS = 5 * 60 * 1000;
-let roastCalendarCache: { dates: string[]; expiresAt: number } | null = null;
+const ALL_EVENTS_CALENDAR_CACHE_DURATION_MS = 5 * 60 * 1000;
+let allEventsCalendarCache: { events: any[]; expiresAt: number } | null = null;
 
 const database = () => {
   // A trigger can run in an execution context where a named Admin app already
@@ -162,7 +162,7 @@ const subscriptionParcel = (shippingWeight: number | undefined, displayWeight: s
   };
 };
 
-const roastCalendarDatabaseId = (): string | null => process.env.NOTION_ROAST_DATES_DATABASE_ID || null;
+const allEventsDatabaseId = (): string | null => process.env.NOTION_ALL_EVENTS_DATABASE_ID || null;
 
 const normalizeRoastDate = (value: string): string | null => {
   if (!value) return null;
@@ -170,23 +170,45 @@ const normalizeRoastDate = (value: string): string | null => {
   return Number.isNaN(Date.parse(value)) ? null : value;
 };
 
-export const getRoastSessionCalendar = async (): Promise<string[]> => {
-  if (roastCalendarCache && roastCalendarCache.expiresAt > Date.now()) return roastCalendarCache.dates;
-  const databaseId = roastCalendarDatabaseId();
+/**
+ * Returns website-visible events from the shared Notion calendar.
+ * Every website event must include the Website Calendar tag.
+ */
+export const allEventsCalendar = async (): Promise<any[]> => {
+  if (allEventsCalendarCache && allEventsCalendarCache.expiresAt > Date.now()) return allEventsCalendarCache.events;
+  const databaseId = allEventsDatabaseId();
   if (!databaseId) {
-    logger.warn("NOTION_ROAST_DATES_DATABASE_ID is not configured; using the local fallback roast date");
-    return [...FALLBACK_ROAST_SESSION_CALENDAR];
+    logger.warn("NOTION_ALL_EVENTS_DATABASE_ID is not configured; no website calendar events are available");
+    return [];
   }
-  const response = await getNotion().databases.query({
-    database_id: databaseId,
-    sorts: [{ property: "Date", direction: "ascending" }],
-  });
-  const dates = response.results
+  const events: any[] = [];
+  let startCursor: string | undefined;
+  do {
+    const response = await getNotion().databases.query({
+      database_id: databaseId,
+      filter: {
+        property: "Tags",
+        multi_select: { contains: "Website Calendar" },
+      },
+      sorts: [{ property: "Date", direction: "ascending" }],
+      ...(startCursor ? { start_cursor: startCursor } : {}),
+    });
+    events.push(...response.results);
+    startCursor = response.has_more ? response.next_cursor || undefined : undefined;
+  } while (startCursor);
+  allEventsCalendarCache = { events, expiresAt: Date.now() + ALL_EVENTS_CALENDAR_CACHE_DURATION_MS };
+  return events;
+};
+
+export const getRoastSessionCalendar = async (): Promise<string[]> => {
+  if (!allEventsDatabaseId()) return [...FALLBACK_ROAST_SESSION_CALENDAR];
+  const events = await allEventsCalendar();
+  const dates = events
+    .filter((page: any) => page.properties?.["Event Type"]?.select?.name === "Roast Schedule")
     .map((page: any) => normalizeRoastDate(page.properties?.Date?.date?.start || ""))
     .filter((date: string | null): date is string => !!date)
     .sort((first, second) => Date.parse(first) - Date.parse(second));
   if (!dates.length) throw new Error("The Notion roast-date calendar has no valid Date values");
-  roastCalendarCache = { dates, expiresAt: Date.now() + ROAST_CALENDAR_CACHE_DURATION_MS };
   return dates;
 };
 
@@ -680,7 +702,7 @@ export class AccountService {
         }),
       ]);
       await db.batch()
-        .set(db.collection("orders").doc(orderId), { id: orderId, accountId: subscription.accountId, customerName: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`.trim(), email: renewalAccount.user.email, emailNormalized: renewalAccount.user.email.toLowerCase(), phone: renewalAccount.phone || null, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${totalWeight}lb ${subscription.itemName}`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}) , isLocalPickup: !!subscription.isLocalPickup })
+        .set(db.collection("orders").doc(orderId), { id: orderId, accountId: subscription.accountId, customerName: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`.trim(), email: renewalAccount.user.email, emailNormalized: renewalAccount.user.email.toLowerCase(), phone: renewalAccount.phone || null, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${totalWeight}lb ${subscription.itemName}`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}), isLocalPickup: !!subscription.isLocalPickup })
         .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString(), discountPercent, freeShipping, addOnWeight: FieldValue.delete(), addOnUnitAmount: FieldValue.delete() })
         .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
         .commit();
