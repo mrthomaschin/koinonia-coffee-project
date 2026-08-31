@@ -12,7 +12,7 @@ import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
-import { AccountService } from "./services/account_service";
+import { AccountService, getAllEventsCalendarDetails, refreshAllEventsCalendar } from "./services/account_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -203,6 +203,15 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
 
 // Get upcoming local pickup options from Notion
 app.get("/get-order-pickup-options", async (req: Request, res: Response) => NotionService.getOrderPickupOptions(req, res));
+
+app.get("/events", async (_req: Request, res: Response) => {
+  try {
+    res.json({ events: await getAllEventsCalendarDetails() });
+  } catch (error: unknown) {
+    logger.error("Error fetching website events", { error: (error as Error).message });
+    res.status(500).json({ error: "Unable to load events" });
+  }
+});
 
 // Create Notion order entry
 app.post("/create-notion-order", async (req: Request, res: Response) => NotionService.createNotionOrder(req, res));
@@ -460,6 +469,19 @@ export const syncInventoryCache = onSchedule(
       logger.info("Scheduled inventory cache sync completed");
     } catch (error) {
       logger.error("Error syncing inventory cache:", error);
+    }
+  }
+);
+
+export const syncEventsCalendar = onSchedule(
+  { schedule: "every day 03:00", timeZone: "America/Los_Angeles", region: "us-central1", secrets: ["NOTION_TOKEN", "NOTION_ALL_EVENTS_DATABASE_ID"] },
+  async () => {
+    try {
+      logger.info("Starting scheduled events calendar sync");
+      await refreshAllEventsCalendar();
+      logger.info("Scheduled events calendar sync completed");
+    } catch (error) {
+      logger.error("Error syncing events calendar", { error: (error as Error).message });
     }
   }
 );

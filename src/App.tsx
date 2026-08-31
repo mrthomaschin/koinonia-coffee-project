@@ -14,6 +14,7 @@ import { PAGES, LAYOUT } from './util/constants';
 import { isPageEnabled } from './util/devConfig';
 import './App.css';
 import Catering from './pages/catering/Catering';
+import Events, { EventDetail } from './pages/events/Events';
 import Shop from './pages/shop/ShopView';
 import { ItemView } from './pages/shop/item/ItemView';
 import About from './pages/about/About';
@@ -107,6 +108,8 @@ const MainContent: React.FC = () => {
               )
             }
           />
+          <Route path="/events" element={<Events />} />
+          <Route path="/events/:eventId" element={<EventDetail />} />
           <Route
             path="/menu"
             element={

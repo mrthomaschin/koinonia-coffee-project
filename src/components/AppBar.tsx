@@ -15,6 +15,7 @@ const AppBar: React.FC = () => {
     { label: 'OUR STORY', page: PAGES.ABOUT },
     { label: 'GALLERY', page: PAGES.GALLERY },
     { label: 'CATERING', page: PAGES.CATERING },
+    { label: 'EVENTS', page: PAGES.EVENTS },
     { label: 'CART', page: PAGES.CART },
     { label: 'ACCOUNT', page: PAGES.ACCOUNT }
   ];

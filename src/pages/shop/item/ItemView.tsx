@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Item, ItemType } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
@@ -14,6 +14,7 @@ import { isLimitedTimeOfferAvailable, allowsUnlimitedPurchases } from '../../../
 import { useInventory } from '../../../contexts/InventoryContext';
 import { generateSlug } from '../shopData';
 import SEO, { SITE_URL } from '../../../components/SEO';
+import NotionBody from '../../../components/NotionBody';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -287,14 +288,15 @@ export const ItemView: React.FC<ItemViewProps> = ({
           <p className="detail-description">{item.itemDetails}</p>
 
           {item.itemType === ItemType.coffee && item.nextRoastDate && (
-            <p className="next-roast-date">
-              Next roast: {new Intl.DateTimeFormat(undefined, {
+            <div className="next-roast-date">
+              <p>Next roast: {new Intl.DateTimeFormat(undefined, {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
                 timeZone: 'America/Los_Angeles',
-              }).format(new Date(item.nextRoastDate))}
-            </p>
+              }).format(new Date(item.nextRoastDate))}</p>
+              <span>View the roasting schedule <Link to="/events">here</Link></span>
+            </div>
           )}
 
           {renderExtraInfo && renderExtraInfo(item)}
@@ -329,7 +331,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
             <p className="coffee-story-subtext">{item.itemDetails}</p>
           </div>
           <div className="coffee-story-copy">
-            <ReactMarkdown>{item.itemSummary || item.itemDetails}</ReactMarkdown>
+            <NotionBody content={item.itemSummary || item.itemDetails} />
           </div>
         </section>
       )}
@@ -343,7 +345,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
           <span className={`dropdown-arrow ${isDetailsDropdownOpen ? 'open' : ''}`}>▼</span>
         </button>
         <div className={`dropdown-content ${isDetailsDropdownOpen ? 'open' : ''}`}>
-          {renderDetailsSection ? renderDetailsSection(item) : item.itemSummary ? <ReactMarkdown>{item.itemSummary}</ReactMarkdown> : <p>More details about this item will be displayed here.</p>}
+          {renderDetailsSection ? renderDetailsSection(item) : <NotionBody content={item.itemSummary} fallback="More details about this item will be displayed here." />}
         </div>
       </div>}
       {renderBrewingMethod && renderBrewingMethod(item)}

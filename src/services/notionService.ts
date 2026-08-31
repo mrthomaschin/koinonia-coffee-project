@@ -47,6 +47,15 @@ export interface OrderPickupOption {
   pickupId: string;
 }
 
+export interface WebsiteEvent {
+  id: string;
+  name: string;
+  start: string;
+  end: string | null;
+  location: string | null;
+  body: string;
+}
+
 export interface InventoryVariant {
   sku: string;
   size?: string;
@@ -199,6 +208,32 @@ class NotionService {
       logger.error('❌ Failed to fetch order pickup options:', error);
       throw error;
     }
+  }
+
+  async getEvents(): Promise<WebsiteEvent[]> {
+    // Bump this when the event response shape changes so stale empty bodies
+    // from an earlier calendar response cannot hide Notion page content.
+    const cacheKey = 'koinonia_events_calendar_v4';
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as { fetchedAt: number; events: WebsiteEvent[] };
+        if (Date.now() - parsed.fetchedAt < 24 * 60 * 60 * 1000) return parsed.events;
+      }
+    } catch {
+      // Fetch fresh data when local storage is unavailable or invalid.
+    }
+
+    const response = await fetch(`${this.backendUrl}/events`, { headers: { 'Content-Type': 'application/json' } });
+    if (!response.ok) throw new Error('Unable to load events');
+    const result = await response.json() as { events?: WebsiteEvent[] };
+    const events = result.events || [];
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ fetchedAt: Date.now(), events }));
+    } catch {
+      // Ignore storage errors; the page can still render the response.
+    }
+    return events;
   }
 
   async checkOrderConfirmedEmailSent(orderId: string): Promise<{ emailSent: boolean; orderExists: boolean }> {

@@ -1,0 +1,28 @@
+.notion-body {
+  font-family: 'RethinkSans-Regular', sans-serif;
+  line-height: 1.75;
+}
+
+.notion-body > :first-child {
+  margin-top: 0;
+}
+
+.notion-body > :last-child {
+  margin-bottom: 0;
+}
+
+.notion-body h1,
+.notion-body h2,
+.notion-body h3,
+.notion-body h4 {
+  font-family: 'HedvigLettersSerif_18pt', Georgia, serif;
+  font-weight: 400;
+}
+
+.notion-body a {
+  color: #313d66;
+}
+
+.notion-body img {
+  max-width: 100%;
+}

@@ -107,6 +107,22 @@
   text-transform: capitalize;
 }
 
+.next-roast-date {
+  margin: -8px 0 0;
+  color: #59667e;
+  font-size: 14px;
+}
+
+.next-roast-date p {
+  margin: 0 0 5px;
+}
+
+.next-roast-date a {
+  color: #313d66;
+  font: inherit;
+  text-decoration: underline;
+}
+
 .detail-description {
   font-size: 16px;
   line-height: 1.7;

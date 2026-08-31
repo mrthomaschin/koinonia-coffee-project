@@ -30,6 +30,17 @@ const FALLBACK_ROAST_SESSION_CALENDAR = [
 export const INITIAL_ROAST_DATE = FALLBACK_ROAST_SESSION_CALENDAR[0];
 const ALL_EVENTS_CALENDAR_CACHE_DURATION_MS = 5 * 60 * 1000;
 let allEventsCalendarCache: { events: any[]; expiresAt: number } | null = null;
+const ALL_EVENTS_DETAILS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
+let allEventsDetailsCache: { events: WebsiteEvent[]; expiresAt: number } | null = null;
+
+export interface WebsiteEvent {
+  id: string;
+  name: string;
+  start: string;
+  end: string | null;
+  location: string | null;
+  body: string;
+}
 
 const database = () => {
   // A trigger can run in an execution context where a named Admin app already
@@ -198,6 +209,95 @@ export const allEventsCalendar = async (): Promise<any[]> => {
   } while (startCursor);
   allEventsCalendarCache = { events, expiresAt: Date.now() + ALL_EVENTS_CALENDAR_CACHE_DURATION_MS };
   return events;
+};
+
+const notionText = (items: any[] | undefined): string =>
+  (items || []).map((item: any) => item.plain_text || item.text?.content || "").join("");
+
+const notionPropertyText = (property: any): string => {
+  if (!property) return "";
+  if (property.type === "title") return notionText(property.title);
+  if (property.type === "rich_text") return notionText(property.rich_text);
+  if (property.type === "select") return property.select?.name || "";
+  if (property.type === "url") return property.url || "";
+  return "";
+};
+
+const notionBlockText = (block: any): string => {
+  const content = block?.[block?.type];
+  if (!content) return "";
+  const text = notionText(content.rich_text);
+  switch (block.type) {
+    case "heading_1": return `# ${text}`;
+    case "heading_2": return `## ${text}`;
+    case "heading_3": return `### ${text}`;
+    case "bulleted_list_item": return `- ${text}`;
+    case "numbered_list_item": return `1. ${text}`;
+    case "quote": return `> ${text}`;
+    case "to_do": return `- [${content.checked ? "x" : " "}] ${text}`;
+    case "divider": return "---";
+    default: return text;
+  }
+};
+
+const fetchEventBlocks = async (pageId: string): Promise<any[]> => {
+  const blocks: any[] = [];
+  let cursor: string | undefined;
+  do {
+    const response = await getNotion().blocks.children.list({ block_id: pageId, start_cursor: cursor });
+    blocks.push(...response.results);
+    cursor = response.has_more ? response.next_cursor || undefined : undefined;
+  } while (cursor);
+  return blocks;
+};
+
+const websiteDescriptionFromBlocks = (blocks: any[]): string => {
+  const descriptionHeadingIndex = blocks.findIndex((block) =>
+    block.type === "heading_1" && notionBlockText(block).replace(/^#\s*/, "").trim().toLowerCase() === "website description"
+  );
+  if (descriptionHeadingIndex < 0) return "";
+  const descriptionBlocks = blocks.slice(descriptionHeadingIndex + 1);
+  const nextHeadingIndex = descriptionBlocks.findIndex((block: any) => block.type === "heading_1");
+  return descriptionBlocks
+    .slice(0, nextHeadingIndex < 0 ? undefined : nextHeadingIndex)
+    .map(notionBlockText)
+    .filter(Boolean)
+    .join("\n\n");
+};
+
+const inferEventLocation = (body: string): string | null => {
+  const match = body.match(/(?:📍\s*)?Location:\s*([^\n]+)/i);
+  return match?.[1]?.trim() || null;
+};
+
+export const getAllEventsCalendarDetails = async (): Promise<WebsiteEvent[]> => {
+  if (allEventsDetailsCache && allEventsDetailsCache.expiresAt > Date.now()) return allEventsDetailsCache.events;
+  const pages = await allEventsCalendar();
+  const events = await Promise.all(pages.map(async (page: any): Promise<WebsiteEvent | null> => {
+    const properties = page.properties || {};
+    const date = properties.Date?.date;
+    if (!date?.start) return null;
+    const pageBlocks = await fetchEventBlocks(page.id);
+    const fullBody = pageBlocks.map(notionBlockText).filter(Boolean).join("\n\n");
+    const location = notionPropertyText(properties.Location || properties["Event Location"] || properties.Venue || properties.Address) || inferEventLocation(fullBody);
+    return {
+      id: page.id,
+      name: notionPropertyText(properties.Name || properties.Event || properties.Title) || "Untitled event",
+      start: date.start,
+      end: date.end || null,
+      location,
+      body: websiteDescriptionFromBlocks(pageBlocks),
+    };
+  }));
+  const validEvents = events.filter((event): event is WebsiteEvent => event !== null);
+  allEventsDetailsCache = { events: validEvents, expiresAt: Date.now() + ALL_EVENTS_DETAILS_CACHE_DURATION_MS };
+  return validEvents;
+};
+
+export const refreshAllEventsCalendar = async (): Promise<void> => {
+  allEventsDetailsCache = null;
+  allEventsCalendarCache = null;
+  await getAllEventsCalendarDetails();
 };
 
 export const getRoastSessionCalendar = async (): Promise<string[]> => {
