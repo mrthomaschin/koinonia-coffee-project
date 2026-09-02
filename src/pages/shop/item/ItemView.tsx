@@ -15,6 +15,7 @@ import { useInventory } from '../../../contexts/InventoryContext';
 import { generateSlug } from '../shopData';
 import SEO, { SITE_URL } from '../../../components/SEO';
 import NotionBody from '../../../components/NotionBody';
+import { Eyebrow } from '../../../components/ui/Typography';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -289,12 +290,12 @@ export const ItemView: React.FC<ItemViewProps> = ({
 
           {item.itemType === ItemType.coffee && item.nextRoastDate && (
             <div className="next-roast-date">
-              <p>Next roast: {new Intl.DateTimeFormat(undefined, {
+              <p><strong>Next roast: {new Intl.DateTimeFormat(undefined, {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
                 timeZone: 'America/Los_Angeles',
-              }).format(new Date(item.nextRoastDate))}</p>
+              }).format(new Date(item.nextRoastDate))}</strong></p>
               <span>View the roasting schedule <Link to="/events">here</Link></span>
             </div>
           )}
@@ -326,7 +327,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
       {item.itemType === ItemType.coffee && (
         <section className="coffee-story-section">
           <div>
-            <p className="coffee-detail-eyebrow">THE COFFEE</p>
+            <Eyebrow>THE COFFEE</Eyebrow>
             <h2>About this coffee.</h2>
             <p className="coffee-story-subtext">{item.itemDetails}</p>
           </div>

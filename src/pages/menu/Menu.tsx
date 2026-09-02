@@ -1,6 +1,7 @@
 import React from 'react';
 import './Menu.css';
 import SEO from '../../components/SEO';
+import { Eyebrow } from '../../components/ui/Typography';
 
 interface MenuProps {
   availableHeight: number;
@@ -13,7 +14,8 @@ const Menu: React.FC<MenuProps> = ({ availableHeight }) => {
       <div className="menu-container">
         <div className="menu-header">
           <div>
-            <h1 className="menu-title">Menu</h1>
+            <Eyebrow as="span">MENU</Eyebrow>
+            <h1 className="menu-title">Our current<br />offerings.</h1>
           </div>
         </div>
         <div className="menu-image-wrapper">

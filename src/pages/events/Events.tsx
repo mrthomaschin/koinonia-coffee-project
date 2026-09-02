@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { notionService, WebsiteEvent } from '../../services/notionService';
 import SEO from '../../components/SEO';
 import NotionBody from '../../components/NotionBody';
+import { Eyebrow } from '../../components/ui/Typography';
 import './Events.css';
 
 const parseEventDate = (value: string): Date => {
@@ -46,7 +47,7 @@ const Events: React.FC = () => {
 
   return <main className="events-page">
     <SEO title="Events Calendar | Koinonia Coffee Project" description="Find Koinonia Coffee Project at upcoming pop-ups, markets, and community gatherings." path="/events" />
-    <section className="events-heading"><p className="events-eyebrow">COME SAY HELLO</p><h1>See what<br />we're up to.</h1></section>
+    <section className="events-heading"><Eyebrow>EVENTS</Eyebrow><h1>See what<br />we're up to.</h1></section>
     {loading && <p className="events-status">Loading events…</p>}
     {error && <p className="events-status">{error}</p>}
     {!loading && !error && <section className="events-content">
@@ -57,7 +58,7 @@ const Events: React.FC = () => {
           {day && <><span className="calendar-date">{day}</span>{eventsOnDay(day).map((event) => <Link className="calendar-event" key={event.id} to={`/events/${event.id}`}>{event.name}</Link>)}</>}
         </div>)}</div>
       </div>
-      <div className="events-list"><p className="events-eyebrow">THIS MONTH</p>{monthEvents.length === 0 && <p>No events on the calendar this month.</p>}{monthEvents.map((event) => <Link to={`/events/${event.id}`} className="event-list-item" key={event.id}><span>{formatDate(event.start)}</span><strong>{event.name}</strong>{event.location && <small>{event.location}</small>}</Link>)}</div>
+      <div className="events-list"><Eyebrow>THIS MONTH</Eyebrow>{monthEvents.length === 0 && <p>No events on the calendar this month.</p>}{monthEvents.map((event) => <Link to={`/events/${event.id}`} className="event-list-item" key={event.id}><span>{formatDate(event.start)}</span><strong>{event.name}</strong>{event.location && <small>{event.location}</small>}</Link>)}</div>
     </section>}
   </main>;
 };

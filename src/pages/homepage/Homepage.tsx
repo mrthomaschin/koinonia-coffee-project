@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import './Homepage.css';
 import SEO from '../../components/SEO';
+import { Eyebrow } from '../../components/ui/Typography';
 
 interface HomepageProps {
   availableHeight: number;
@@ -28,9 +29,9 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight: _availableHeight }
       </section>
 
         <section className="homepage-pillars">
-        <article className="pillar"><p className="eyebrow">01 / COMMUNITY</p><h2>Make room for people.</h2><p>Partnerships, gatherings, and a future storefront built around belonging.</p><Link to="/about" className="text-link">OUR STORY</Link></article>
-        <article className="pillar"><p className="eyebrow">02 / ROASTERY</p><h2>Drink something<br />worth sharing.</h2><p>Thoughtful coffee, roasted with care and made to be enjoyed together.</p><Link to="/shop" className="text-link">SHOP COFFEE</Link></article>
-        <article className="pillar"><p className="eyebrow">03 / COFFEE CART</p><h2>Find us in the wild.</h2><p>Pop-ups, markets, and everyday moments around the cart.</p><Link to="/events" className="text-link">SEE THE CALENDAR</Link></article>
+        <article className="pillar"><Eyebrow>01 / COMMUNITY</Eyebrow><h2>Make room for people.</h2><p>Partnerships, gatherings, and a future storefront built around belonging.</p><Link to="/about" className="text-link">OUR STORY</Link></article>
+        <article className="pillar"><Eyebrow>02 / ROASTERY</Eyebrow><h2>Drink something<br />worth sharing.</h2><p>Thoughtful coffee, roasted with care and made to be enjoyed together.</p><Link to="/shop" className="text-link">SHOP COFFEE</Link></article>
+        <article className="pillar"><Eyebrow>03 / COFFEE CART</Eyebrow><h2>Find us in the wild.</h2><p>Pop-ups, markets, and everyday moments around the cart.</p><Link to="/events" className="text-link">SEE THE CALENDAR</Link></article>
       </section>
 
       <section className="homepage-about">

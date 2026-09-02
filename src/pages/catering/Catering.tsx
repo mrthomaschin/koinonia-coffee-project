@@ -2,6 +2,7 @@ import React from 'react';
 import './Catering.css';
 import { FlashquotesEmbed } from '../../components/FlashquotesEmbed';
 import SEO from '../../components/SEO';
+import { Eyebrow } from '../../components/ui/Typography';
 
 interface CateringProps {
   availableHeight: number;
@@ -13,7 +14,7 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
       <SEO title="Mobile Coffee Cart Catering | Koinonia Coffee Project" description="Book Koinonia Coffee Project for weddings, markets, corporate events, and private gatherings with a mobile coffee cart." path="/catering" />
       <section className="catering-hero">
         <div className="catering-hero-copy">
-          <p className="catering-eyebrow">BRING THE CART TO YOU</p>
+          <Eyebrow>BRING THE CART TO YOU</Eyebrow>
           <h1>Host your event<br />with good coffee.</h1>
           <p>We bring quality coffee, thoughtful hospitality, and a little more room for connection to your next gathering.</p>
           <a className="catering-button" href="#catering-inquiry">START A CONVERSATION</a>
@@ -29,13 +30,13 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
       </section>
 
       <section className="catering-pillars">
-        <article><p className="catering-eyebrow">01 / HOSPITALITY</p><h3>Warm service</h3><p>Professional, welcoming, and built to keep the line moving without losing the human touch.</p></article>
-        <article><p className="catering-eyebrow">02 / CRAFT</p><h3>Good coffee</h3><p>Lattes, Americanos, hot chocolate, and thoughtful add-ons made with quality ingredients.</p></article>
-        <article><p className="catering-eyebrow">03 / EASE</p><h3>All handled</h3><p>Ingredients, materials, setup, tear-down, and service are included in one simple experience.</p></article>
+        <article><Eyebrow>01 / HOSPITALITY</Eyebrow><h3>Warm service</h3><p>Professional, welcoming, and built to keep the line moving without losing the human touch.</p></article>
+        <article><Eyebrow>02 / CRAFT</Eyebrow><h3>Good coffee</h3><p>Lattes, Americanos, hot chocolate, and thoughtful add-ons made with quality ingredients.</p></article>
+        <article><Eyebrow>03 / EASE</Eyebrow><h3>All handled</h3><p>Ingredients, materials, setup, tear-down, and service are included in one simple experience.</p></article>
       </section>
 
       <section className="catering-experience">
-        <div className="experience-copy"><p className="catering-eyebrow">THE EXPERIENCE</p><h2>Everything you need,<br />thoughtfully covered.</h2><p>Our standard espresso bar includes hot and iced lattes and Americanos, whole and oat milk, vanilla syrup, and a non-caffeinated hot chocolate option.</p></div>
+        <div className="experience-copy"><Eyebrow>THE EXPERIENCE</Eyebrow><h2>Everything you need,<br />thoughtfully covered.</h2><p>Our standard espresso bar includes hot and iced lattes and Americanos, whole and oat milk, vanilla syrup, and a non-caffeinated hot chocolate option.</p></div>
         <div className="experience-details">
           <div><strong>Espresso bar</strong><span>Included</span></div>
           <div><strong>Unlimited drinks</strong><span>During service</span></div>
@@ -46,7 +47,7 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
       </section>
 
       <section className="catering-inquiry" id="catering-inquiry">
-        <div className="inquiry-copy"><p className="catering-eyebrow">LET&apos;S GATHER</p><h2>Tell us about your<br />event.</h2><p>Share a few details and we&apos;ll follow up with a custom quote for your gathering.</p></div>
+        <div className="inquiry-copy"><Eyebrow>LET&apos;S GATHER</Eyebrow><h2>Tell us about your<br />event.</h2><p>Share a few details and we&apos;ll follow up with a custom quote for your gathering.</p></div>
         <div className="catering-form-embed"><FlashquotesEmbed /></div>
       </section>
     </main>

@@ -210,6 +210,88 @@ export class EmailService {
         }
     }
 
+    static async sendPickedUpNotification(params: {
+        serviceId: string;
+        templateId: string;
+        publicKey: string;
+        privateKey: string;
+        toEmail: string;
+        customerName: string;
+        orderId: string;
+        itemsHtml: string;
+        pickupDate: string;
+    }): Promise<void> {
+        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, pickupDate } = params;
+
+        const emailData = {
+            service_id: serviceId,
+            template_id: templateId,
+            user_id: publicKey,
+            accessToken: privateKey,
+            template_params: {
+                to_email: toEmail,
+                customer_name: customerName,
+                order_id: orderId,
+                items_html: itemsHtml,
+                pickup_date: pickupDate,
+            },
+        };
+
+        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(emailData),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
+        }
+    }
+
+    static async sendReadyForPickupNotification(params: {
+        serviceId: string;
+        templateId: string;
+        publicKey: string;
+        privateKey: string;
+        toEmail: string;
+        customerName: string;
+        orderId: string;
+        itemsHtml: string;
+        readyDate: string;
+    }): Promise<void> {
+        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, readyDate } = params;
+
+        const emailData = {
+            service_id: serviceId,
+            template_id: templateId,
+            user_id: publicKey,
+            accessToken: privateKey,
+            template_params: {
+                to_email: toEmail,
+                customer_name: customerName,
+                order_id: orderId,
+                items_html: itemsHtml,
+                ready_date: readyDate,
+            },
+        };
+
+        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(emailData),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
+        }
+    }
+
     static async sendOutForDeliveryNotification(params: {
         serviceId: string;
         templateId: string;
@@ -278,6 +360,8 @@ export class EmailService {
             const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
             const outForDeliveryTemplateId = process.env.EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID;
             const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
+            const pickedUpTemplateId = process.env.EMAILJS_PICKED_UP_TEMPLATE_ID;
+            const readyForPickupTemplateId = process.env.EMAILJS_READY_FOR_PICKUP_TEMPLATE_ID;
 
             if (!databaseId) {
                 logger.error("NOTION_ONLINE_ORDERS_DATABASE_ID not configured");
@@ -308,6 +392,8 @@ export class EmailService {
                 const shippedEmailSentProp = properties["Shipped Email Sent"];
                 const outForDeliveryEmailSentProp = properties["Out For Delivery Email Sent"];
                 const deliveredEmailSentProp = properties["Delivered Email Sent"];
+                const pickedUpEmailSentProp = properties["Picked Up Email Sent"];
+                const readyForPickupEmailSentProp = properties["Ready For Pickup Email Sent"];
                 const emailProp = properties["Email"];
                 const customerProp = properties["Customer"];
                 const orderIdProp = properties["Order #"];
@@ -332,6 +418,8 @@ export class EmailService {
                 const shippedEmailSent = shippedEmailSentProp.checkbox;
                 const outForDeliveryEmailSent = outForDeliveryEmailSentProp.checkbox;
                 const deliveredEmailSent = deliveredEmailSentProp.checkbox;
+                const pickedUpEmailSent = pickedUpEmailSentProp?.type === "checkbox" && pickedUpEmailSentProp.checkbox;
+                const readyForPickupEmailSent = readyForPickupEmailSentProp?.type === "checkbox" && readyForPickupEmailSentProp.checkbox;
                 const fulfillmentStatus = fulfillmentProp?.type === "status" ? (fulfillmentProp.status as any)?.name : "";
                 const customerEmail = emailProp.email as string;
                 const customerFullName = (customerProp.title as any)[0]?.plain_text || "Customer";
@@ -492,6 +580,88 @@ export class EmailService {
                         logger.info(`✅ Delivered notification sent and Notion updated for order ${orderId}`);
                     } catch (error) {
                         logger.error(`Failed to send delivered notification for ${orderId}:`, error);
+                    }
+                }
+
+                // Check if we need to send "Picked up" notification based on the Notion fulfillment status
+                if (fulfillmentStatus === "Picked up" && pickedUpEmailSentProp?.type === "checkbox" && !pickedUpEmailSent && pickedUpTemplateId) {
+                    logger.info(`Sending picked up notification for order ${orderId}`);
+
+                    try {
+                        await EmailService.sendPickedUpNotification({
+                            serviceId: emailjsServiceId,
+                            templateId: pickedUpTemplateId,
+                            publicKey: emailjsPublicKey,
+                            privateKey: emailjsPrivateKey,
+                            toEmail: customerEmail,
+                            customerName,
+                            orderId,
+                            itemsHtml,
+                            pickupDate: new Date().toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                            }),
+                        });
+
+                        await notion.pages.update({
+                            page_id: page.id,
+                            properties: {
+                                "Picked Up Email Sent": {
+                                    checkbox: true,
+                                },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Picked up",
+                                    },
+                                },
+                            },
+                        });
+
+                        logger.info(`✅ Picked up notification sent and Notion updated for order ${orderId}`);
+                    } catch (error) {
+                        logger.error(`Failed to send picked up notification for ${orderId}:`, error);
+                    }
+                }
+
+                // Check if we need to send "Ready for pickup" notification based on the Notion fulfillment status
+                if (fulfillmentStatus === "Ready for pickup" && readyForPickupEmailSentProp?.type === "checkbox" && !readyForPickupEmailSent && readyForPickupTemplateId) {
+                    logger.info(`Sending ready for pickup notification for order ${orderId}`);
+
+                    try {
+                        await EmailService.sendReadyForPickupNotification({
+                            serviceId: emailjsServiceId,
+                            templateId: readyForPickupTemplateId,
+                            publicKey: emailjsPublicKey,
+                            privateKey: emailjsPrivateKey,
+                            toEmail: customerEmail,
+                            customerName,
+                            orderId,
+                            itemsHtml,
+                            readyDate: new Date().toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                            }),
+                        });
+
+                        await notion.pages.update({
+                            page_id: page.id,
+                            properties: {
+                                "Ready For Pickup Email Sent": {
+                                    checkbox: true,
+                                },
+                                "Fulfillment": {
+                                    status: {
+                                        name: "Ready for pickup",
+                                    },
+                                },
+                            },
+                        });
+
+                        logger.info(`✅ Ready for pickup notification sent and Notion updated for order ${orderId}`);
+                    } catch (error) {
+                        logger.error(`Failed to send ready for pickup notification for ${orderId}:`, error);
                     }
                 }
             }
