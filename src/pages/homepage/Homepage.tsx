@@ -28,15 +28,15 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight: _availableHeight }
         <div className="coffee-cart-art"><img className="coffee-cart-photo" src="/assets/images/DSCF3464.jpg" alt="Koinonia coffee cart" /><span className="cart-label">KOINONIA / COFFEE CART</span></div>
       </section>
 
-        <section className="homepage-pillars">
+      <section className="homepage-about">
+        <div className="about-art" aria-label="Soft abstract image placeholder" role="img"><span>PEOPLE / PLACE / PURPOSE</span></div>
+        <div className="about-copy"><div className="word-note"><strong className="word-note-term">κοινωνία</strong><span className="word-note-details">[koy-nohn-ee'-ah]</span><strong className="word-note-definition"><em>(n.) communion, fellowship</em></strong></div><p className="mission-copy">Koinonia Coffee Project exists to create spaces for meaningful connection through the joy of good coffee.</p><Link to="/about" className="text-link">LEARN MORE ABOUT KOINONIA</Link></div>
+      </section>
+
+      <section className="homepage-pillars">
         <article className="pillar"><Eyebrow>01 / COMMUNITY</Eyebrow><h2>Make room for people.</h2><p>Partnerships, gatherings, and a future storefront built around belonging.</p><Link to="/about" className="text-link">OUR STORY</Link></article>
         <article className="pillar"><Eyebrow>02 / ROASTERY</Eyebrow><h2>Drink something<br />worth sharing.</h2><p>Thoughtful coffee, roasted with care and made to be enjoyed together.</p><Link to="/shop" className="text-link">SHOP COFFEE</Link></article>
         <article className="pillar"><Eyebrow>03 / COFFEE CART</Eyebrow><h2>Find us in the wild.</h2><p>Pop-ups, markets, and everyday moments around the cart.</p><Link to="/events" className="text-link">SEE THE CALENDAR</Link></article>
-      </section>
-
-      <section className="homepage-about">
-        <div className="about-copy"><div className="word-note"><strong className="word-note-term">κοινωνία</strong><span className="word-note-details">[koy-nohn-ee'-ah]</span><strong className="word-note-definition"><em>(n.) communion, fellowship</em></strong></div><p className="mission-copy">Koinonia Coffee Project exists to create spaces for meaningful connection through the joy of good coffee.</p><Link to="/about" className="text-link">LEARN MORE ABOUT KOINONIA</Link></div>
-        <div className="about-art" aria-label="Soft abstract image placeholder" role="img"><span>PEOPLE / PLACE / PURPOSE</span></div>
       </section>
 
       {/* <section className="homepage-catering">
