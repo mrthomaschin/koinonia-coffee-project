@@ -203,7 +203,11 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                   discountAmount: state.orderData.discountAmount,
                   totalAmount: state.orderData.total,
                   orderDate: state.orderData.timestamp,
-                  sessionId: orderId
+                  sessionId: orderId,
+                  shippingAddress: state.orderData.shippingAddress || '',
+                  billingAddress: state.orderData.billingAddress || '',
+                  shippingMethod: state.orderData.shippingMethod || '',
+                  isLocalPickup: state.orderData.isLocalPickup === true,
                 });
                 logger.log('✅ Purchase notification sent successfully!');
 
@@ -360,7 +364,11 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                     items: purchaseItems,
                     totalAmount: data.amount_total / 100,
                     orderDate: new Date().toISOString(),
-                    sessionId: sessionId
+                    sessionId: sessionId,
+                    shippingAddress: (data as any).shipping_address || '',
+                    billingAddress: (data as any).billing_address || '',
+                    shippingMethod: (data as any).shipping_method || '',
+                    isLocalPickup: (data as any).isLocalPickup === true,
                   });
                   logger.log('✅ Purchase notification sent successfully!');
 

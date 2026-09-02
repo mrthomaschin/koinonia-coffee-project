@@ -72,7 +72,11 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
               items: purchaseItems,
               totalAmount: data.amount_total / 100,
               orderDate: new Date().toLocaleString(),
-              sessionId: sessionId
+              sessionId: sessionId,
+              shippingAddress: data.shipping_address || '',
+              billingAddress: data.billing_address || '',
+              shippingMethod: data.shipping_method || '',
+              isLocalPickup: data.isLocalPickup === true,
             });
 
             logger.log('✓ Email notification sent successfully!');

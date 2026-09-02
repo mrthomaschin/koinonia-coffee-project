@@ -41,6 +41,10 @@ interface PurchaseNotificationData {
   totalAmount: number;
   orderDate: string;
   sessionId: string;
+  shippingAddress?: string;
+  billingAddress?: string;
+  shippingMethod?: string;
+  isLocalPickup?: boolean;
 }
 
 interface CustomerConfirmationData {
@@ -140,6 +144,13 @@ export const sendPurchaseNotification = async (purchaseData: PurchaseNotificatio
       order_date: purchaseData.orderDate,
       order_id: orderId,
       session_id: purchaseData.sessionId,
+      shipping_address: purchaseData.isLocalPickup
+        ? 'Not applicable - Local pickup'
+        : purchaseData.shippingAddress || 'N/A',
+      billing_address: purchaseData.billingAddress || 'N/A',
+      delivery_method: purchaseData.isLocalPickup
+        ? 'Local Pickup'
+        : purchaseData.shippingMethod || 'Shipping',
       to_name: 'Koinonia Coffee Project',
     };
 
