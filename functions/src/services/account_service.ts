@@ -403,7 +403,17 @@ const serviceDisplayName = (service?: string): string => {
   return services[service || ""] || "Standard";
 };
 
-const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAmount: number; shippingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment?: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
+const formatBillingAddress = (address?: { line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; postal_code?: string | null; country?: string | null } | null): string => {
+  if (!address) return "";
+  return [
+    address.line1,
+    address.line2,
+    [address.city, address.state, address.postal_code].filter(Boolean).join(", "),
+    address.country,
+  ].filter(Boolean).join(", ");
+};
+
+const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAmount: number; shippingAddress: string; billingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment?: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
   const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
   if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
   const notion = getNotion();
@@ -416,7 +426,7 @@ const createRenewalNotionOrder = async (params: { orderId: string; paymentIntent
       const receiptImage = await generateReceiptImage({
         customerName: `${params.account.user.firstName} ${params.account.user.lastName}`.trim(),
         customerEmail: params.account.user.email,
-        customerAddress: params.shippingAddress,
+        customerAddress: params.billingAddress || "N/A",
         orderId: params.orderId,
         items: [{ name: params.subscription.itemName, sku: params.subscription.itemSku, quantity: params.subscription.bagCount, price: (params.subscription.unitAmount * (1 - params.subscription.discountPercent / 100)) / 100, variations: params.subscription.weight }],
         subtotal: (params.subscription.unitAmount * params.subscription.bagCount * (1 - params.subscription.discountPercent / 100)) / 100,
@@ -742,6 +752,9 @@ export class AccountService {
       if (!subscription.isLocalPickup && !shippingAddress) throw new Error("Subscription is missing a saved shipping address");
       if (!Number.isSafeInteger(subscription.unitAmount) || subscription.unitAmount < 50) throw new Error("Subscription is missing a valid renewal price");
 
+      const savedPaymentMethod = await getStripe().paymentMethods.retrieve(paymentMethodId);
+      const billingAddress = formatBillingAddress(savedPaymentMethod.billing_details.address);
+
       // Older checkouts may not have saved the phone in Firestore. Recover it
       // from Stripe before building the shipping and Notion payloads.
       const stripeCustomer = !account.phone ? await getStripe().customers.retrieve(customerId) : null;
@@ -784,6 +797,7 @@ export class AccountService {
         totalAmount: paymentIntent.amount_received / 100,
         shippingAmount: shippingAmount / 100,
         shippingAddress: account.shippingAddress || "",
+        billingAddress,
         shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0,
         shippingBox: parcel.boxSize,
         shipment,

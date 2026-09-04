@@ -4,6 +4,10 @@
  */
 import { ItemType } from '../pages/shop/item/ItemModel';
 
+// Temporarily disabled while keeping the restriction configuration and
+// validation logic available for a future re-enable.
+export const SHIPPING_RESTRICTION_ENABLED = false;
+
 export const ALLOWED_SHIPPING_STATES = ['CA', 'CALIFORNIA'];
 
 export const SHIPPING_RESTRICTION_MESSAGE =
@@ -15,6 +19,7 @@ export const SHIPPING_RESTRICTION_MESSAGE =
  * @returns true if shipping is allowed to this state
  */
 export const isStateAllowedForShipping = (state: string | undefined): boolean => {
+    if (!SHIPPING_RESTRICTION_ENABLED) return true;
     if (!state) return false;
 
     const normalizedState = state.toUpperCase().trim();
@@ -52,6 +57,8 @@ export const cartContainsCoffee = (cartItems: any[]): boolean => {
  * @returns true if shipping is allowed to this state for the given cart contents
  */
 export const isShippingAllowedForCart = (state: string | undefined, cartItems: any[]): boolean => {
+    if (!SHIPPING_RESTRICTION_ENABLED) return true;
+
     const hasCoffee = cartContainsCoffee(cartItems);
 
     // If cart has coffee, restrict to California only

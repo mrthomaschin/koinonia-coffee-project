@@ -288,13 +288,25 @@ export const linkHistoricalOrdersToAccount = onDocumentWritten(
 // Time-based eligibility check. Firestore write checks below make a newly due
 // or edited subscription eligible immediately; this schedule catches passage
 // of time without a database write.
+const subscriptionRenewalOptions = {
+  region: "us-central1" as const,
+  secrets: [
+    "STRIPE_SECRET_KEY",
+    "EASYPOST_API_KEY",
+    "NOTION_TOKEN",
+    "NOTION_ONLINE_ORDERS_DATABASE_ID",
+    "PICTIFY_API_KEY",
+    "PICTIFY_RECEIPT_TEMPLATE_UID",
+  ],
+};
+
 export const checkDueSubscriptions = onSchedule(
-  { schedule: "every 15 minutes", timeZone: "America/Los_Angeles", region: "us-central1" },
+  { ...subscriptionRenewalOptions, schedule: "every 15 minutes", timeZone: "America/Los_Angeles" },
   () => AccountService.checkDueSubscriptions()
 );
 
 export const checkUpdatedSubscriptionForRenewal = onDocumentWritten(
-  { document: "account_subscriptions/{subscriptionId}", region: "us-central1", retry: true },
+  { ...subscriptionRenewalOptions, document: "account_subscriptions/{subscriptionId}", retry: true },
   async (event) => {
     if (!event.data?.after.exists) return;
     if (await hasProcessedEvent("checkUpdatedSubscriptionForRenewal", event.id)) {

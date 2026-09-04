@@ -276,6 +276,22 @@ export class StripeService {
                 shippingAddress = parts.join(", ");
             }
 
+            // Billing address is available on customer_details even when there
+            // is no shipping address, as with local-pickup orders.
+            let billingAddress = "";
+            if (session.customer_details?.address) {
+                const addr = session.customer_details.address;
+                const parts = [
+                    addr.line1,
+                    addr.line2,
+                    addr.city,
+                    addr.state,
+                    addr.postal_code,
+                    addr.country,
+                ].filter(Boolean);
+                billingAddress = parts.join(", ");
+            }
+
             res.json({
                 id: session.id,
                 payment_status: session.payment_status,
@@ -286,6 +302,7 @@ export class StripeService {
                 currency: session.currency,
                 line_items: session.line_items,
                 shipping_address: shippingAddress,
+                billing_address: billingAddress,
             });
         } catch (error: unknown) {
             logger.error("Error retrieving session", { error: (error as Error).message });

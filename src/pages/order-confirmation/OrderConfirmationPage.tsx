@@ -343,6 +343,7 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
                       orderDate: new Date().toISOString(),
                       transactionId: sessionId,
                       shippingAddress: (data as any).shipping_address || '',
+                      billingAddress: (data as any).billing_address || '',
                       shipmentData: shipmentData,
                       shippingBox: shipmentData?.boxSize || '',
                       isLocalPickup: isLocalPickup,
