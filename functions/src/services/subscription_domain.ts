@@ -4,14 +4,14 @@ export class SubscriptionService {
     return value.slice(0, 10);
   }
 
-  static isDue(upcomingRoastDate: string, today: string, leadDays = 4): boolean {
+  static isDue(upcomingRoastDate: string, today: string, leadDays = 1): boolean {
     const [year, month, day] = SubscriptionService.roastDateKey(upcomingRoastDate).split("-").map(Number);
     const date = new Date(Date.UTC(year, month - 1, day));
     date.setUTCDate(date.getUTCDate() - leadDays);
     return date.toISOString().slice(0, 10) <= today;
   }
 
-  static nextSession(calendar: string[], currentRoastDate: string, cadence: "every-session" | "every-other-session", today: string, leadDays = 4): string | null {
+  static nextSession(calendar: string[], currentRoastDate: string, cadence: "every-session" | "every-other-session", today: string, leadDays = 1): string | null {
     const current = SubscriptionService.roastDateKey(currentRoastDate);
     const currentIndex = calendar.reduce((latest, value, index) =>
       SubscriptionService.roastDateKey(value) <= current ? index : latest, -1);

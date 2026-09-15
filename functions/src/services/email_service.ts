@@ -10,6 +10,19 @@ const getNotion = () => {
 };
 
 export class EmailService {
+    static async sendSubscriptionRenewalReminder(params: { toEmail: string; customerName: string; renewalDate: string; deliveryMethod: string; totalAmount: number; itemsHtml: string; manageSubscriptionUrl: string }): Promise<void> {
+        const serviceId = process.env.EMAILJS_SERVICE_ID;
+        const templateId = process.env.EMAILJS_RENEWAL_REMINDER_TEMPLATE_ID;
+        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+        if (!serviceId || !templateId || !publicKey || !privateKey) throw new Error("EmailJS renewal reminder template is not configured");
+        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
+            to_email: params.toEmail, customer_name: params.customerName, renewal_date: params.renewalDate,
+            delivery_method: params.deliveryMethod, total_amount: `$${params.totalAmount.toFixed(2)}`,
+            items_html: params.itemsHtml, manage_subscription_url: params.manageSubscriptionUrl,
+        }, "EmailJS subscription reminder failed");
+    }
+
     static async sendSubscriptionPurchaseNotification(params: { customerEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; unitAmount: number; totalAmount: number; shippingAddress: string; billingAddress: string; deliveryMethod: string }): Promise<void> {
         const serviceId = process.env.EMAILJS_SERVICE_ID;
         const templateId = process.env.EMAILJS_PURCHASE_TEMPLATE_ID;

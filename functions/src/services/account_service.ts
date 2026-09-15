@@ -9,7 +9,8 @@ import { getDatabase } from "../integrations/firebase_admin";
 import { getNotionClient } from "../integrations/notion/notion_client";
 import { notionPropertyText, notionText } from "../integrations/notion/notion_properties";
 import { getStripeClient } from "../integrations/stripe/stripe_client";
-import { isRoastDateDue, pacificCalendarDate } from "../domain/dates/calendar_dates";
+import { calendarDateOffset, isRoastDateDue, pacificCalendarDate } from "../domain/dates/calendar_dates";
+import { EmailService } from "./email_service";
 import { weightInPounds } from "../domain/shipping/weight";
 import { AccountRepository } from "../repositories/account_repository";
 import { SubscriptionRepository } from "../repositories/subscription_repository";
@@ -529,6 +530,7 @@ export class AccountService {
 
   static async checkDueSubscriptions(subscriptionId?: string): Promise<void> {
     if (!subscriptionId) await AccountService.migrateLegacySubscriptionFields();
+    if (!subscriptionId) await AccountService.sendRenewalReminders();
     const dueSubscriptionIds = await AccountService.getDueSubscriptionIds(subscriptionId);
     logger.info("Subscription due-date check completed", {
       scope: subscriptionId ? "single-subscription" : "all-subscriptions",
@@ -536,6 +538,36 @@ export class AccountService {
       dueSubscriptionIds,
     });
     await Promise.all(dueSubscriptionIds.map((id) => AccountService.processDueSubscription(id)));
+  }
+
+  /** Sends one reminder per subscription/roast three calendar days before charge. */
+  static async sendRenewalReminders(): Promise<void> {
+    const today = pacificCalendarDate();
+    const snapshots = await database().collection("account_subscriptions").where("status", "==", "active").get();
+    await Promise.all(snapshots.docs.map(async snapshot => {
+      const subscription = await migrateSubscriptionDocument(snapshot);
+      if (!subscription || subscription.skipNextDelivery) return;
+      const roastDate = subscription.upcomingRoastDate.slice(0, 10);
+      if (calendarDateOffset(roastDate, -3) > today || (snapshot.data() as any).renewalReminderForRoastDate === roastDate) return;
+      const accountSnapshot = await database().collection("accounts").doc(subscription.accountId).get();
+      const account = accountSnapshot.data() as (StoredAccount & { shippingAddress?: string }) | undefined;
+      if (!account) return;
+      const totalAmount = (subscription.unitAmount * subscription.bagCount + (subscription.addOnUnitAmount || 0)) / 100;
+      try {
+        await EmailService.sendSubscriptionRenewalReminder({
+          toEmail: account.user.email,
+          customerName: `${account.user.firstName} ${account.user.lastName}`.trim(),
+          renewalDate: roastDate,
+          deliveryMethod: subscription.isLocalPickup ? "Local Pickup" : "Shipping",
+          totalAmount,
+          itemsHtml: `<p>${subscription.bagCount}x ${subscription.itemName} (${subscription.weight})</p>`,
+          manageSubscriptionUrl: "https://koinoniacoffeeproject.com/account",
+        });
+        await snapshot.ref.update({ renewalReminderForRoastDate: roastDate, renewalReminderSentAt: new Date().toISOString() });
+      } catch (error) {
+        logger.error("Subscription renewal reminder failed", { subscriptionId: subscription.id, error: (error as Error).message });
+      }
+    }));
   }
 
   static async processDueSubscription(subscriptionId: string): Promise<void> {

@@ -17,4 +17,4 @@ export const calendarDateOffset = (dateValue: string, days: number): string => {
 
 /** Returns whether a roast date has reached its renewal lead window. */
 export const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean =>
-  calendarDateOffset(roastDate, -4) <= pacificCalendarDate(now);
+  calendarDateOffset(roastDate, -1) <= pacificCalendarDate(now);
