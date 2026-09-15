@@ -18,7 +18,7 @@ const getNotion = () => {
 };
 
 export class EmailService {
-    static async sendSubscriptionPurchaseNotification(params: { customerEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; unitAmount: number; totalAmount: number }): Promise<void> {
+    static async sendSubscriptionPurchaseNotification(params: { customerEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; unitAmount: number; totalAmount: number; shippingAddress: string; billingAddress: string; deliveryMethod: string }): Promise<void> {
         const serviceId = process.env.EMAILJS_SERVICE_ID;
         const templateId = process.env.EMAILJS_PURCHASE_TEMPLATE_ID;
         const publicKey = process.env.EMAILJS_PUBLIC_KEY;
@@ -43,6 +43,9 @@ export class EmailService {
                     order_items: `1. ${params.itemName}\n   Quantity: ${params.quantity}\n   Unit Price: $${params.unitAmount.toFixed(2)}`,
                     subtotal: `$${params.totalAmount.toFixed(2)}`,
                     total_amount: `$${params.totalAmount.toFixed(2)}`,
+                    shipping_address: params.shippingAddress || "N/A",
+                    billing_address: params.billingAddress || "N/A",
+                    delivery_method: params.deliveryMethod || "Shipping",
                     to_name: "Koinonia Coffee Project",
                 },
             }),

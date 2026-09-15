@@ -9,6 +9,8 @@ import { createLogger } from "../logger";
 import { Address, fetchShippingRates, purchaseShipment } from "./easypost_service";
 import { EmailService } from "./email_service";
 import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
+import { RenewalAttemptRepository } from "./renewal_attempt_repository";
+import { RecurringOrderService, SubscriptionService } from "./subscription_domain";
 
 export type AccountLabel = "consumer" | "partner" | "wholesale" | "church-ministry";
 export type PartnerAccountLabel = Extract<AccountLabel, "wholesale" | "church-ministry">;
@@ -125,6 +127,8 @@ interface Subscription {
   weight: string;
   // Product/variant shipping weight in grams, captured at checkout.
   shippingWeight?: number;
+  // Final per-bag recurring price in cents, captured at subscription checkout.
+  // Renewals use this value directly and never derive it from a past order.
   unitAmount: number;
   discountPercent: number;
   freeShipping: boolean;
@@ -328,8 +332,7 @@ export const nextRoastSessionDate = async (
     logger.warn("Due subscription date is before the first roast calendar entry", { currentRoastDate, currentDateKey, calendar });
     return null;
   }
-  const sessionsToAdvance = cadence === "every-session" ? 1 : 2;
-  return calendar[currentIndex + sessionsToAdvance] || null;
+  return SubscriptionService.nextSession(calendar, currentRoastDate, cadence, pacificCalendarDate());
 };
 
 export const nextUpcomingRoastSessionDate = async (): Promise<string> => {
@@ -428,8 +431,10 @@ const createRenewalNotionOrder = async (params: { orderId: string; paymentIntent
         customerEmail: params.account.user.email,
         customerAddress: params.billingAddress || "N/A",
         orderId: params.orderId,
-        items: [{ name: params.subscription.itemName, sku: params.subscription.itemSku, quantity: params.subscription.bagCount, price: (params.subscription.unitAmount * (1 - params.subscription.discountPercent / 100)) / 100, variations: params.subscription.weight }],
-        subtotal: (params.subscription.unitAmount * params.subscription.bagCount * (1 - params.subscription.discountPercent / 100)) / 100,
+        // `unitAmount` is captured from the subscription checkout after its
+        // subscription discount has already been applied.
+        items: [{ name: params.subscription.itemName, sku: params.subscription.itemSku, quantity: params.subscription.bagCount, price: params.subscription.unitAmount / 100, variations: params.subscription.weight }],
+        subtotal: (params.subscription.unitAmount * params.subscription.bagCount) / 100,
         shipping: params.shippingAmount,
         totalAmount: params.totalAmount,
         orderDate: new Date().toISOString(),
@@ -610,8 +615,7 @@ const partnerPriceOverridesFor = async (account: AccountProfile): Promise<Record
 
 const partnerPriceForWeight = (pricePerPound: number, weight: string): number => {
   const pounds = weightInPounds(weight);
-  // Store the undiscounted per-delivery amount. Subscription renewal applies
-  // the account's discount when it charges the next delivery.
+  // Capture the final per-delivery amount for the recurring subscription.
   return Math.round(pricePerPound * pounds * 100);
 };
 
@@ -729,15 +733,7 @@ export class AccountService {
     const subscriptionRef = db.collection("account_subscriptions").doc(subscriptionId);
     const renewalClaimRef = db.collection("subscription_renewal_claims").doc(subscriptionId);
     const now = new Date();
-    const subscription = await db.runTransaction(async (transaction): Promise<StoredSubscription | null> => {
-      const [snapshot, claimSnapshot] = await Promise.all([transaction.get(subscriptionRef), transaction.get(renewalClaimRef)]);
-      const value = snapshot.data() as StoredSubscription | undefined;
-      if (!value || value.status !== "active" || value.skipNextDelivery || !isRoastDateDue(value.upcomingRoastDate, now)) return null;
-      const claim = claimSnapshot.data() as { dueDate?: string; processingUntil?: number; status?: string } | undefined;
-      if (claim?.dueDate === value.upcomingRoastDate && (claim.status === "completed" || (claim.processingUntil || 0) > now.getTime())) return null;
-      transaction.set(renewalClaimRef, { subscriptionId, dueDate: value.upcomingRoastDate, status: "processing", processingUntil: now.getTime() + 10 * 60 * 1000, updatedAt: now.toISOString() });
-      return value;
-    });
+    const subscription = await new RenewalAttemptRepository(db).acquire<StoredSubscription>(subscriptionRef, renewalClaimRef, now, date => isRoastDateDue(date, now));
     if (!subscription) return;
 
     try {
@@ -765,7 +761,9 @@ export class AccountService {
       const addOnWeight = subscription.addOnWeight || 0;
       const discountPercent = account.label === "consumer" ? subscription.discountPercent : 0;
       const freeShipping = account.label === "wholesale" ? false : subscription.freeShipping;
-      const productAmount = Math.round(subscription.unitAmount * subscription.bagCount * (1 - discountPercent / 100)) + (subscription.addOnUnitAmount || 0);
+      // The saved subscription unit price is the final discounted price from
+      // checkout. Do not apply `discountPercent` a second time at renewal.
+      const productAmount = subscription.unitAmount * subscription.bagCount + (subscription.addOnUnitAmount || 0);
       const totalWeight = weightInPounds(subscription.weight) + addOnWeight;
       const parcel = subscriptionParcel(totalWeight * 453.592, `${totalWeight}lb`, 1);
       const address: Address | null = shippingAddress ? { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`, email: renewalAccount.user.email, phone: renewalAccount.phone } : null;
@@ -773,7 +771,8 @@ export class AccountService {
       if (shippingQuote && !shippingQuote.rates.length) throw new Error("No shipping rates are available for this subscription order");
       const selectedRate = shippingQuote?.rates.reduce((lowest, rate) => rate.rate < lowest.rate ? rate : lowest);
       const shippingAmount = selectedRate && !subscription.isLocalPickup && !freeShipping ? Math.round(selectedRate.rate * 100) : 0;
-      const dueKey = `${subscription.id}:${subscription.upcomingRoastDate}`;
+      const dueRoastDate = SubscriptionService.roastDateKey(subscription.upcomingRoastDate);
+      const dueKey = `${subscription.id}:${dueRoastDate}`;
       const generatedOrderId = Date.now().toString().slice(-8).toUpperCase();
       const paymentIntent = await getStripe().paymentIntents.create({
         amount: productAmount + shippingAmount,
@@ -782,7 +781,7 @@ export class AccountService {
         payment_method: paymentMethodId,
         off_session: true,
         confirm: true,
-        metadata: { accountId: subscription.accountId, subscriptionId: subscription.id, dueRoastDate: subscription.upcomingRoastDate, orderNumber: generatedOrderId },
+        metadata: { accountId: subscription.accountId, subscriptionId: subscription.id, dueRoastDate, orderNumber: generatedOrderId },
         description: `Koinonia roast subscription: ${subscription.itemName}`,
       }, { idempotencyKey: `renewal:${dueKey}` });
       const orderId = paymentIntent.metadata.orderNumber || generatedOrderId;
@@ -806,17 +805,23 @@ export class AccountService {
       await Promise.all([
         EmailService.sendSubscriptionOrderConfirmation({
           toEmail: account.user.email, customerName, orderId,
-          itemName: `${subscription.itemName} (${totalWeight}lb)`, quantity: subscription.bagCount,
+          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
           totalAmount: paymentIntent.amount_received / 100, shippingAmount: shippingAmount / 100,
         }),
         EmailService.sendSubscriptionPurchaseNotification({
           customerEmail: account.user.email, customerName, orderId,
-          itemName: `${subscription.itemName} (${totalWeight}lb)`, quantity: subscription.bagCount,
+          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
           unitAmount: subscription.unitAmount / 100, totalAmount: paymentIntent.amount_received / 100,
+          shippingAddress: subscription.isLocalPickup ? "Not applicable - Local pickup" : account.shippingAddress || "N/A",
+          billingAddress: billingAddress || "N/A",
+          deliveryMethod: subscription.isLocalPickup ? "Local Pickup" : "Shipping",
         }),
       ]);
+      const recurringItems = RecurringOrderService.items(subscription);
       await db.batch()
-        .set(db.collection("orders").doc(orderId), { id: orderId, accountId: subscription.accountId, customerName: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`.trim(), email: renewalAccount.user.email, emailNormalized: renewalAccount.user.email.toLowerCase(), phone: renewalAccount.phone || null, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", itemsSummary: `${totalWeight}lb ${subscription.itemName}`, shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}), isLocalPickup: !!subscription.isLocalPickup })
+        // A renewal is an ordinary, self-contained order. Its item snapshot is
+        // copied from the subscription configuration—not from an earlier order.
+        .set(db.collection("orders").doc(orderId), { id: orderId, accountId: subscription.accountId, customerName: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`.trim(), email: renewalAccount.user.email, emailNormalized: renewalAccount.user.email.toLowerCase(), phone: renewalAccount.phone || null, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", items: recurringItems, itemsSummary: RecurringOrderService.summary(subscription), shippingAddress: subscription.isLocalPickup ? "" : account.shippingAddress || "", shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}), isLocalPickup: !!subscription.isLocalPickup, orderPickupId: subscription.orderPickupId || undefined })
         .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString(), discountPercent, freeShipping, addOnWeight: FieldValue.delete(), addOnUnitAmount: FieldValue.delete() })
         .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
         .commit();
@@ -825,7 +830,13 @@ export class AccountService {
       const stripeError = error as Stripe.StripeRawError;
       const update: Record<string, unknown> = { lastRenewalError: stripeError.message || "Unknown renewal error" };
       if (stripeError.type === "card_error") update.status = "paused";
-      await Promise.all([subscriptionRef.update(update), renewalClaimRef.delete()]);
+      // Never discard the claim after a payment may have succeeded. Once its
+      // lease expires, a retry reuses the same canonical Stripe idempotency
+      // key and order number instead of creating another charge/order.
+      await Promise.all([
+        subscriptionRef.update(update),
+        renewalClaimRef.set({ status: "failed", processingUntil: now.getTime() + 5 * 60 * 1000, updatedAt: new Date().toISOString(), lastError: update.lastRenewalError }, { merge: true }),
+      ]);
       logger.error("Subscription renewal failed", { subscriptionId, error: stripeError.message });
     }
   }
