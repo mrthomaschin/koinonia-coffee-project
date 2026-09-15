@@ -1,16 +1,11 @@
 import { Request, Response } from 'express';
 import { createLogger } from '../logger';
-import EasyPost from '@easypost/api';
+import { getEasyPostClient as createEasyPostClient } from '../integrations/easypost/easypost_client';
 
 const logger = createLogger('easypost_service');
 
-// Initialize EasyPost client
 const getEasyPostClient = () => {
-    const apiKey = process.env.EASYPOST_API_KEY;
-    if (!apiKey) {
-        throw new Error('EASYPOST_API_KEY environment variable is not set');
-    }
-    return new EasyPost(apiKey);
+    return createEasyPostClient();
 };
 
 export interface Address {

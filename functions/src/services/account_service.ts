@@ -1,16 +1,19 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { getApps, initializeApp } from "firebase-admin/app";
-import { Client } from "@notionhq/client";
+import { FieldValue } from "firebase-admin/firestore";
 import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
-import { Address, fetchShippingRates, purchaseShipment } from "./easypost_service";
-import { EmailService } from "./email_service";
-import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
-import { RenewalAttemptRepository } from "./renewal_attempt_repository";
-import { RecurringOrderService, SubscriptionService } from "./subscription_domain";
+import { SubscriptionService } from "./subscription_domain";
+import { getDatabase } from "../integrations/firebase_admin";
+import { getNotionClient } from "../integrations/notion/notion_client";
+import { notionPropertyText, notionText } from "../integrations/notion/notion_properties";
+import { getStripeClient } from "../integrations/stripe/stripe_client";
+import { isRoastDateDue, pacificCalendarDate } from "../domain/dates/calendar_dates";
+import { weightInPounds } from "../domain/shipping/weight";
+import { AccountRepository } from "../repositories/account_repository";
+import { SubscriptionRepository } from "../repositories/subscription_repository";
+import { SubscriptionRenewalUseCase } from "../application/subscription_renewal_use_case";
 
 export type AccountLabel = "consumer" | "partner" | "wholesale" | "church-ministry";
 export type PartnerAccountLabel = Extract<AccountLabel, "wholesale" | "church-ministry">;
@@ -44,22 +47,13 @@ export interface WebsiteEvent {
   body: string;
 }
 
-const database = () => {
-  // A trigger can run in an execution context where a named Admin app already
-  // exists, but the default app does not. Resolve the default app explicitly.
-  const defaultApp = getApps().find((app) => app.name === "[DEFAULT]") || initializeApp();
-  return getFirestore(defaultApp);
+const getStripe = (): Stripe => {
+  return getStripeClient();
 };
 
-let stripeInstance: Stripe | null = null;
-const getStripe = (): Stripe => {
-  if (!stripeInstance) {
-    const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
-    stripeInstance = new Stripe(key, { apiVersion: "2025-02-24.acacia" });
-  }
-  return stripeInstance;
-};
+const database = getDatabase;
+const accounts = (): AccountRepository => new AccountRepository(database());
+const subscriptions = (): SubscriptionRepository => new SubscriptionRepository(database());
 
 export interface AccountProfile {
   id: string;
@@ -151,32 +145,6 @@ const subscriptionPlans: Record<SubscriptionPlan, Pick<Subscription, "bagCount" 
 
 // Mirrors src/util/shipping.ts so recurring shipments use the same box rules
 // and weight calculation as EmbeddedCheckout.
-const subscriptionParcel = (shippingWeight: number | undefined, displayWeight: string, quantity: number) => {
-  const sourceWeight = Number.isFinite(shippingWeight) && Number(shippingWeight) > 0
-    ? Number(shippingWeight)
-    : displayWeight;
-  const weightText = String(sourceWeight).toLowerCase().trim();
-  const numericWeight = typeof sourceWeight === "number" ? sourceWeight : Number.parseFloat(weightText.match(/\d+(?:\.\d+)?/)?.[0] || "0");
-  const itemWeightOunces = typeof sourceWeight === "number"
-    ? sourceWeight === 200 ? 7 : sourceWeight === 5 ? 80 : sourceWeight / 28.35
-    : weightText.includes("lb") ? numericWeight * 16
-      : weightText.includes("oz") ? numericWeight
-        : weightText.includes("g") || numericWeight > 100 ? numericWeight / 28.35 : numericWeight;
-  const totalWeightOunces = itemWeightOunces * quantity;
-  const box = totalWeightOunces <= 12 ? { length: 6, width: 4, height: 2, boxWeight: 4 }
-    : totalWeightOunces <= 28 ? { length: 8, width: 6, height: 3, boxWeight: 6 }
-      : totalWeightOunces <= 96 ? { length: 10, width: 8, height: 4, boxWeight: 8 }
-        : totalWeightOunces <= 160 ? { length: 12, width: 10, height: 6, boxWeight: 12 }
-          : { length: 18, width: 14, height: 10, boxWeight: 20 };
-  return {
-    length: box.length,
-    width: box.width,
-    height: box.height,
-    weight: Math.round(totalWeightOunces + box.boxWeight),
-    boxSize: `${box.length}x${box.width}x${box.height}`,
-  };
-};
-
 const allEventsDatabaseId = (): string | null => process.env.NOTION_ALL_EVENTS_DATABASE_ID || null;
 
 const normalizeRoastDate = (value: string): string | null => {
@@ -213,18 +181,6 @@ export const allEventsCalendar = async (): Promise<any[]> => {
   } while (startCursor);
   allEventsCalendarCache = { events, expiresAt: Date.now() + ALL_EVENTS_CALENDAR_CACHE_DURATION_MS };
   return events;
-};
-
-const notionText = (items: any[] | undefined): string =>
-  (items || []).map((item: any) => item.plain_text || item.text?.content || "").join("");
-
-const notionPropertyText = (property: any): string => {
-  if (!property) return "";
-  if (property.type === "title") return notionText(property.title);
-  if (property.type === "rich_text") return notionText(property.rich_text);
-  if (property.type === "select") return property.select?.name || "";
-  if (property.type === "url") return property.url || "";
-  return "";
 };
 
 const notionBlockText = (block: any): string => {
@@ -348,48 +304,10 @@ export const nextUpcomingRoastSessionDate = async (): Promise<string> => {
   return nextDate;
 };
 
-const pacificCalendarDate = (date: Date = new Date()): string => new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Los_Angeles",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-}).format(date);
-
-const calendarDateOffset = (dateValue: string, days: number): string => {
-  const [year, month, day] = dateValue.slice(0, 10).split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-};
-
-const renewalCalendarDate = (roastDate: string): string => calendarDateOffset(roastDate, -4);
-
-const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean =>
-  renewalCalendarDate(roastDate) <= pacificCalendarDate(now);
-
-const weightInPounds = (value: string): number => {
-  const amount = Number.parseFloat(value);
-  if (!Number.isFinite(amount)) return 0;
-  const normalized = value.toLowerCase();
-  if (normalized.includes("kg")) return amount * 2.20462;
-  if (normalized.includes("g")) return amount / 453.592;
-  if (normalized.includes("oz")) return amount / 16;
-  return normalized.includes("lb") ? amount : 0;
-};
-
 const isPartnerLabel = (label: AccountLabel): label is "wholesale" | "church-ministry" =>
   label === "wholesale" || label === "church-ministry";
 
-let notionInstance: Client | null = null;
-
-const getNotion = (): Client => {
-  if (!notionInstance) {
-    const token = process.env.NOTION_TOKEN;
-    if (!token) throw new Error("NOTION_TOKEN is not configured");
-    notionInstance = new Client({ auth: token });
-  }
-  return notionInstance;
-};
+const getNotion = () => getNotionClient();
 
 const carrierDisplayName = (carrier?: string): string => {
   if (carrier === "UPSDAP") return "UPS";
@@ -404,87 +322,6 @@ const serviceDisplayName = (service?: string): string => {
     PriorityExpress: "Priority Mail Express",
   };
   return services[service || ""] || "Standard";
-};
-
-const formatBillingAddress = (address?: { line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; postal_code?: string | null; country?: string | null } | null): string => {
-  if (!address) return "";
-  return [
-    address.line1,
-    address.line2,
-    [address.city, address.state, address.postal_code].filter(Boolean).join(", "),
-    address.country,
-  ].filter(Boolean).join(", ");
-};
-
-const createRenewalNotionOrder = async (params: { orderId: string; paymentIntentId: string; account: AccountProfile & { phone?: string }; subscription: Subscription; totalAmount: number; shippingAmount: number; shippingAddress: string; billingAddress: string; shippingLabelPrice: number; shippingBox: string; shipment?: { trackingNumber: string; shipmentId: string; carrier?: string; service?: string; labelUrl: string } }): Promise<void> => {
-  const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-  if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
-  const notion = getNotion();
-  const existing = await notion.databases.query({ database_id: databaseId, filter: { property: "Order #", rich_text: { equals: params.orderId } } });
-  let invoiceReceiptProperties: Record<string, any> = {};
-  const existingPage = existing.results[0] as any;
-  if (!existingPage?.properties?.["Invoice Receipt"]?.files?.length) {
-    try {
-      logger.info("Generating renewal invoice receipt", { orderId: params.orderId });
-      const receiptImage = await generateReceiptImage({
-        customerName: `${params.account.user.firstName} ${params.account.user.lastName}`.trim(),
-        customerEmail: params.account.user.email,
-        customerAddress: params.billingAddress || "N/A",
-        orderId: params.orderId,
-        // `unitAmount` is captured from the subscription checkout after its
-        // subscription discount has already been applied.
-        items: [{ name: params.subscription.itemName, sku: params.subscription.itemSku, quantity: params.subscription.bagCount, price: params.subscription.unitAmount / 100, variations: params.subscription.weight }],
-        subtotal: (params.subscription.unitAmount * params.subscription.bagCount) / 100,
-        shipping: params.shippingAmount,
-        totalAmount: params.totalAmount,
-        orderDate: new Date().toISOString(),
-        transactionId: params.paymentIntentId,
-      });
-      const filename = receiptFilename(params.orderId);
-      const receiptUploadId = await uploadReceiptToNotion(filename, receiptImage);
-      invoiceReceiptProperties = { "Invoice Receipt": { files: [{ name: filename, type: "file_upload", file_upload: { id: receiptUploadId } }] } };
-      logger.info("Renewal invoice receipt attached", { orderId: params.orderId });
-    } catch (error: unknown) {
-      logger.error("Unable to generate renewal invoice receipt", { orderId: params.orderId, error: (error as Error).message });
-    }
-  }
-  const shipmentProperties: Record<string, any> = params.shipment ? {
-    "Shipping Price": { number: params.shippingLabelPrice },
-    "Tracking Info": { rich_text: [{ text: { content: params.shipment.trackingNumber } }] },
-    "Shipment ID": { rich_text: [{ text: { content: params.shipment.shipmentId } }] },
-    "Tracking Carrier": { select: { name: carrierDisplayName(params.shipment.carrier) } },
-    "Carrier Type": { select: { name: serviceDisplayName(params.shipment.service) } },
-    "Tracking Label": { url: params.shipment.labelUrl },
-    "Shipping Box": { rich_text: [{ text: { content: params.shippingBox } }] },
-  } : {
-    "Shipping Price": { number: 0 },
-    "Local Pickup": { checkbox: true },
-    "Order Pickup ID": { rich_text: [{ text: { content: params.subscription.orderPickupId || "" } }] },
-  };
-  if (existing.results.length) {
-    await notion.pages.update({ page_id: existing.results[0].id, properties: { ...shipmentProperties, ...invoiceReceiptProperties } });
-    return;
-  }
-  await notion.pages.create({
-    parent: { database_id: databaseId },
-    properties: {
-      "Customer": { title: [{ text: { content: `${params.account.user.firstName} ${params.account.user.lastName}`.trim() } }] },
-      "Order #": { rich_text: [{ text: { content: params.orderId } }] },
-      "Status": { status: { name: "Paid" } },
-      "Fulfillment": { status: { name: "Pending" } },
-      "Items ordered": { rich_text: [{ text: { content: `${params.subscription.bagCount}x ${params.subscription.itemName} (${params.subscription.weight})` } }] },
-      "Items ordered formatted": { rich_text: [{ text: { content: `${params.subscription.itemName},${params.subscription.itemSku},${weightInPounds(params.subscription.weight) * params.subscription.bagCount + (params.subscription.addOnWeight || 0)}` } }] },
-      "Email": { email: params.account.user.email },
-      "Phone": { phone_number: params.account.phone || null },
-      "Shipping address": { rich_text: [{ text: { content: params.shippingAddress || "N/A" } }] },
-      "Transaction ID": { rich_text: [{ text: { content: params.orderId } }] },
-      "Receipt": { url: `https://dashboard.stripe.com/payments/${params.paymentIntentId}` },
-      ...invoiceReceiptProperties,
-      "Total": { number: params.totalAmount },
-      ...shipmentProperties,
-      "Order created": { date: { start: new Date().toISOString() } },
-    },
-  });
 };
 
 const subscriptionMirrorDatabaseId = (): string | null =>
@@ -531,20 +368,7 @@ const passwordMatches = async (password: string, storedHash: string): Promise<bo
 };
 
 const findAccount = async (username: string): Promise<StoredAccount | null> => {
-  const usernameKey = Buffer.from(username.trim().toLowerCase()).toString("base64url");
-  const usernameRecord = await database().collection("account_usernames").doc(usernameKey).get();
-  const accountId = usernameRecord.data()?.accountId;
-  if (!usernameRecord.exists || typeof accountId !== "string") return null;
-  const account = await database().collection("accounts").doc(accountId).get();
-  if (!account.exists) return null;
-  const accountData = account.data() as Partial<StoredAccount>;
-  // Existing records predate account labels. Treat them as consumers while
-  // writing the default so the migration is safe even if it is re-run.
-  if (!accountData.label) {
-    await account.ref.set({ label: DEFAULT_ACCOUNT_LABEL, updatedAt: Date.now() }, { merge: true });
-    accountData.label = DEFAULT_ACCOUNT_LABEL;
-  }
-  return accountData as StoredAccount;
+  return await accounts().findByUsername(username, DEFAULT_ACCOUNT_LABEL) as StoredAccount | null;
 };
 
 const publicProfile = (account: StoredAccount): AccountProfile => ({
@@ -556,30 +380,17 @@ const publicProfile = (account: StoredAccount): AccountProfile => ({
 
 const issueSession = async (account: StoredAccount): Promise<string> => {
   const token = randomBytes(32).toString("base64url");
-  await database().collection("account_sessions").doc(token).set({
-    accountId: account.id,
-    expiresAt: Date.now() + SESSION_DURATION_MS,
-  });
+  await accounts().createSession(account.id, token, Date.now() + SESSION_DURATION_MS);
   return token;
 };
 
 export const sessionAccount = async (req: Request): Promise<AccountProfile | null> => {
   const token = req.header("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
-  const session = await database().collection("account_sessions").doc(token).get();
-  const data = session.data();
-  if (!session.exists || !data || data.expiresAt < Date.now()) {
-    if (session.exists) await session.ref.delete();
-    return null;
-  }
-  const account = await database().collection("accounts").doc(data.accountId).get();
-  const accountData = account.data() as Partial<StoredAccount> | undefined;
-  if (!accountData) return null;
-  if (!accountData.label) {
-    await account.ref.set({ label: DEFAULT_ACCOUNT_LABEL, updatedAt: Date.now() }, { merge: true });
-    accountData.label = DEFAULT_ACCOUNT_LABEL;
-  }
-  return publicProfile(accountData as StoredAccount);
+  const data = await accounts().findSession(token);
+  if (!data?.accountId) return null;
+  const account = await accounts().findById(data.accountId, DEFAULT_ACCOUNT_LABEL);
+  return account ? publicProfile(account as StoredAccount) : null;
 };
 
 const PARTNER_PRICE_PROPERTIES: Record<string, string> = {
@@ -642,8 +453,7 @@ const migrateSubscriptionDocument = async (snapshot: FirebaseFirestore.DocumentS
 };
 
 const accountSubscription = (accountId: string, subscriptionId: string) =>
-  database().collection("account_subscriptions").doc(subscriptionId).get()
-    .then((snapshot) => snapshot.exists && snapshot.data()?.accountId === accountId ? snapshot : null);
+  subscriptions().findForAccount(accountId, subscriptionId);
 
 const syncSubscriptionMirror = async (subscription: StoredSubscription, account: AccountProfile): Promise<void> => {
   const databaseId = subscriptionMirrorDatabaseId();
@@ -729,116 +539,7 @@ export class AccountService {
   }
 
   static async processDueSubscription(subscriptionId: string): Promise<void> {
-    const db = database();
-    const subscriptionRef = db.collection("account_subscriptions").doc(subscriptionId);
-    const renewalClaimRef = db.collection("subscription_renewal_claims").doc(subscriptionId);
-    const now = new Date();
-    const subscription = await new RenewalAttemptRepository(db).acquire<StoredSubscription>(subscriptionRef, renewalClaimRef, now, date => isRoastDateDue(date, now));
-    if (!subscription) return;
-
-    try {
-      const nextRoastDate = await nextRoastSessionDate(subscription.upcomingRoastDate, subscription.cadence);
-      if (!nextRoastDate) throw new Error("No later roast date is available in the Notion calendar");
-      const accountSnapshot = await db.collection("accounts").doc(subscription.accountId).get();
-      const account = accountSnapshot.data() as (StoredAccount & { phone?: string; billing?: { stripeCustomerId?: string; stripePaymentMethodId?: string }; shippingAddressData?: ShippingAddressData; shippingAddress?: string }) | undefined;
-      const customerId = account?.billing?.stripeCustomerId;
-      const paymentMethodId = account?.billing?.stripePaymentMethodId;
-      const shippingAddress = account?.shippingAddressData;
-      if (!account || !customerId || !paymentMethodId) throw new Error("Subscription is missing a saved payment method");
-      if (!subscription.isLocalPickup && !shippingAddress) throw new Error("Subscription is missing a saved shipping address");
-      if (!Number.isSafeInteger(subscription.unitAmount) || subscription.unitAmount < 50) throw new Error("Subscription is missing a valid renewal price");
-
-      const savedPaymentMethod = await getStripe().paymentMethods.retrieve(paymentMethodId);
-      const billingAddress = formatBillingAddress(savedPaymentMethod.billing_details.address);
-
-      // Older checkouts may not have saved the phone in Firestore. Recover it
-      // from Stripe before building the shipping and Notion payloads.
-      const stripeCustomer = !account.phone ? await getStripe().customers.retrieve(customerId) : null;
-      const recoveredPhone = stripeCustomer && !stripeCustomer.deleted ? stripeCustomer.phone || undefined : undefined;
-      const renewalAccount = recoveredPhone ? { ...account, phone: recoveredPhone } : account;
-      if (recoveredPhone) await accountSnapshot.ref.set({ phone: recoveredPhone, updatedAt: Date.now() }, { merge: true });
-
-      const addOnWeight = subscription.addOnWeight || 0;
-      const discountPercent = account.label === "consumer" ? subscription.discountPercent : 0;
-      const freeShipping = account.label === "wholesale" ? false : subscription.freeShipping;
-      // The saved subscription unit price is the final discounted price from
-      // checkout. Do not apply `discountPercent` a second time at renewal.
-      const productAmount = subscription.unitAmount * subscription.bagCount + (subscription.addOnUnitAmount || 0);
-      const totalWeight = weightInPounds(subscription.weight) + addOnWeight;
-      const parcel = subscriptionParcel(totalWeight * 453.592, `${totalWeight}lb`, 1);
-      const address: Address | null = shippingAddress ? { street1: shippingAddress.line1, street2: shippingAddress.line2, city: shippingAddress.city, state: shippingAddress.state, zip: shippingAddress.postal_code, country: shippingAddress.country, name: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`, email: renewalAccount.user.email, phone: renewalAccount.phone } : null;
-      const shippingQuote = address ? await fetchShippingRates(address, undefined, parcel) : null;
-      if (shippingQuote && !shippingQuote.rates.length) throw new Error("No shipping rates are available for this subscription order");
-      const selectedRate = shippingQuote?.rates.reduce((lowest, rate) => rate.rate < lowest.rate ? rate : lowest);
-      const shippingAmount = selectedRate && !subscription.isLocalPickup && !freeShipping ? Math.round(selectedRate.rate * 100) : 0;
-      const dueRoastDate = SubscriptionService.roastDateKey(subscription.upcomingRoastDate);
-      const dueKey = `${subscription.id}:${dueRoastDate}`;
-      const generatedOrderId = Date.now().toString().slice(-8).toUpperCase();
-      const paymentIntent = await getStripe().paymentIntents.create({
-        amount: productAmount + shippingAmount,
-        currency: "usd",
-        customer: customerId,
-        payment_method: paymentMethodId,
-        off_session: true,
-        confirm: true,
-        metadata: { accountId: subscription.accountId, subscriptionId: subscription.id, dueRoastDate, orderNumber: generatedOrderId },
-        description: `Koinonia roast subscription: ${subscription.itemName}`,
-      }, { idempotencyKey: `renewal:${dueKey}` });
-      const orderId = paymentIntent.metadata.orderNumber || generatedOrderId;
-      const shipment = address && selectedRate && shippingQuote
-        ? await purchaseShipment(address, selectedRate.id, undefined, parcel, shippingQuote.shipmentId)
-        : undefined;
-      await createRenewalNotionOrder({
-        orderId,
-        paymentIntentId: paymentIntent.id,
-        account: renewalAccount,
-        subscription,
-        totalAmount: paymentIntent.amount_received / 100,
-        shippingAmount: shippingAmount / 100,
-        shippingAddress: account.shippingAddress || "",
-        billingAddress,
-        shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0,
-        shippingBox: parcel.boxSize,
-        shipment,
-      });
-      const customerName = `${account.user.firstName} ${account.user.lastName}`.trim();
-      await Promise.all([
-        EmailService.sendSubscriptionOrderConfirmation({
-          toEmail: account.user.email, customerName, orderId,
-          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
-          totalAmount: paymentIntent.amount_received / 100, shippingAmount: shippingAmount / 100,
-        }),
-        EmailService.sendSubscriptionPurchaseNotification({
-          customerEmail: account.user.email, customerName, orderId,
-          itemName: `${subscription.itemName} (${subscription.weight})`, quantity: subscription.bagCount,
-          unitAmount: subscription.unitAmount / 100, totalAmount: paymentIntent.amount_received / 100,
-          shippingAddress: subscription.isLocalPickup ? "Not applicable - Local pickup" : account.shippingAddress || "N/A",
-          billingAddress: billingAddress || "N/A",
-          deliveryMethod: subscription.isLocalPickup ? "Local Pickup" : "Shipping",
-        }),
-      ]);
-      const recurringItems = RecurringOrderService.items(subscription);
-      await db.batch()
-        // A renewal is an ordinary, self-contained order. Its item snapshot is
-        // copied from the subscription configuration—not from an earlier order.
-        .set(db.collection("orders").doc(orderId), { id: orderId, accountId: subscription.accountId, customerName: `${renewalAccount.user.firstName} ${renewalAccount.user.lastName}`.trim(), email: renewalAccount.user.email, emailNormalized: renewalAccount.user.email.toLowerCase(), phone: renewalAccount.phone || null, totalAmount: paymentIntent.amount_received / 100, createdAt: new Date().toISOString(), status: "completed", paymentIntentId: paymentIntent.id, subscriptionId: subscription.id, source: "subscription-renewal", items: recurringItems, itemsSummary: RecurringOrderService.summary(subscription), shippingAddress: subscription.isLocalPickup ? "" : account.shippingAddress || "", shippingCharged: shippingAmount / 100, shippingLabelPrice: shipment?.shippingPrice || selectedRate?.rate || 0, shippingBox: parcel.boxSize, ...(shipment ? { shipmentId: shipment.shipmentId, trackingNumber: shipment.trackingNumber, trackingLabelUrl: shipment.labelUrl, shippingCarrier: shipment.carrier || null, shippingService: shipment.service || null } : {}), isLocalPickup: !!subscription.isLocalPickup, orderPickupId: subscription.orderPickupId || undefined })
-        .update(subscriptionRef, { upcomingRoastDate: nextRoastDate, lastRenewalPaymentIntentId: paymentIntent.id, lastRenewedAt: new Date().toISOString(), discountPercent, freeShipping, addOnWeight: FieldValue.delete(), addOnUnitAmount: FieldValue.delete() })
-        .set(renewalClaimRef, { status: "completed", completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true })
-        .commit();
-      logger.info("Subscription renewal payment succeeded", { subscriptionId, paymentIntentId: paymentIntent.id, orderId });
-    } catch (error: unknown) {
-      const stripeError = error as Stripe.StripeRawError;
-      const update: Record<string, unknown> = { lastRenewalError: stripeError.message || "Unknown renewal error" };
-      if (stripeError.type === "card_error") update.status = "paused";
-      // Never discard the claim after a payment may have succeeded. Once its
-      // lease expires, a retry reuses the same canonical Stripe idempotency
-      // key and order number instead of creating another charge/order.
-      await Promise.all([
-        subscriptionRef.update(update),
-        renewalClaimRef.set({ status: "failed", processingUntil: now.getTime() + 5 * 60 * 1000, updatedAt: new Date().toISOString(), lastError: update.lastRenewalError }, { merge: true }),
-      ]);
-      logger.error("Subscription renewal failed", { subscriptionId, error: stripeError.message });
-    }
+    await new SubscriptionRenewalUseCase(database()).execute(subscriptionId);
   }
 
   /**
@@ -1274,10 +975,8 @@ export class AccountService {
         res.status(401).json({ error: "Your session has expired. Please log in again." });
         return;
       }
-      const response = await database().collection("account_subscriptions")
-        .where("accountId", "==", account.id)
-        .get();
-      const subscriptions = response.docs
+      const response = await subscriptions().listForAccount(account.id);
+      const accountSubscriptions = response
         .map((document) => {
           const subscription = document.data() as StoredSubscription;
           return account.label !== "consumer"
@@ -1285,7 +984,7 @@ export class AccountService {
             : subscription;
         })
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
-      res.json({ subscriptions });
+      res.json({ subscriptions: accountSubscriptions });
     } catch (error: unknown) {
       logger.error("Unable to get subscriptions", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to load subscriptions right now." });
@@ -1332,7 +1031,7 @@ export class AccountService {
         createdAt: new Date().toISOString(),
         upcomingRoastDate: await nextUpcomingRoastSessionDate(),
       };
-      await database().collection("account_subscriptions").doc(subscription.id).set(subscription);
+      await subscriptions().save(subscription.id, subscription);
       res.status(201).json({ subscription });
     } catch (error: unknown) {
       logger.error("Unable to create subscription", { error: (error as Error).message });
@@ -1441,7 +1140,7 @@ export class AccountService {
 
   static async logout(req: Request, res: Response): Promise<void> {
     const token = req.header("Authorization")?.replace(/^Bearer\s+/i, "");
-    if (token) await database().collection("account_sessions").doc(token).delete();
+    if (token) await accounts().deleteSession(token);
     res.status(204).send();
   }
 }

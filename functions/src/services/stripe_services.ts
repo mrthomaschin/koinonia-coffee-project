@@ -3,22 +3,12 @@ import { Request, Response } from "express";
 import { createLogger } from "../logger";
 import { getFirestore } from "firebase-admin/firestore";
 import { sessionAccount } from "./account_service";
+import { getStripeClient } from "../integrations/stripe/stripe_client";
 
 const logger = createLogger("stripe");
 
-// Lazy-initialize Stripe to avoid errors during deployment
-let stripeInstance: Stripe | null = null;
 const getStripe = () => {
-    if (!stripeInstance) {
-        const key = process.env.STRIPE_SECRET_KEY;
-        if (!key) {
-            throw new Error("STRIPE_SECRET_KEY is not configured");
-        }
-        stripeInstance = new Stripe(key, {
-            apiVersion: "2025-02-24.acacia",
-        });
-    }
-    return stripeInstance;
+    return getStripeClient();
 };
 
 export class StripeService {

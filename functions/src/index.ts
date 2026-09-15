@@ -6,13 +6,12 @@ import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import * as dotenv from "dotenv";
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import { NotionService } from "./services/notion_services";
 import { EmailService } from "./services/email_service";
 import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
 import { AccountService, getAllEventsCalendarDetails, refreshAllEventsCalendar } from "./services/account_service";
+import { getDatabase } from "./integrations/firebase_admin";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -33,8 +32,7 @@ setGlobalOptions({ maxInstances: 10 });
 let firestoreDb: FirebaseFirestore.Firestore | null = null;
 const getFirestoreDb = () => {
   if (!firestoreDb) {
-    const defaultApp = getApps().find((app) => app.name === "[DEFAULT]") || initializeApp();
-    firestoreDb = getFirestore(defaultApp);
+    firestoreDb = getDatabase();
   }
   return firestoreDb;
 };

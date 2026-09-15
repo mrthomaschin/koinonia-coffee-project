@@ -1,20 +1,12 @@
-import { Client } from "@notionhq/client";
 import { createLogger } from "../logger";
 import { getShipmentStatus } from "./easypost_service";
+import { getNotionClient } from "../integrations/notion/notion_client";
+import { sendEmailJs } from "../integrations/email/emailjs_client";
 
 const logger = createLogger("email");
 
-// Lazy-initialize Notion client
-let notionInstance: Client | null = null;
 const getNotion = () => {
-    if (!notionInstance) {
-        const token = process.env.NOTION_TOKEN;
-        if (!token) {
-            throw new Error("NOTION_TOKEN is not configured");
-        }
-        notionInstance = new Client({ auth: token });
-    }
-    return notionInstance;
+    return getNotionClient();
 };
 
 export class EmailService {
@@ -26,15 +18,7 @@ export class EmailService {
         if (!serviceId || !templateId || !publicKey || !privateKey) {
             throw new Error("EmailJS service, purchase template, public key, and private key are required for purchase notifications");
         }
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                service_id: serviceId,
-                template_id: templateId,
-                user_id: publicKey,
-                accessToken: privateKey,
-                template_params: {
+        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
                     customer_email: params.customerEmail,
                     customer_name: params.customerName,
                     order_id: params.orderId,
@@ -47,10 +31,7 @@ export class EmailService {
                     billing_address: params.billingAddress || "N/A",
                     delivery_method: params.deliveryMethod || "Shipping",
                     to_name: "Koinonia Coffee Project",
-                },
-            }),
-        });
-        if (!response.ok) throw new Error(`EmailJS purchase notification failed: ${response.status} - ${await response.text()}`);
+        }, "EmailJS purchase notification failed");
     }
 
     static async sendSubscriptionOrderConfirmation(params: { toEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; totalAmount: number; shippingAmount: number }): Promise<void> {
@@ -61,15 +42,7 @@ export class EmailService {
         if (!serviceId || !templateId || !publicKey || !privateKey) {
             throw new Error("EmailJS service, customer template, public key, and private key are required for subscription confirmations");
         }
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                service_id: serviceId,
-                template_id: templateId,
-                user_id: publicKey,
-                accessToken: privateKey,
-                template_params: {
+        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
                     to_email: params.toEmail,
                     customer_name: params.customerName,
                     customer_first_name: EmailService.getFirstName(params.customerName),
@@ -80,20 +53,17 @@ export class EmailService {
                     shipping: `$${params.shippingAmount.toFixed(2)}`,
                     tax: "$0.00",
                     total: `$${params.totalAmount.toFixed(2)}`,
-                },
-            }),
-        });
-        if (!response.ok) throw new Error(`EmailJS subscription confirmation failed: ${response.status} - ${await response.text()}`);
+        }, "EmailJS subscription confirmation failed");
     }
 
-    private static getFirstName(fullName: string): string {
+    static getFirstName(fullName: string): string {
         if (!fullName) return "Customer";
         const trimmed = fullName.trim();
         const firstSpace = trimmed.indexOf(" ");
         return firstSpace > 0 ? trimmed.substring(0, firstSpace) : trimmed;
     }
 
-    private static parseItemsToHtml(itemsText: string): string {
+    static parseItemsToHtml(itemsText: string): string {
         if (!itemsText) return "<p>No items found</p>";
 
         const lines = itemsText.split("\n").filter((line) => line.trim());

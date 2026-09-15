@@ -1,10 +1,11 @@
-import { Client } from "@notionhq/client";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
+import { getNotionClient } from "../integrations/notion/notion_client";
 
 import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
 import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
+import { EmailService } from "./email_service";
 const logger = createLogger("notion");
 
 const getNextRoastDateForInventory = async (): Promise<string | null> => {
@@ -124,17 +125,8 @@ const fetchPageContentAsMarkdown = async (pageId: string): Promise<string> => {
     }
 };
 
-// Lazy-initialize Notion client
-let notionInstance: Client | null = null;
 const getNotion = () => {
-    if (!notionInstance) {
-        const token = process.env.NOTION_TOKEN;
-        if (!token) {
-            throw new Error("NOTION_TOKEN is not configured");
-        }
-        notionInstance = new Client({ auth: token, notionVersion: "2022-06-28" });
-    }
-    return notionInstance;
+    return getNotionClient("2022-06-28");
 };
 
 
@@ -1567,28 +1559,12 @@ export class NotionService {
 
 // Helper function to extract first name from full name
 function getFirstName(fullName: string): string {
-    if (!fullName) return "Customer";
-    const trimmed = fullName.trim();
-    const firstSpace = trimmed.indexOf(" ");
-    return firstSpace > 0 ? trimmed.substring(0, firstSpace) : trimmed;
+    return EmailService.getFirstName(fullName);
 }
 
 // Helper function to parse items text into HTML for email templates
 function parseItemsToHtml(itemsText: string): string {
-    if (!itemsText) return "<p>No items found</p>";
-
-    const lines = itemsText.split("\n").filter((line) => line.trim());
-
-    return lines.map((line) => {
-        const trimmed = line.trim();
-        return `
-      <div style="display: table; width: 100%; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
-        <div style="display: table-cell; vertical-align: top; padding-left: 16px;">
-          <div style="font-size: 14px; font-weight: 500; color: #000000; margin-bottom: 4px;">${trimmed}</div>
-        </div>
-      </div>
-    `;
-    }).join("");
+    return EmailService.parseItemsToHtml(itemsText);
 }
 
 // Helper function to send shipped notification
@@ -1606,50 +1582,7 @@ async function sendShippedNotification(params: {
     trackingInfo: string;
     estimatedDelivery?: string;
 }): Promise<void> {
-    const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo, estimatedDelivery } = params;
-
-    // Generate tracking URL based on carrier
-    let trackingUrl = "https://tools.usps.com/tracking";
-    if (trackingCarrier === "UPS") {
-        trackingUrl = `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
-    } else if (trackingCarrier === "Fedex") {
-        trackingUrl = `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
-    } else {
-        // USPS tracking URL format
-        trackingUrl = `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
-    }
-
-    const emailData = {
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        accessToken: privateKey,
-        template_params: {
-            to_email: toEmail,
-            customer_name: customerName,
-            order_id: orderId,
-            items_html: itemsHtml,
-            shipping_address: shippingAddress,
-            carrier: trackingCarrier || "USPS",
-            tracking_info: trackingInfo || "Tracking information will be updated soon",
-            tracking_number: trackingInfo || "Available soon",
-            estimated_delivery: estimatedDelivery || "3-5 business days",
-            tracking_url: trackingUrl,
-        },
-    };
-
-    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailData),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-    }
+    return EmailService.sendShippedNotification(params);
 }
 
 // Helper function to send delivered notification
@@ -1664,36 +1597,7 @@ async function sendDeliveredNotification(params: {
     itemsHtml: string;
     deliveryDate: string;
 }): Promise<void> {
-    const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, deliveryDate } = params;
-
-    const emailData = {
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        accessToken: privateKey,
-        template_params: {
-            to_email: toEmail,
-            customer_name: customerName,
-            order_id: orderId,
-            items_html: itemsHtml,
-            delivery_date: deliveryDate,
-            delivery_location: "Front door",
-            review_url: "https://koinoniacoffeeproject.com/reviews",
-        },
-    };
-
-    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailData),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-    }
+    return EmailService.sendDeliveredNotification(params);
 }
 
 async function sendOutForDeliveryNotification(params: {
@@ -1709,46 +1613,5 @@ async function sendOutForDeliveryNotification(params: {
     trackingInfo: string;
     deliveryDate: string;
 }): Promise<void> {
-    const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, trackingCarrier, trackingInfo, deliveryDate } = params;
-
-    // Generate tracking URL based on carrier
-    let trackingUrl = "https://tools.usps.com/tracking";
-    if (trackingCarrier === "UPS") {
-        trackingUrl = `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
-    } else if (trackingCarrier === "Fedex") {
-        trackingUrl = `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
-    } else {
-        // USPS tracking URL format
-        trackingUrl = `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
-    }
-
-    const emailData = {
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        accessToken: privateKey,
-        template_params: {
-            to_email: toEmail,
-            customer_name: customerName,
-            order_id: orderId,
-            items_html: itemsHtml,
-            carrier: trackingCarrier || "USPS",
-            tracking_number: trackingInfo || "Available soon",
-            delivery_date: deliveryDate,
-            tracking_url: trackingUrl,
-        },
-    };
-
-    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailData),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-    }
+    return EmailService.sendOutForDeliveryNotification(params);
 }
