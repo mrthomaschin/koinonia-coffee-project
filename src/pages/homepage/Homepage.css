@@ -123,8 +123,19 @@ p {
   border-right: 0;
 }
 
-.pillar .eyebrow {
+.pillar .ui-eyebrow {
+  display: block;
   margin-bottom: 23px;
+}
+
+.pillar-eyebrow-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.pillar-eyebrow-link:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 4px;
 }
 
 .pillar h2 {

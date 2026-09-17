@@ -55,28 +55,32 @@
   transition: width 200ms ease-in-out;
 }
 
-.cart-icon-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  display: flex;
+.nav-icon-item {
+  min-width: 28px;
+}
+
+.nav-icon-svg,
+.nav-icon-wrap svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: #2F2B39;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-icon-wrap {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  position: relative;
   align-items: center;
   justify-content: center;
-  color: #2F2B39;
-  transition: all 200ms ease;
-  border-radius: 4px;
-  position: relative;
 }
 
-.cart-icon-button:hover {
-  background-color: rgba(47, 43, 57, 0.08);
-  transform: scale(1.1);
-}
-
-.cart-icon-button svg {
-  width: 24px;
-  height: 24px;
+.nav-contact .nav-label {
+  white-space: nowrap;
 }
 
 .cart-badge {
@@ -86,15 +90,15 @@
   background-color: #313D66;
   color: #FFFFFF;
   font-family: 'RethinkSans-Regular', sans-serif;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 3px;
   animation: badgePop 0.3s ease-out;
 }
 
@@ -112,35 +116,12 @@
   }
 }
 
-.contact-us-button {
-  background-color: #84825E;
-  color: white;
-  text-decoration: none;
-  border: none;
-  padding: 15px 22px;
-  border-radius: 8px;
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: background-color 200ms;
-}
-
-.contact-us-button:hover {
-  background-color: #6d6a4d;
-}
-
 .app-bar-menu-button {
   display: none;
   background: none;
   border: none;
   cursor: pointer;
   padding: 8px;
-}
-
-.cart-icon-mobile {
-  display: none;
 }
 
 .menu-icon {
@@ -188,6 +169,16 @@
   background-color: rgba(47, 43, 57, 0.05);
 }
 
+.dropdown-icon-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+.dropdown-icon-item {
+  min-width: 48px;
+}
+
 .dropdown-label {
   font-family: 'ShipporiAntiqueB1', sans-serif;
   font-size: 11px;
@@ -203,26 +194,7 @@
   margin-top: 4px;
 }
 
-.dropdown-button-container {
-  padding: 10px 24px 0;
-}
-
-.contact-us-button-mobile {
-  width: 100%;
-  background-color: #84825E;
-  color: white;
-  text-decoration: none;
-  border: none;
-  padding: 13px 16px;
-  border-radius: 8px;
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 1.4px;
-  cursor: pointer;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .app-bar-content {
     padding: 0 16px;
     gap: 4px;
@@ -240,9 +212,6 @@
     display: block;
   }
 
-  .cart-icon-mobile {
-    display: flex;
-  }
 }
 
 @media (max-width: 768px) {

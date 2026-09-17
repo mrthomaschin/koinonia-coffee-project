@@ -1,28 +1,62 @@
 import React, { useState } from 'react';
-import { useNavigation } from '../contexts/NavigationContext';
 import { Link } from 'react-router-dom';
-import { PAGES, ICONS, PageType } from '../util/constants';
+import { useCart } from '../contexts/CartContext';
+import { useNavigation } from '../contexts/NavigationContext';
+import { ICONS, PAGES, PageType } from '../util/constants';
 import './AppBar.css';
+
+const navItems: { label: string; page: PageType }[] = [
+  { label: 'MENU', page: PAGES.MENU },
+  { label: 'SHOP', page: PAGES.SHOP },
+  { label: 'OUR STORY', page: PAGES.ABOUT },
+  { label: 'GALLERY', page: PAGES.GALLERY },
+  { label: 'CATERING', page: PAGES.CATERING },
+  { label: 'EVENTS', page: PAGES.EVENTS },
+  { label: 'CONTACT US', page: PAGES.CONTACT },
+  { label: 'ACCOUNT', page: PAGES.ACCOUNT },
+  { label: 'CART', page: PAGES.CART }
+];
+
+const AccountIcon: React.FC = () => (
+  <svg className="nav-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20c.6-3.5 3.1-5.5 7-5.5s6.4 2 7 5.5" />
+  </svg>
+);
+
+const CartIcon: React.FC<{ count: number }> = ({ count }) => (
+  <span className="nav-icon-wrap">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 1.9-1.4L22 8H6" />
+      <circle cx="10" cy="20" r="1.25" />
+      <circle cx="18" cy="20" r="1.25" />
+    </svg>
+    {count > 0 && <span className="cart-badge">{count > 99 ? '99+' : count}</span>}
+  </span>
+);
 
 const AppBar: React.FC = () => {
   const { currentPage, navigateTo } = useNavigation();
-  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const { cart } = useCart();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<PageType | null>(null);
-
-  const navItems = [
-    { label: 'MENU', page: PAGES.MENU },
-    { label: 'SHOP', page: PAGES.SHOP },
-    { label: 'OUR STORY', page: PAGES.ABOUT },
-    { label: 'GALLERY', page: PAGES.GALLERY },
-    { label: 'CATERING', page: PAGES.CATERING },
-    { label: 'EVENTS', page: PAGES.EVENTS },
-    { label: 'CART', page: PAGES.CART },
-    { label: 'ACCOUNT', page: PAGES.ACCOUNT }
-  ];
+  const cartCount = cart.getTotalItems();
 
   const handleNavClick = (page: PageType): void => {
     navigateTo(page);
     setIsMenuOpen(false);
+  };
+
+  const renderIcon = (page: PageType): React.ReactNode => {
+    if (page === PAGES.CART) return <CartIcon count={cartCount} />;
+    if (page === PAGES.ACCOUNT) return <AccountIcon />;
+    return null;
+  };
+
+  const getAccessibleLabel = (page: PageType): string | undefined => {
+    if (page === PAGES.CART) return `Cart${cartCount ? `, ${cartCount} items` : ''}`;
+    if (page === PAGES.ACCOUNT) return 'Account';
+    return undefined;
   };
 
   return (
@@ -34,58 +68,73 @@ const AppBar: React.FC = () => {
 
         <div className="app-bar-spacer" />
 
-        <nav className="app-bar-nav-desktop">
-          {navItems.map(({ label, page }) => (
-            <Link
-              key={page}
-              to={`/${page}`}
-              className="nav-item"
-              onMouseEnter={() => setHoveredItem(page)}
-              onMouseLeave={() => setHoveredItem(null)}
-              onClick={() => handleNavClick(page)}
-            >
-              <span className="nav-label">{label}</span>
-              <div
-                className="nav-underline"
-                style={{
-                  width: (currentPage === page || hoveredItem === page) ? '40px' : '0'
-                }}
-              />
-            </Link>
-          ))}
-
-          <Link className="contact-us-button" to="/contact" onClick={() => setIsMenuOpen(false)}>
-            CONTACT US
-          </Link>
+        <nav className="app-bar-nav-desktop" aria-label="Main navigation">
+          {navItems.map(({ label, page }) => {
+            const isIcon = page === PAGES.CART || page === PAGES.ACCOUNT;
+            return (
+              <Link
+                key={page}
+                to={`/${page}`}
+                className={`nav-item${isIcon ? ' nav-icon-item' : ''}`}
+                onMouseEnter={() => setHoveredItem(page)}
+                onMouseLeave={() => setHoveredItem(null)}
+                onClick={() => handleNavClick(page)}
+                aria-label={getAccessibleLabel(page)}
+              >
+                {isIcon ? renderIcon(page) : <span className="nav-label">{label}</span>}
+                <div className="nav-underline" style={{ width: currentPage === page || hoveredItem === page ? '40px' : '0' }} />
+              </Link>
+            );
+          })}
         </nav>
 
         <button
           className="app-bar-menu-button"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          type="button"
+          aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={isMenuOpen}
+          onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
         >
-          <span className="menu-icon">☰</span>
+          <span className="menu-icon" aria-hidden="true">☰</span>
         </button>
       </div>
 
       {isMenuOpen && (
-        <div className="app-bar-dropdown">
-          {navItems.map(({ label, page }) => (
-            <Link
-              key={page}
-              to={`/${page}`}
-              className="dropdown-item"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <span className="dropdown-label">{label}</span>
-              {currentPage === page && <div className="dropdown-underline" />}
-            </Link>
-          ))}
-          <div className="dropdown-button-container">
-            <Link className="contact-us-button-mobile" to="/contact" onClick={() => setIsMenuOpen(false)}>
-              CONTACT US
-            </Link>
-          </div>
-        </div>
+        <nav className="app-bar-dropdown" aria-label="Mobile navigation">
+          {navItems.map(({ label, page }) => {
+            if (page === PAGES.CART) return null;
+            if (page === PAGES.ACCOUNT) {
+              return (
+                <div className="dropdown-icon-row" key="account-cart">
+                  {[PAGES.ACCOUNT, PAGES.CART].map((iconPage) => (
+                    <Link
+                      key={iconPage}
+                      to={`/${iconPage}`}
+                      className="dropdown-item dropdown-icon-item"
+                      aria-label={getAccessibleLabel(iconPage)}
+                      onClick={() => handleNavClick(iconPage)}
+                    >
+                      {renderIcon(iconPage)}
+                      {currentPage === iconPage && <div className="dropdown-underline" />}
+                    </Link>
+                  ))}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={page}
+                to={`/${page}`}
+                className="dropdown-item"
+                onClick={() => handleNavClick(page)}
+              >
+                <span className="dropdown-label">{label}</span>
+                {currentPage === page && <div className="dropdown-underline" />}
+              </Link>
+            );
+          })}
+        </nav>
       )}
     </div>
   );
