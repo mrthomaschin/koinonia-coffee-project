@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAccount } from '../../contexts/AccountContext';
 import { accountService } from '../../services/accountService';
 import { SUBSCRIPTION_PLANS, Subscription } from '../../models/AccountModel';
@@ -19,6 +20,8 @@ const AccountSubscriptionsPage: React.FC = () => {
     if (!token) return;
     accountService.getSubscriptions(token).then(({ subscriptions: loadedSubscriptions }) => setSubscriptions(loadedSubscriptions)).catch((requestError: Error) => setError(requestError.message));
   }, [token]);
+
+  if (account?.label === 'wholesale' || account?.label === 'church-ministry') return <Navigate to="/account/partner-store" replace />;
 
   const updateSubscription = async (subscriptionId: string, action: 'cancel' | 'skip'): Promise<void> => {
     if (!token) return;

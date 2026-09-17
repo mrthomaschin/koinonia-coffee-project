@@ -18,10 +18,14 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
   const { account } = useAccount();
   const isPartnerAccount = account?.label === 'wholesale' || account?.label === 'church-ministry';
+  const isPartnerVariant = (variant: NonNullable<CoffeeBagItem['variants']>[number]): boolean => isPartnerAccount
+    ? (variant.isWholesale === true || variant.sku.toUpperCase().endsWith('-WS')
+      || (account?.label === 'wholesale' && ['200g', '1lb', '3lb', '5lb'].includes((variant.weight || '').replace(/\s/g, '').toLowerCase())))
+    : (!variant.isWholesale && !variant.sku.endsWith('-WS'));
   // Derive available weights from variants if they exist, otherwise use parent's weights
   const availableWeights = item.variants && item.variants.length > 0
     ? item.variants
-      .filter((variant) => isPartnerAccount || (!variant.isWholesale && !variant.sku.endsWith('-WS')))
+      .filter(isPartnerVariant)
       .map(v => v.weight)
       .filter((w): w is string => w !== '')
       .filter((weight, index, self) => self.indexOf(weight) === index)
@@ -31,6 +35,8 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const [quantity, setQuantity] = useState<number>(1);
   const [purchaseMode, setPurchaseMode] = useState<'one-time' | 'subscription'>('one-time');
   const [subscriptionFrequency, setSubscriptionFrequency] = useState<'every-session' | 'every-other-session'>('every-session');
+  const selectedVariant = item.variants?.filter(v => v.weight === selectedWeight && isPartnerVariant(v))
+    .sort((first, second) => Number(!!(second.isWholesale || second.sku.toUpperCase().endsWith('-WS'))) - Number(!!(first.isWholesale || first.sku.toUpperCase().endsWith('-WS'))))[0];
 
   const subscriptionPlan: SubscriptionPlan = `${quantity === 2 ? 'two-bags' : 'one-bag'}-${subscriptionFrequency}` as SubscriptionPlan;
 
@@ -41,7 +47,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     let variantShippingWeight: number | undefined = undefined;
 
     if (item.variants && item.variants.length > 0 && selectedWeight) {
-      const variant = item.variants.find(v => v.weight === selectedWeight);
+      const variant = selectedVariant;
       if (variant) {
         variantSku = variant.sku;
         variantPrice = variant.price > 0 ? variant.price : item.price;
@@ -55,6 +61,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       variantSku,
       variantPrice: unitPrice,
       variantShippingWeight,
+      ...(isPartnerAccount ? { isPartnerOrder: true } : {}),
       ...(purchaseMode === 'subscription' ? { subscriptionPlan } : {}),
     });
     forceUpdate();
@@ -69,7 +76,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const calculatePrice = () => {
     // If variants exist, use variant price
     if (item.variants && item.variants.length > 0 && selectedWeight) {
-      const variant = item.variants.find(v => v.weight === selectedWeight);
+      const variant = selectedVariant;
       if (variant && variant.price > 0) {
         return (variant.price * quantity * (purchaseMode === 'subscription' ? 0.95 : 1)).toFixed(2);
       }
@@ -80,14 +87,13 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   };
 
   const getSelectedUnitPrice = (): number => {
-    const selectedVariant = item.variants?.find((variant) => variant.weight === selectedWeight);
     return selectedVariant && selectedVariant.price > 0 ? selectedVariant.price : item.price;
   };
 
   const isSoldOut = () => {
     // If variants exist, check the selected variant's isSoldOut flag (unless LTO unlimited purchases is enabled)
     if (item.variants && item.variants.length > 0 && selectedWeight) {
-      const variant = item.variants.find(v => v.weight === selectedWeight);
+      const variant = selectedVariant;
       if (variant) {
         return variant.isSoldOut === true && !allowsUnlimitedPurchases(item);
       }
@@ -147,7 +153,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         </div>
       </div>
 
-      <fieldset className="subscription-options">
+      {!isPartnerAccount && <fieldset className="subscription-options">
         <legend>Purchase option</legend>
         <div className="subscription-plan-options">
           <label className={purchaseMode === 'one-time' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'one-time'} onChange={() => setPurchaseMode('one-time')} /><span>One-time purchase</span><strong>${getSelectedUnitPrice().toFixed(2)}</strong></label>
@@ -157,7 +163,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
           <label className={subscriptionFrequency === 'every-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-session'} onChange={() => setSubscriptionFrequency('every-session')} /><span>Every roast session</span></label>
           <label className={subscriptionFrequency === 'every-other-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-other-session'} onChange={() => setSubscriptionFrequency('every-other-session')} /><span>Every other roast session</span></label>
         </div><p>You can skip or cancel anytime from your account.</p></div>}
-      </fieldset>
+      </fieldset>}
 
       <div className="option-group">
         <label className="option-label">Quantity</label>
@@ -171,7 +177,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
           <span className="quantity-display">{quantity}</span>
           <button
             className="quantity-button"
-            onClick={() => setQuantity(Math.min(purchaseMode === 'subscription' ? 2 : 99, quantity + 1))}
+            onClick={() => setQuantity(Math.min(!isPartnerAccount && purchaseMode === 'subscription' ? 2 : 99, quantity + 1))}
           >
             +
           </button>

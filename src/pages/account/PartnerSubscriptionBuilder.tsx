@@ -1,113 +1,92 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAccount } from '../../contexts/AccountContext';
 import { useCart } from '../../contexts/CartContext';
 import { useInventory } from '../../contexts/InventoryContext';
 import { accountService } from '../../services/accountService';
 import { AccountLabel } from '../../models/AccountModel';
-import { SubscriptionPlan } from '../../models/AccountModel';
-import { ItemType } from '../shop/item/ItemModel';
-import { generateSlug } from '../shop/shopData';
-import { Item } from '../shop/item/ItemModel';
+import { Item, ItemType } from '../shop/item/ItemModel';
 import './PartnerSubscriptionBuilder.css';
 
-interface PartnerSubscriptionBuilderProps {
-  accountLabel: Extract<AccountLabel, 'wholesale' | 'church-ministry'>;
-}
+interface Props { accountLabel: Extract<AccountLabel, 'wholesale' | 'church-ministry'> }
+interface OrderRow { item: Item; variant: NonNullable<Item['variants']>[number]; retailPrice: number; key: string }
+const isWholesaleVariant = (variant: NonNullable<Item['variants']>[number]): boolean =>
+  variant.isWholesale === true || variant.sku.trim().toUpperCase().endsWith('-WS');
+const isPartnerCoffeeSize = (item: Item, variant: NonNullable<Item['variants']>[number]): boolean =>
+  item.itemType === ItemType.coffee && ['200g', '1lb', '3lb', '5lb'].includes((variant.weight || '').replace(/\s/g, '').toLowerCase());
+const money = (amount: number): string => `$${amount.toFixed(2)} USD`;
 
-const WHOLESALE_SKUS = ['B-KOIN-WS', 'B-ETH-W-WS'];
-
-const normalizeSku = (sku: string): string => sku.trim().toUpperCase();
-
-const wholesaleVariantFor = (item: Item) => item.variants?.find((variant) =>
-  WHOLESALE_SKUS.includes(normalizeSku(variant.sku))
-);
-
-const toPounds = (weight: string): number => {
-  const value = Number.parseFloat(weight);
-  if (!Number.isFinite(value)) return 0;
-  if (weight.toLowerCase().includes('kg')) return value * 2.20462;
-  if (weight.toLowerCase().includes('g')) return value / 453.592;
-  if (weight.toLowerCase().includes('oz')) return value / 16;
-  return weight.toLowerCase().includes('lb') ? value : 0;
-};
-
-const pricePerPound = (item: Item): number => {
-  const pricedVariants = (item.variants || [])
-    .map((variant) => ({ pounds: toPounds(variant.weight || ''), price: variant.price }))
-    .filter((variant) => variant.pounds > 0 && variant.price > 0);
-  const largestVariant = pricedVariants.sort((first, second) => second.pounds - first.pounds)[0];
-  if (largestVariant) return largestVariant.price / largestVariant.pounds;
-  return item.price;
-};
-
-const PartnerSubscriptionBuilder: React.FC<PartnerSubscriptionBuilderProps> = ({ accountLabel }) => {
+const PartnerSubscriptionBuilder: React.FC<Props> = ({ accountLabel }) => {
   const { token } = useAccount();
   const { items } = useInventory();
   const { cart, forceUpdate, showToast } = useCart();
-  const [selectedSku, setSelectedSku] = useState('');
-  const [weight, setWeight] = useState(accountLabel === 'wholesale' ? 5 : 1);
-  const [purchaseType, setPurchaseType] = useState<'subscription' | 'one-time'>('subscription');
-  const [frequency, setFrequency] = useState<'every-session' | 'every-other-session'>('every-session');
+  const [query, setQuery] = useState('');
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [partnerPrices, setPartnerPrices] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!token || accountLabel !== 'church-ministry') return;
-    accountService.getPartnerPrices(token)
-      .then(({ prices }) => setPartnerPrices(prices))
-      .catch(() => setPartnerPrices({}));
+    accountService.getPartnerPrices(token).then(({ prices }) => setPartnerPrices(prices)).catch(() => setPartnerPrices({}));
   }, [accountLabel, token]);
 
-  const coffeeItems = useMemo(() => items.filter((item) => item.itemType === ItemType.coffee && ['B-KOIN', 'B-ETH-W'].includes(normalizeSku(item.sku)) && !!wholesaleVariantFor(item)), [items]);
-  const selectedItem = coffeeItems.find((item) => item.sku === selectedSku) || coffeeItems[0];
-  const minimum = accountLabel === 'wholesale' ? 5 : 1;
-  const subscriptionPlan: SubscriptionPlan = `one-bag-${frequency}`;
-  const selectedWholesaleVariant = selectedItem ? wholesaleVariantFor(selectedItem) : undefined;
-  // WS variants are priced as one pound even when their Notion Variant Weight
-  // property is blank. The selected amount is the number of pounds ordered.
-  const partnerVariantPricePerPound = selectedWholesaleVariant && selectedWholesaleVariant.price > 0
-    ? selectedWholesaleVariant.price / (toPounds(selectedWholesaleVariant.weight || '') || 1)
-    : undefined;
-  const overriddenPricePerPound = selectedWholesaleVariant ? partnerPrices[selectedWholesaleVariant.sku] : undefined;
-  const perPound = overriddenPricePerPound ?? partnerVariantPricePerPound ?? (selectedItem ? pricePerPound(selectedItem) : 0);
-  const totalPrice = perPound * weight;
+  const rows = useMemo<OrderRow[]>(() => items.flatMap((item) => {
+    const variants = (item.variants || []).filter((variant) => variant.active !== false);
+    const partnerVariants = variants.filter((variant) => isWholesaleVariant(variant)
+      || (accountLabel === 'wholesale' && isPartnerCoffeeSize(item, variant)))
+      .sort((first, second) => Number(isWholesaleVariant(second)) - Number(isWholesaleVariant(first)));
+    // Prefer a dedicated wholesale variant when both it and a regular bag size exist.
+    const chosen = partnerVariants.filter((variant, index) => !partnerVariants.slice(0, index).some((previous) =>
+      (previous.weight || '').toLowerCase() === (variant.weight || '').toLowerCase()
+      && (previous.size || '').toLowerCase() === (variant.size || '').toLowerCase()
+      && (previous.color || '').toLowerCase() === (variant.color || '').toLowerCase()));
+    return chosen.map((variant) => {
+      const baseSku = variant.sku.trim().toUpperCase().replace(/-WS$/, '');
+      const retail = variants.find((candidate) => candidate.sku.trim().toUpperCase() === baseSku && !isWholesaleVariant(candidate))
+        || variants.find((candidate) => !isWholesaleVariant(candidate)
+          && candidate.weight === variant.weight && candidate.size === variant.size && candidate.color === variant.color);
+      return { item, variant, retailPrice: retail?.price || variant.price || item.price, key: variant.sku };
+    });
+  }), [accountLabel, items]);
+  const visibleRows = rows.filter(({ item, variant }) => `${item.name} ${item.itemSummary} ${variant.sku} ${variant.size || ''} ${variant.weight || ''}`.toLowerCase().includes(query.toLowerCase()));
 
-  const addSelection = (): void => {
-    if (!selectedItem || weight < minimum || weight % 0.5 !== 0) return;
-    const wholesaleVariant = wholesaleVariantFor(selectedItem);
-    const result = cart.addItem(selectedItem, 1, {
-      weight: `${weight}lb`,
-      variantSku: wholesaleVariant?.sku,
-      variantPrice: Number(totalPrice.toFixed(2)),
-      variantShippingWeight: weight * 453.592,
-      ...(purchaseType === 'subscription' ? { subscriptionPlan } : {}),
-      isPartnerOrder: accountLabel === 'wholesale' || accountLabel === 'church-ministry',
+  const addItem = (row: OrderRow): void => {
+    const quantity = Math.max(0, quantities[row.key] || 0);
+    if (!quantity) return;
+    const price = partnerPrices[row.variant.sku] ?? row.variant.price;
+    const result = cart.addItem(row.item, quantity, {
+      variantSku: row.variant.sku,
+      variantPrice: price,
+      variantShippingWeight: row.variant.shippingWeight,
+      ...(row.variant.weight ? { weight: row.variant.weight } : {}),
+      ...(row.variant.size ? { size: row.variant.size } : {}),
+      ...(row.variant.color ? { color: row.variant.color } : {}),
+      isPartnerOrder: true,
     });
     forceUpdate();
+    if (result.success) setQuantities((current) => ({ ...current, [row.key]: 0 }));
     showToast(result.message, result.success ? 'success' : 'error');
   };
 
-  return (
-    <section className="partner-subscription-builder">
-      <div className="partner-subscription-heading">
-        <p>{accountLabel === 'wholesale' ? 'Wholesale purchases start at 5 lb.' : 'Church & Ministry purchases start at 1 lb.'} Choose half-pound increments and add coffee to your cart.</p>
-      </div>
-      {!selectedItem && <p className="account-empty">Coffee offerings are loading…</p>}
-      <div className="partner-coffee-grid">
-        {coffeeItems.map((item) => <div className={`partner-coffee-card ${selectedItem?.sku === item.sku ? 'selected' : ''}`} key={item.sku}>
-          <button onClick={() => setSelectedSku(item.sku)} type="button"><img src={item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png'} alt={item.name} /><span>{item.name}</span></button>
-          <Link to={`/shop/${generateSlug(item.name)}`} className="partner-coffee-link">View offering</Link>
-        </div>)}
-      </div>
-      {selectedItem && <div className="partner-subscription-controls">
-        <label>Amount (lb)<input type="number" min={minimum} step="0.5" value={weight} onChange={(event) => setWeight(Number(event.target.value))} /></label>
-        <fieldset><legend>Purchase type</legend><label><input type="radio" checked={purchaseType === 'subscription'} onChange={() => setPurchaseType('subscription')} /> Start a subscription</label><label><input type="radio" checked={purchaseType === 'one-time'} onChange={() => setPurchaseType('one-time')} /> One-time purchase</label></fieldset>
-        {purchaseType === 'subscription' && <fieldset><legend>Frequency</legend><label><input type="radio" checked={frequency === 'every-session'} onChange={() => setFrequency('every-session')} /> Every roast session</label><label><input type="radio" checked={frequency === 'every-other-session'} onChange={() => setFrequency('every-other-session')} /> Every other roast session</label></fieldset>}
-        <strong>${totalPrice.toFixed(2)}{purchaseType === 'subscription' ? ' per delivery' : ''}</strong>
-        <button className="account-submit" type="button" onClick={addSelection}>Add {purchaseType === 'subscription' ? 'subscription' : 'coffee'} to cart</button>
-      </div>}
-    </section>
-  );
+  return <section className="partner-order-catalog">
+    <div className="partner-order-intro"><span>Wholesale Pricing</span><h3>Quick order form</h3><p>Choose quantities and add wholesale items directly to your cart.</p></div>
+    <label className="partner-order-search">Search products<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search all products" /></label>
+    <div className="partner-order-table-wrap"><table className="partner-order-table">
+      <thead><tr><th scope="col">Product</th><th scope="col">Price</th><th scope="col">Quantity</th><th scope="col">Total</th><th scope="col"><span className="sr-only">Action</span></th></tr></thead>
+      <tbody>{visibleRows.map((row) => {
+        const quantity = Math.max(0, quantities[row.key] || 0);
+        const price = partnerPrices[row.variant.sku] ?? row.variant.price;
+        const stock = row.variant.quantity;
+        const outOfStock = stock <= 0;
+        const variation = [row.variant.weight, row.variant.size, row.variant.color].filter(Boolean).join(' · ');
+        return <tr key={row.key}>
+          <td className="partner-order-product"><img src={row.item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png'} alt="" /><span><strong>{row.item.name}</strong>{variation && <small>{variation}</small>}{outOfStock && <small>Out of stock</small>}</span></td>
+          <td className="partner-order-price"><strong>{money(price)}</strong><small>Retail price</small><s>{money(row.retailPrice)}</s></td>
+          <td><input aria-label={`Quantity for ${row.item.name}${variation ? ` ${variation}` : ''}`} type="number" min="0" step="1" max={stock > 0 ? stock : undefined} disabled={outOfStock} value={quantity} onChange={(event) => setQuantities((current) => ({ ...current, [row.key]: Math.max(0, Number(event.target.value) || 0) }))} /></td>
+          <td className="partner-order-total">{money(price * quantity)}</td>
+          <td><button type="button" className="partner-order-add" disabled={!quantity || outOfStock} onClick={() => addItem(row)}>Add</button></td>
+        </tr>;
+      })}{visibleRows.length === 0 && <tr><td colSpan={5} className="partner-order-empty">No wholesale products found.</td></tr>}</tbody>
+    </table></div>
+  </section>;
 };
 
 export default PartnerSubscriptionBuilder;

@@ -9,7 +9,7 @@ const PartnerStorePage: React.FC = () => {
     label === 'wholesale' || label === 'church-ministry';
 
   if (!account || !isPartnerStoreAccount(account.label)) return null;
-  return <><p className="account-section-kicker">Partner store</p><h2>Partner coffee</h2><PartnerSubscriptionBuilder accountLabel={account.label} /></>;
+  return <><p className="account-section-kicker">Partner store</p><h2>Wholesale items</h2><PartnerSubscriptionBuilder accountLabel={account.label} /></>;
 };
 
 export default PartnerStorePage;

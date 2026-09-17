@@ -13,7 +13,7 @@ const AccountLayout: React.FC = () => {
     <div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Welcome back, {account.user.firstName}.</h1></div></div>
     <div className="account-layout"><aside className="account-sidebar"><nav aria-label="Account navigation">
       <NavLink to="/account/orders">Orders</NavLink>
-      <NavLink to="/account/subscriptions">Subscriptions</NavLink>
+      {!isPartner && <NavLink to="/account/subscriptions">Subscriptions</NavLink>}
       {isPartner && <NavLink to="/account/partner-store">Partner store</NavLink>}
       <NavLink to="/account/details">Account details</NavLink>
       <button className="account-sign-out" onClick={() => void handleLogout()}>Sign out</button>
