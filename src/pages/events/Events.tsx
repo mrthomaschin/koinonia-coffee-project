@@ -46,7 +46,7 @@ const Events: React.FC = () => {
   const changeMonth = (offset: number) => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + offset, 1));
 
   return <main className="events-page">
-    <SEO title="Events Calendar | Koinonia Coffee Project" description="Find Koinonia Coffee Project at upcoming pop-ups, markets, and community gatherings." path="/events" />
+    <SEO title="Koinonia Coffee Project | Events Calendar" description="Find Koinonia Coffee Project at upcoming pop-ups, markets, and community gatherings." path="/events" />
     <section className="events-heading"><Eyebrow>EVENTS</Eyebrow><h1>See what<br />we're up to.</h1></section>
     {loading && <p className="events-status">Loading events…</p>}
     {error && <p className="events-status">{error}</p>}

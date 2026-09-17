@@ -10,7 +10,7 @@ interface MenuProps {
 const Menu: React.FC<MenuProps> = ({ availableHeight }) => {
   return (
     <div className="menu-page" style={{ minHeight: availableHeight }}>
-      <SEO title="Coffee Menu | Koinonia Coffee Project" description="Explore the Koinonia Coffee Project menu, from espresso drinks to thoughtfully prepared coffee." path="/menu" />
+      <SEO title="Koinonia Coffee Project | Menu" description="Explore the Koinonia Coffee Project menu, from espresso drinks to thoughtfully prepared coffee." path="/menu" />
       <div className="menu-container">
         <div className="menu-header">
           <div>

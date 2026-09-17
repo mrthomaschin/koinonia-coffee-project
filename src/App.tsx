@@ -30,6 +30,7 @@ import PartnerStorePage from './pages/account/PartnerStorePage';
 import AccountLoginPage from './pages/account/AccountLoginPage';
 import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
+import Gallery from './pages/gallery/Gallery';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -130,16 +131,7 @@ const MainContent: React.FC = () => {
               )
             }
           />
-          <Route
-            path="/gallery"
-            element={
-              isPageEnabled(PAGES.GALLERY) ? (
-                <ComingSoon availableHeight={availableHeight} />
-              ) : (
-                <ComingSoon availableHeight={availableHeight} />
-              )
-            }
-          />
+          <Route path="/gallery" element={<Gallery />} />
           <Route
             path="/cart"
             element={

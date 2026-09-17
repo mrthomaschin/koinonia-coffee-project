@@ -11,7 +11,7 @@ interface HomepageProps {
 const Homepage: React.FC<HomepageProps> = ({ availableHeight: _availableHeight }) => {
   return (
     <main className="homepage">
-      <SEO title="Koinonia Coffee Project | Specialty Coffee & Community" description="Specialty coffee, community, and mobile coffee cart experiences from Koinonia Coffee Project." path="/" structuredData={{
+      <SEO title="Koinonia Coffee Project" description="Specialty coffee, community, and mobile coffee cart experiences from Koinonia Coffee Project." path="/" structuredData={{
         '@context': 'https://schema.org',
         '@type': 'Organization',
         name: 'Koinonia Coffee Project',
@@ -29,7 +29,7 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight: _availableHeight }
       </section>
 
       <section className="homepage-about">
-        <div className="about-art" aria-label="Soft abstract image placeholder" role="img"><span>PEOPLE / PLACE / PURPOSE</span></div>
+        <div className="about-art"><img src="/assets/images/koinonia-49-1.png" alt="Koinonia coffee and community" /></div>
         <div className="about-copy"><div className="word-note"><strong className="word-note-term">κοινωνία</strong><span className="word-note-details">[koy-nohn-ee'-ah]</span><strong className="word-note-definition"><em>(n.) communion, fellowship</em></strong></div><p className="mission-copy">Koinonia Coffee Project exists to create spaces for meaningful connection through the joy of good coffee.</p><Link to="/about" className="text-link">LEARN MORE ABOUT KOINONIA</Link></div>
       </section>
 
