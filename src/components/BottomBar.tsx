@@ -1,59 +1,44 @@
 import React from 'react';
-import { ICONS } from '../util/constants';
+import { Link } from 'react-router-dom';
+import { ICONS, PAGES } from '../util/constants';
 import './BottomBar.css';
 
-const BottomBar: React.FC = () => {
-  const openInstagram = (): void => {
-    window.open('https://www.instagram.com/koinoniacoffeeproject', '_blank');
-  };
+const BottomBar: React.FC = () => (
+  <footer className="bottom-bar">
+    <div className="bottom-bar-content">
+      <Link to="/" className="bottom-bar-brand" aria-label="Koinonia Coffee Project home">
+        <img src={ICONS.logoMark} alt="Koinonia Coffee Project" className="bottom-bar-logo" />
+      </Link>
 
-  const openEmail = (): void => {
-    window.location.href = 'mailto:hello@koinoniacoffeeproject.com';
-  };
+      <nav className="bottom-bar-section" aria-label="Company">
+        <h2 className="section-title">COMPANY</h2>
+        <Link className="section-link" to={`/${PAGES.ABOUT}`}>About</Link>
+      </nav>
 
-  return (
-    <div className="bottom-bar">
-      <div className="bottom-bar-content">
-        <img
-          src={ICONS.logoMark}
-          alt="Koinonia Coffee Project"
-          className="bottom-bar-logo"
-        />
+      <nav className="bottom-bar-section" aria-label="Account">
+        <h2 className="section-title">ACCOUNT</h2>
+        <Link className="section-link" to={`/${PAGES.CONTACT}`}>Contact us</Link>
+        <Link className="section-link" to="/account-login">Login</Link>
+        <Link className="section-link" to="/create-account">Sign up</Link>
+      </nav>
 
-        <div className="bottom-bar-spacer" />
-
-        <div className="bottom-bar-section">
-          <h3 className="section-title">FOLLOW ALONG</h3>
-          <div className="section-link" onClick={openInstagram}>
-            <img
-              src={ICONS.instagramIcon}
-              alt="Instagram"
-              className="social-icon"
-            />
-            <span className="link-text">Instagram</span>
-          </div>
-        </div>
-
-        <div className="bottom-bar-section">
-          <h3 className="section-title">CONTACT US</h3>
-          <div className="section-link" onClick={openEmail}>
-            <img
-              src={ICONS.emailIcon}
-              alt="Email"
-              className="email-icon"
-            />
-            <span className="link-text">hello@koinoniacoffeeproject.com</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bottom-bar-footer">
-        <p className="copyright-text">
-          © 2026 KOINONIA COFFEE PROJECT | ALL RIGHTS RESERVED
-        </p>
-      </div>
+      <nav className="bottom-bar-section" aria-label="Categories">
+        <h2 className="section-title">CATEGORIES</h2>
+        <Link className="section-link" to={`/${PAGES.CATERING}`}>Catering</Link>
+        <Link className="section-link" to={`/${PAGES.SHOP}`}>Store</Link>
+        <Link className="section-link" to={`/${PAGES.EVENTS}`}>Event calendar</Link>
+      </nav>
     </div>
-  );
-};
+
+    <div className="bottom-bar-footer">
+      <p className="copyright-text">© 2026 KOINONIA COFFEE PROJECT | ALL RIGHTS RESERVED</p>
+      <nav className="legal-links" aria-label="Legal information">
+        <Link to="/terms-of-service">Terms of service</Link>
+        <Link to="/privacy-policy">Privacy policy</Link>
+        <Link to="/refund-policy">Refund policy</Link>
+      </nav>
+    </div>
+  </footer>
+);
 
 export default BottomBar;

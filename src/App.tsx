@@ -31,6 +31,7 @@ import AccountLoginPage from './pages/account/AccountLoginPage';
 import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
 import Gallery from './pages/gallery/Gallery';
+import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages/legal/LegalPage';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -132,6 +133,9 @@ const MainContent: React.FC = () => {
             }
           />
           <Route path="/gallery" element={<Gallery />} />
+          <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/refund-policy" element={<RefundPolicyPage />} />
           <Route
             path="/cart"
             element={
