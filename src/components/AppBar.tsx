@@ -80,7 +80,14 @@ const AppBar: React.FC = () => {
                 aria-label={getAccessibleLabel(page)}
               >
                 {isIcon ? renderIcon(page) : <span className="nav-label">{label}</span>}
-                <div className="nav-underline" style={{ width: currentPage === page || hoveredItem === page ? '40px' : '0' }} />
+                <div
+                  className="nav-underline"
+                  style={{
+                    width: currentPage === page || hoveredItem === page
+                      ? (isIcon ? '100%' : '40px')
+                      : '0'
+                  }}
+                />
               </Link>
             );
           })}

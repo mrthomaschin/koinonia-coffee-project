@@ -34,6 +34,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
   cursor: pointer;
   user-select: none;
   color: inherit;
@@ -51,7 +52,10 @@
 .nav-underline {
   height: 2px;
   background-color: #2F2B39;
-  margin-top: 3px;
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
   transition: width 200ms ease-in-out;
 }
 
