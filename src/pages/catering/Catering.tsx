@@ -19,15 +19,19 @@ const cateringFaqs = [
   },
   {
     question: 'What add-ons are available?',
-    answer: 'You can add a Matcha / Hojicha Bar, custom cups, portable power, or additional service hours. Share your preferences in the quote form and we’ll include them in your custom quote.',
+    answer: 'You can add custom cups, portable power, or additional service hours. Share your preferences in the quote form and we’ll include them in your custom quote.',
   },
   {
     question: 'What is included in the coffee bar?',
-    answer: 'Our standard espresso bar includes hot and iced lattes, mochas, Americanos, and hot chocolate, plus whole milk, oat milk, house-made vanilla syrup, and Lactaid. We provide the ingredients and materials and take care of setup, service, and tear-down.',
+    answer: 'Our standard espresso bar includes hot and iced lattes, mochas, Americanos, and hot chocolate, plus whole milk, oat milk, house-made vanilla syrup, and Lactaid. Our freshly-made matcha and hojicha lattes are included as well. We provide the ingredients and materials and take care of setup, service, and tear-down.',
   },
   {
     question: 'Can you set up outside?',
-    answer: 'Yes. Our mobile coffee cart can set up at outdoor events. Portable power is available when an outlet is not accessible.',
+    answer: 'Yes! Our mobile coffee cart can set up at outdoor events. We can run our full service on portable power is available when an outlet is not accessible.',
+  },
+  {
+    question: 'Do you offer service for night events?',
+    answer: 'Absolutely! You can switch your coffee bar to our signature decaf blend. Same great taste, without the caffeiene.',
   },
   {
     question: 'How do I get a quote?',
@@ -66,6 +70,7 @@ interface CateringProps {
 }
 
 const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }) => {
+  const [openFaq, setOpenFaq] = React.useState<number | null>(null);
   const handleQuoteClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     const inquirySection = document.getElementById('catering-inquiry');
@@ -118,20 +123,20 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
         <div className="experience-copy">
           <Eyebrow>THE EXPERIENCE</Eyebrow>
           <h2>Everything you need, thoughtfully covered.</h2>
-          <p>Our standard espresso bar includes hot and iced lattes, mochas and americanos, whole and oat milk, vanilla syrup, and a non-caffeinated hot chocolate option. We also provide lactaid for those with lactose intolerance. Yep, you read that right.</p>
+          <p>Our standard espresso bar features hot and iced lattes, mochas, and Americanos, as well as matcha and hojicha drinks. We offer whole and oat milk, vanilla syrup, and a caffeine-free hot chocolate option. Lactaid is also available for guests with lactose intolerance. Yes, you read that right.</p>
           <div className="experience-details">
             <div className="experience-details-heading"><Eyebrow>INCLUDED</Eyebrow></div>
-            <div><strong>Espresso bar</strong><span>During service</span></div>
-            <div><strong>Unlimited drinks</strong><span>For your guests</span></div>
+            <div><strong>Espresso bar</strong></div>
+            <div><strong>Unlimited drinks</strong></div>
+            <div><strong>Matcha / Hojicha Bar</strong></div>
             <div className="experience-details-heading experience-addons-heading"><Eyebrow>OPTIONAL ADD-ONS</Eyebrow></div>
-            <div><strong>Matcha / Hojicha Bar</strong><span>Available</span></div>
-            <div><strong>Custom Cups</strong><span>Available</span></div>
-            <div><strong>Portable Power</strong><span>Available</span></div>
-            <div><strong>Additional Hours</strong><span>Available</span></div>
+            <div><strong>Custom Cups</strong></div>
+            <div><strong>Portable Power</strong></div>
+            <div><strong>Additional Hours</strong></div>
           </div>
         </div>
         <div className="experience-image">
-          <img src="/assets/images/koinonia-18.jpg" alt="Guests gathering around the Koinonia Coffee Project cart" loading="lazy" />
+          <img src="/assets/images/koinonia-84.jpg" alt="Guests gathering around the Koinonia Coffee Project cart" loading="lazy" />
         </div>
       </section>
 
@@ -140,13 +145,23 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
           <Eyebrow>GOOD TO KNOW</Eyebrow>
           <h2 id="catering-faq-title">Frequently asked questions</h2>
           <a className="catering-button" href="#catering-inquiry" onClick={handleQuoteClick}>BOOK YOUR EVENT</a>
+          <img className="catering-faq-image" src="/assets/images/koinonia-18.jpg" alt="Guests gathering around the Koinonia Coffee Project cart" loading="lazy" />
         </div>
         <div className="catering-faq-list">
-          {cateringFaqs.map(({ question, answer }) => (
-            <article key={question}>
-              <h3>{question}</h3>
-              <p>{answer}</p>
-            </article>
+          {cateringFaqs.map(({ question, answer }, index) => (
+            <div className={`catering-faq-item${openFaq === index ? ' is-open' : ''}`} key={question}>
+              <button
+                className="catering-faq-question"
+                type="button"
+                aria-expanded={openFaq === index}
+                onClick={() => setOpenFaq(openFaq === index ? null : index)}
+              >
+                {question}
+              </button>
+              <div className="catering-faq-answer">
+                <p>{answer}</p>
+              </div>
+            </div>
           ))}
         </div>
       </section>

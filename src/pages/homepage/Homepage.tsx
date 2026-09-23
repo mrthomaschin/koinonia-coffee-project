@@ -20,15 +20,19 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight: _availableHeight }
         sameAs: ['https://www.instagram.com/koinoniacoffeeproject'],
       }} />
       <section className="homepage-hero">
+        <video className="homepage-hero-video" autoPlay muted loop playsInline preload="metadata" aria-hidden="true">
+          <source src="/assets/images/Banner.mp4" type="video/mp4" />
+        </video>
+        <div className="homepage-hero-overlay" />
         <div className="homepage-hero-copy">
+          <img className="homepage-hero-logo" src="/assets/logos/koinoniacp_logomark-black.svg" alt="Koinonia Coffee Project" />
           <h1>Cultivating community, <br />one cup at a time.</h1>
           <p className="hero-description">From carefully roasted beans to a coffee cart that meets people where they are, Koinonia uses coffee to make room for meaningful connection.</p>
           <Link className="button-link" to="/about">EXPLORE KOINONIA</Link>
         </div>
-        <div className="coffee-cart-art"><img className="coffee-cart-photo" src="/assets/images/DSCF3464.jpg" alt="Koinonia coffee cart" /><span className="cart-label">KOINONIA / COFFEE CART</span></div>
       </section>
 
-      <section className="homepage-about">
+      <section className="homepage-about" id="homepage-content">
         <div className="about-art"><img src="/assets/images/koinonia-49-1.png" alt="Koinonia coffee and community" /></div>
         <div className="about-copy"><div className="word-note"><strong className="word-note-term">κοινωνία</strong><span className="word-note-details">[koy-nohn-ee'-ah]</span><strong className="word-note-definition"><em>(n.) communion, fellowship</em></strong></div><p className="mission-copy">Koinonia Coffee Project exists to create spaces for meaningful connection through the joy of good coffee.</p><Link to="/about" className="text-link">LEARN MORE ABOUT KOINONIA</Link></div>
       </section>
