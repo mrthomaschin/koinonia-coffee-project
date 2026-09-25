@@ -40,7 +40,7 @@ const Homepage: React.FC<HomepageProps> = ({ availableHeight: _availableHeight }
       <section className="homepage-pillars">
         <article className="pillar"><Eyebrow>02 / CATERING</Eyebrow><h2>Plan your next event with Koinonia.</h2><p>Enjoy excellent beverages and services at your event.</p><Link to="/catering" className="text-link">BOOK NOW</Link></article>
         <article className="pillar"><Eyebrow>02 / ROASTERY</Eyebrow><h2>Enjoy your morning coffee from the first sip to the last.</h2><p>Specialty coffee, roasted with your enjoyment in mind. Whether you're a home barista or you're just looking to up your coffee game, there's a coffee for everyone.</p><Link to="/shop" className="text-link">SHOP COFFEE</Link></article>
-        <article className="pillar"><Eyebrow>03 / EVENTS</Eyebrow><h2>Join us on our next adventure.</h2><p>From pop-ups to everyday moments, see what we're up to next.</p><Link to="/events" className="text-link">SEE THE CALENDAR</Link></article>
+        <article className="pillar"><Eyebrow>03 / EVENTS</Eyebrow><h2>Join us on our next adventure.</h2><p>From pop-ups to everyday moments, see what we're up to next.</p><Link to="/calendar" className="text-link">SEE THE CALENDAR</Link></article>
       </section>
 
       {/* <section className="homepage-catering">

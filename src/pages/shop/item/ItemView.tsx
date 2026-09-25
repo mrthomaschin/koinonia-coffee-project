@@ -296,7 +296,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
                 day: 'numeric',
                 timeZone: 'America/Los_Angeles',
               }).format(new Date(item.nextRoastDate))}</strong></p>
-              <span>View the roasting schedule <Link to="/events">here</Link></span>
+              <span>View the roasting schedule <Link to="/calendar">here</Link></span>
             </div>
           )}
 

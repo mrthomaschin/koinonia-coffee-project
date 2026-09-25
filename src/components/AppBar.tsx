@@ -8,9 +8,9 @@ import './AppBar.css';
 const navItems: { label: string; page: PageType }[] = [
   { label: 'MENU', page: PAGES.MENU },
   { label: 'SHOP', page: PAGES.SHOP },
-  { label: 'GALLERY', page: PAGES.GALLERY },
   { label: 'CATERING', page: PAGES.CATERING },
-  { label: 'EVENTS', page: PAGES.EVENTS },
+  { label: 'GALLERY', page: PAGES.GALLERY },
+  { label: 'CALENDAR', page: PAGES.CALENDAR },
   { label: 'ACCOUNT', page: PAGES.ACCOUNT },
   { label: 'CART', page: PAGES.CART }
 ];

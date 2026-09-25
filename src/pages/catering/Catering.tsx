@@ -27,7 +27,7 @@ const cateringFaqs = [
   },
   {
     question: 'Can you set up outside?',
-    answer: 'Yes! Our mobile coffee cart can set up at outdoor events. We can run our full service on portable power is available when an outlet is not accessible.',
+    answer: 'Yes! Our mobile coffee cart can set up at outdoor events. We can run our full service on portable power when an outlet is not accessible.',
   },
   {
     question: 'Do you offer service for night events?',

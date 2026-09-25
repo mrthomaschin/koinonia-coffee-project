@@ -26,7 +26,7 @@ const BottomBar: React.FC = () => (
         <h2 className="section-title">CATEGORIES</h2>
         <Link className="section-link" to={`/${PAGES.CATERING}`}>Catering</Link>
         <Link className="section-link" to={`/${PAGES.SHOP}`}>Store</Link>
-        <Link className="section-link" to={`/${PAGES.EVENTS}`}>Event calendar</Link>
+        <Link className="section-link" to={`/${PAGES.CALENDAR}`}>Event calendar</Link>
       </nav>
     </div>
 

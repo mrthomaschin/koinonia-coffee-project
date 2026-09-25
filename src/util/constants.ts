@@ -5,7 +5,7 @@ export const PAGES = {
   ABOUT: 'about',
   GALLERY: 'gallery',
   CATERING: 'catering',
-  EVENTS: 'events',
+  CALENDAR: 'calendar',
   CONTACT: 'contact',
   CART: 'cart',
   ACCOUNT: 'account'
