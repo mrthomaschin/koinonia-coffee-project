@@ -1,7 +1,7 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest } from "firebase-functions/v2/https";
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
 import cors from "cors";
@@ -12,6 +12,7 @@ import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
 import { AccountService, getAllEventsCalendarDetails, refreshAllEventsCalendar } from "./services/account_service";
 import { getDatabase } from "./integrations/firebase_admin";
+import { RenewalFulfillmentUseCase } from "./application/renewal_fulfillment_use_case";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -236,6 +237,7 @@ app.post("/account/subscriptions", AccountService.createSubscription);
 app.post("/account/subscription-checkout/complete", AccountService.completeSubscriptionCheckout);
 app.post("/account/subscriptions/:subscriptionId/cancel", AccountService.cancelSubscription);
 app.post("/account/subscriptions/:subscriptionId/skip", AccountService.skipSubscription);
+app.post("/account/subscriptions/:subscriptionId/unskip", AccountService.unskipSubscription);
 app.post("/account/subscriptions/:subscriptionId/add-on", AccountService.addSubscriptionAddOn);
 app.post("/account/logout", AccountService.logout);
 
@@ -262,10 +264,13 @@ export const syncSubscriptionToNotion = onDocumentWritten(
 
 // Project durable orders to the operations database. This keeps Notion
 // independent of the customer's redirect/browser state and makes retries safe.
+// Renewal orders are projected by fulfillRenewalOrder, in sequence with their
+// label purchase, so the two triggers never race to create the same page.
 export const syncAccountOrderToNotion = onDocumentWritten(
   { ...notionMirrorOptions, document: "orders/{orderId}" },
   async (event) => {
     if (!event.data?.after.exists) return;
+    if (event.data.after.data()?.source === "subscription-renewal") return;
     if (await hasProcessedEvent("syncAccountOrderToNotion", event.id)) return;
     await AccountService.syncOrderMirrorById(event.params.orderId);
     await markEventProcessed("syncAccountOrderToNotion", event.id, event.params.orderId);
@@ -288,6 +293,9 @@ export const linkHistoricalOrdersToAccount = onDocumentWritten(
 // of time without a database write.
 const subscriptionRenewalOptions = {
   region: "us-central1" as const,
+  // A renewal calls Notion, Stripe, and EasyPost in sequence; fulfillment adds
+  // Pictify and EmailJS. The 60s default leaves too little headroom.
+  timeoutSeconds: 300,
   secrets: [
     "STRIPE_SECRET_KEY",
     "EASYPOST_API_KEY",
@@ -322,9 +330,20 @@ export const checkUpdatedSubscriptionForRenewal = onDocumentWritten(
     const after = event.data.after.data();
     // Ignore writes made solely by the fulfillment processor itself. Eligibility
     // must change before a database-write event starts another payment attempt.
-    if (before && before.upcomingRoastDate === after?.upcomingRoastDate && before.status === after?.status && before.skipNextDelivery === after?.skipNextDelivery) return;
+    if (before && before.upcomingRoastDate === after?.upcomingRoastDate && before.status === after?.status && before.skippedRoastDate === after?.skippedRoastDate) return;
     await AccountService.checkDueSubscriptions(event.params.subscriptionId);
     await markEventProcessed("checkUpdatedSubscriptionForRenewal", event.id, event.params.subscriptionId);
+  }
+);
+
+// Runs once per paid renewal order. Payment has already succeeded, so this
+// only does label, Notion, receipt, and email work; failures retry from the
+// first unfinished step.
+export const fulfillRenewalOrder = onDocumentCreated(
+  { ...subscriptionRenewalOptions, document: "orders/{orderId}", retry: true },
+  async (event) => {
+    if (event.data?.data()?.source !== "subscription-renewal") return;
+    await new RenewalFulfillmentUseCase(getFirestoreDb()).execute(event.params.orderId);
   }
 );
 

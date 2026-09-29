@@ -268,6 +268,50 @@ export const purchaseShipment = async (
         throw error;
     }
 };
+type PurchasedLabel = { trackingNumber: string; labelUrl: string; shipmentId: string; carrier?: string; service?: string; shippingPrice?: number };
+
+const existingLabel = async (shipmentId: string): Promise<PurchasedLabel | null> => {
+    const shipment = await getEasyPostClient().Shipment.retrieve(shipmentId);
+    if (!shipment.postage_label?.label_url) return null;
+    return {
+        trackingNumber: shipment.tracking_code,
+        labelUrl: shipment.postage_label.label_url,
+        shipmentId: shipment.id,
+        carrier: shipment.selected_rate?.carrier,
+        service: shipment.selected_rate?.service,
+        shippingPrice: Number(shipment.selected_rate?.rate),
+    };
+};
+
+/**
+ * Buys the quoted rate on an existing shipment at most once. EasyPost allows
+ * one label per shipment, so when an earlier attempt already bought it, that
+ * label is returned instead of a second purchase.
+ */
+export const purchaseShipmentOnce = async (
+    toAddress: Address,
+    rateId: string,
+    parcel: Parcel,
+    shipmentId: string
+): Promise<PurchasedLabel> => {
+    const label = await existingLabel(shipmentId);
+    if (label) {
+        logger.info('Shipment already has a label; reusing it', { shipmentId });
+        return label;
+    }
+    try {
+        return await purchaseShipment(toAddress, rateId, undefined, parcel, shipmentId);
+    } catch (error) {
+        // Retrieve can briefly lag a purchase; EasyPost's rejection is authoritative.
+        const purchased = await existingLabel(shipmentId);
+        if (purchased) {
+            logger.info('Shipment was already purchased; reusing its label', { shipmentId });
+            return purchased;
+        }
+        throw error;
+    }
+};
+
 const createEasyPostParcel = async (client: any, parcelData: Parcel) => {
     try {
         const parcel = await client.Parcel.create({

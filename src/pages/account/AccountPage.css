@@ -1,6 +1,5 @@
 .account-page { flex: 1; min-height: 100%; display: flex; flex-direction: column; color: #2f2b39; background: #f8f5eb; }
 .account-hero { min-height: 200px; padding: 64px max(52px, calc((100% - 1180px) / 2)); border-bottom: 1px solid #d8d2c5; display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
-.account-kicker { margin: 0 0 18px; color: #84825e; font-size: 10.88px; letter-spacing: .2em; text-transform: uppercase; }
 .account-hero h1 { margin: 0; font-family: 'HedvigLettersSerif_18pt', Georgia, serif; font-size: clamp(48px, 6vw, 67.2px); font-weight: 400; line-height: .95; }
 .account-hero-copy { max-width: 270px; margin: 0 0 3px; color: #68656c; font-size: 13.12px; line-height: 1.45; text-align: right; }
 .account-layout { width: 100%; flex: 1; display: grid; grid-template-columns: clamp(188px, 19vw, 260px) minmax(0, 1fr); margin: 0 auto; }

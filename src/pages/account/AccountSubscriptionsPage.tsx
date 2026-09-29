@@ -10,6 +10,12 @@ const formatRenewalDate = (roastDate: string): string => {
   return renewalDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const formatRoastDate = (roastDate: string): string =>
+  new Date(roastDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+const isRoastSkipped = (subscription: Subscription): boolean =>
+  !!subscription.skippedRoastDate && subscription.skippedRoastDate === subscription.upcomingRoastDate.slice(0, 10);
+
 const AccountSubscriptionsPage: React.FC = () => {
   const { account, token } = useAccount();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -23,11 +29,17 @@ const AccountSubscriptionsPage: React.FC = () => {
 
   if (account?.label === 'wholesale' || account?.label === 'church-ministry') return <Navigate to="/account/partner-store" replace />;
 
-  const updateSubscription = async (subscriptionId: string, action: 'cancel' | 'skip'): Promise<void> => {
+  const updateSubscription = async (subscription: Subscription, action: 'cancel' | 'skip' | 'unskip'): Promise<void> => {
     if (!token) return;
+    if (action === 'skip' && !window.confirm(`Skip your ${formatRoastDate(subscription.upcomingRoastDate)} roast? You won't be charged for it, and your subscription continues with the following roast.`)) return;
     setError('');
     try {
-      const result = action === 'cancel' ? await accountService.cancelSubscription(token, subscriptionId) : await accountService.skipSubscription(token, subscriptionId);
+      const request = {
+        cancel: accountService.cancelSubscription,
+        skip: accountService.skipSubscription,
+        unskip: accountService.unskipSubscription,
+      }[action];
+      const result = await request.call(accountService, token, subscription.id);
       setSubscriptions((current) => current.map((item) => item.id === result.subscription.id ? result.subscription : item));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Please try again.');
@@ -52,7 +64,7 @@ const AccountSubscriptionsPage: React.FC = () => {
     }
   };
 
-  return <><p className="account-section-kicker">Your Subscriptions</p><h2>Roast subscriptions</h2>{error && <p className="account-error" role="alert">{error}</p>}{subscriptions.length === 0 && <p className="account-empty">You do not have any subscriptions yet.</p>}{subscriptions.map((subscription) => <article className="subscription-row" key={subscription.id}><div><strong>{subscription.itemName} · {subscription.weight}</strong><span>{SUBSCRIPTION_PLANS.find((plan) => plan.id === subscription.plan)?.label}{account?.label === 'consumer' && subscription.discountPercent > 0 ? ` · ${subscription.discountPercent}% off` : ''}{subscription.freeShipping ? ' · Free shipping' : ''}{subscription.isLocalPickup ? ' · Free pickup' : ''}{subscription.skipNextDelivery ? ' · Next delivery skipped' : ''}</span><span>Renews {formatRenewalDate(subscription.upcomingRoastDate)}</span>{subscription.addOnWeight ? <span>Next round includes an additional {subscription.addOnWeight} lb</span> : null}{account?.label === 'church-ministry' && subscription.status === 'active' && <span className="subscription-add-on"><label>Add to next round (lb)<input type="number" min="0.5" step="0.5" value={addOnWeights[subscription.id] || ''} onChange={(event) => setAddOnWeights((current) => ({ ...current, [subscription.id]: Number(event.target.value) }))} /></label><button className="account-link" onClick={() => void addSubscriptionCoffee(subscription)}>Add coffee</button></span>}</div><div><span className={`order-status order-status-${subscription.status}`}>{subscription.status}</span>{subscription.status === 'active' && <span className="subscription-actions">{!subscription.skipNextDelivery && <button className="account-cancel" onClick={() => void updateSubscription(subscription.id, 'skip')}>Skip next</button>}<button className="account-cancel" onClick={() => void updateSubscription(subscription.id, 'cancel')}>Cancel</button></span>}</div></article>)}</>;
+  return <><p className="account-section-kicker">Your Subscriptions</p><h2>Roast subscriptions</h2>{error && <p className="account-error" role="alert">{error}</p>}{subscriptions.length === 0 && <p className="account-empty">You do not have any subscriptions yet.</p>}{subscriptions.map((subscription) => <article className="subscription-row" key={subscription.id}><div><strong>{subscription.itemName} · {subscription.weight}</strong><span>{SUBSCRIPTION_PLANS.find((plan) => plan.id === subscription.plan)?.label}{account?.label === 'consumer' && subscription.discountPercent > 0 ? ` · ${subscription.discountPercent}% off` : ''}{subscription.freeShipping ? ' · Free shipping' : ''}{subscription.isLocalPickup ? ' · Free pickup' : ''}</span>{isRoastSkipped(subscription) ? <span>{formatRoastDate(subscription.upcomingRoastDate)} roast skipped · You won't be charged</span> : <span>Renews {formatRenewalDate(subscription.upcomingRoastDate)}</span>}{subscription.addOnWeight ? <span>Next round includes an additional {subscription.addOnWeight} lb</span> : null}{account?.label === 'church-ministry' && subscription.status === 'active' && <span className="subscription-add-on"><label>Add to next round (lb)<input type="number" min="0.5" step="0.5" value={addOnWeights[subscription.id] || ''} onChange={(event) => setAddOnWeights((current) => ({ ...current, [subscription.id]: Number(event.target.value) }))} /></label><button className="account-link" onClick={() => void addSubscriptionCoffee(subscription)}>Add coffee</button></span>}</div><div><span className={`order-status order-status-${subscription.status}`}>{subscription.status}</span>{subscription.status === 'active' && <span className="subscription-actions">{isRoastSkipped(subscription) ? <button className="account-cancel" onClick={() => void updateSubscription(subscription, 'unskip')}>Undo skip</button> : <button className="account-cancel" onClick={() => void updateSubscription(subscription, 'skip')}>Skip next</button>}<button className="account-cancel" onClick={() => void updateSubscription(subscription, 'cancel')}>Cancel</button></span>}</div></article>)}</>;
 };
 
 export default AccountSubscriptionsPage;

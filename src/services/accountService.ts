@@ -67,6 +67,13 @@ class AccountService {
     });
   }
 
+  unskipSubscription(token: string, subscriptionId: string): Promise<{ subscription: Subscription }> {
+    return this.request(`/account/subscriptions/${subscriptionId}/unskip`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
   addSubscriptionAddOn(token: string, subscriptionId: string, addOnWeight: number, addOnUnitAmount: number): Promise<{ subscription: Subscription }> {
     return this.request(`/account/subscriptions/${subscriptionId}/add-on`, {
       method: 'POST',

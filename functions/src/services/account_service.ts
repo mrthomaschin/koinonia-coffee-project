@@ -9,7 +9,7 @@ import { getDatabase } from "../integrations/firebase_admin";
 import { getNotionClient } from "../integrations/notion/notion_client";
 import { notionPropertyText, notionText } from "../integrations/notion/notion_properties";
 import { getStripeClient } from "../integrations/stripe/stripe_client";
-import { calendarDateOffset, isRoastDateDue, pacificCalendarDate } from "../domain/dates/calendar_dates";
+import { pacificCalendarDate } from "../domain/dates/calendar_dates";
 import { EmailService } from "./email_service";
 import { weightInPounds } from "../domain/shipping/weight";
 import { AccountRepository } from "../repositories/account_repository";
@@ -128,7 +128,8 @@ interface Subscription {
   discountPercent: number;
   freeShipping: boolean;
   status: "active" | "paused" | "canceled";
-  skipNextDelivery: boolean;
+  // Roast date (YYYY-MM-DD) the customer skipped; see SubscriptionService.isSkipped.
+  skippedRoastDate?: string;
   isLocalPickup?: boolean;
   orderPickupId?: string;
   createdAt: string;
@@ -433,24 +434,34 @@ const partnerPriceForWeight = (pricePerPound: number, weight: string): number =>
 
 type StoredSubscription = Subscription & { accountId: string };
 
-/** One-time in-place migration for subscriptions created before the field rename. */
+/**
+ * One-time in-place migration for subscriptions created before field renames.
+ * A legacy `skipNextDelivery: true` becomes a skip of the current upcoming roast.
+ */
 const migrateSubscriptionDocument = async (snapshot: FirebaseFirestore.DocumentSnapshot): Promise<StoredSubscription | null> => {
-  const value = snapshot.data() as (Partial<StoredSubscription> & { nextEligibleRoastAt?: string }) | undefined;
+  const value = snapshot.data() as (Partial<StoredSubscription> & { nextEligibleRoastAt?: string; skipNextDelivery?: boolean }) | undefined;
   if (!value) return null;
   const record = value as Record<string, unknown>;
-  const hasLegacyFields = ["nextEligibleRoastAt", "nextEligibleSession", "renewalLeaseUntil", "renewalProcessingDueAt"]
+  const hasLegacyFields = ["nextEligibleRoastAt", "nextEligibleSession", "renewalLeaseUntil", "renewalProcessingDueAt", "skipNextDelivery"]
     .some((field) => field in record);
   if (value.upcomingRoastDate && !hasLegacyFields) return value as StoredSubscription;
-  if (!value.upcomingRoastDate && !value.nextEligibleRoastAt) return null;
+  const upcomingRoastDate = value.upcomingRoastDate || value.nextEligibleRoastAt;
+  if (!upcomingRoastDate) return null;
+  const skippedRoastDate = value.skipNextDelivery ? SubscriptionService.roastDateKey(upcomingRoastDate) : value.skippedRoastDate;
+  const current = { ...value };
+  delete current.skipNextDelivery;
+  delete current.nextEligibleRoastAt;
   const migration: Record<string, unknown> = {
     nextEligibleRoastAt: FieldValue.delete(),
     nextEligibleSession: FieldValue.delete(),
     renewalLeaseUntil: FieldValue.delete(),
     renewalProcessingDueAt: FieldValue.delete(),
+    skipNextDelivery: FieldValue.delete(),
+    upcomingRoastDate,
+    ...(skippedRoastDate ? { skippedRoastDate } : {}),
   };
-  if (!value.upcomingRoastDate) migration.upcomingRoastDate = value.nextEligibleRoastAt;
   await snapshot.ref.update(migration);
-  return { ...value, upcomingRoastDate: value.upcomingRoastDate || value.nextEligibleRoastAt } as StoredSubscription;
+  return { ...current, upcomingRoastDate, ...(skippedRoastDate ? { skippedRoastDate } : {}) } as StoredSubscription;
 };
 
 const accountSubscription = (accountId: string, subscriptionId: string) =>
@@ -477,7 +488,7 @@ const syncSubscriptionMirror = async (subscription: StoredSubscription, account:
       "Discount Percent": { number: subscription.discountPercent },
       "Free Shipping": { checkbox: subscription.freeShipping },
       "Status": { select: { name: subscription.status } },
-      "Skip Next Delivery": { checkbox: subscription.skipNextDelivery },
+      "Skip Next Delivery": { checkbox: SubscriptionService.isSkipped(subscription) },
       "Created At": { date: { start: subscription.createdAt } },
       "Upcoming Roast Date": { date: { start: subscription.upcomingRoastDate || INITIAL_ROAST_DATE } },
     };
@@ -509,14 +520,12 @@ export class AccountService {
     await Promise.all(snapshots.docs.map(migrateSubscriptionDocument));
   }
 
-  /** Returns due subscriptions without mutating them. Fulfillment is invoked separately. */
+  /** Returns subscriptions due for a charge or a skip advance. Processing is invoked separately. */
   static async getDueSubscriptionIds(subscriptionId?: string): Promise<string[]> {
     if (subscriptionId) {
       const snapshot = await database().collection("account_subscriptions").doc(subscriptionId).get();
       const subscription = await migrateSubscriptionDocument(snapshot);
-      return subscription && subscription.status === "active" && !subscription.skipNextDelivery && isRoastDateDue(subscription.upcomingRoastDate)
-        ? [subscriptionId]
-        : [];
+      return subscription && SubscriptionService.dueAction(subscription) !== "none" ? [subscriptionId] : [];
     }
     const response = await database().collection("account_subscriptions")
       .where("status", "==", "active")
@@ -524,7 +533,7 @@ export class AccountService {
     const subscriptions = await Promise.all(response.docs.map(migrateSubscriptionDocument));
     return subscriptions
       .filter((subscription): subscription is StoredSubscription => !!subscription)
-      .filter((subscription) => !subscription.skipNextDelivery && isRoastDateDue(subscription.upcomingRoastDate))
+      .filter((subscription) => SubscriptionService.dueAction(subscription) !== "none")
       .map((subscription) => subscription.id);
   }
 
@@ -540,15 +549,14 @@ export class AccountService {
     await Promise.all(dueSubscriptionIds.map((id) => AccountService.processDueSubscription(id)));
   }
 
-  /** Sends one reminder per subscription/roast three calendar days before charge. */
+  /** Sends one reminder per renewable subscription/roast three calendar days before the roast. */
   static async sendRenewalReminders(): Promise<void> {
-    const today = pacificCalendarDate();
     const snapshots = await database().collection("account_subscriptions").where("status", "==", "active").get();
     await Promise.all(snapshots.docs.map(async snapshot => {
       const subscription = await migrateSubscriptionDocument(snapshot);
-      if (!subscription || subscription.skipNextDelivery) return;
-      const roastDate = subscription.upcomingRoastDate.slice(0, 10);
-      if (calendarDateOffset(roastDate, -3) > today || (snapshot.data() as any).renewalReminderForRoastDate === roastDate) return;
+      if (!subscription || !SubscriptionService.isReminderDue(subscription)) return;
+      const roastDate = SubscriptionService.roastDateKey(subscription.upcomingRoastDate);
+      if ((snapshot.data() as any).renewalReminderForRoastDate === roastDate) return;
       const accountSnapshot = await database().collection("accounts").doc(subscription.accountId).get();
       const account = accountSnapshot.data() as (StoredAccount & { shippingAddress?: string }) | undefined;
       if (!account) return;
@@ -782,7 +790,7 @@ export class AccountService {
           ...(resolvedShippingWeight !== undefined ? { shippingWeight: resolvedShippingWeight } : {}),
           unitAmount, discountPercent: account.label === "consumer" ? 5 : 0,
           freeShipping: account.label === "wholesale" ? false : selectedPlan.freeShipping,
-          status: "active", skipNextDelivery: false, createdAt: new Date().toISOString(),
+          status: "active", createdAt: new Date().toISOString(),
           ...(isLocalPickup ? { isLocalPickup: true, orderPickupId } : {}),
           upcomingRoastDate,
         });
@@ -1059,7 +1067,6 @@ export class AccountService {
         discountPercent: account.label === "consumer" ? 5 : 0,
         freeShipping: account.label === "wholesale" ? false : selectedPlan.freeShipping,
         status: "active",
-        skipNextDelivery: false,
         createdAt: new Date().toISOString(),
         upcomingRoastDate: await nextUpcomingRoastSessionDate(),
       };
@@ -1120,12 +1127,47 @@ export class AccountService {
         res.status(404).json({ error: "Subscription not found." });
         return;
       }
-      const subscription = { ...snapshot.data(), skipNextDelivery: true } as StoredSubscription;
-      await snapshot.ref.update({ skipNextDelivery: subscription.skipNextDelivery });
-      res.json({ subscription });
+      const current = snapshot.data() as StoredSubscription;
+      if (current.status !== "active") {
+        res.status(400).json({ error: "Only active subscriptions can skip a delivery." });
+        return;
+      }
+      const skippedRoastDate = SubscriptionService.roastDateKey(current.upcomingRoastDate);
+      await snapshot.ref.update({ skippedRoastDate, updatedAt: Date.now() });
+      logger.info("Subscription roast skipped by customer", { subscriptionId, skippedRoastDate });
+      res.json({ subscription: { ...current, skippedRoastDate } });
     } catch (error: unknown) {
       logger.error("Unable to skip subscription", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to skip your next delivery right now." });
+    }
+  }
+
+  static async unskipSubscription(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const subscriptionId = String(req.params.subscriptionId || "");
+      const snapshot = await accountSubscription(account.id, subscriptionId);
+      if (!snapshot) {
+        res.status(404).json({ error: "Subscription not found." });
+        return;
+      }
+      const current = snapshot.data() as StoredSubscription;
+      if (!SubscriptionService.isSkipped(current)) {
+        res.status(400).json({ error: "Your next delivery is not skipped." });
+        return;
+      }
+      await snapshot.ref.update({ skippedRoastDate: FieldValue.delete(), updatedAt: Date.now() });
+      logger.info("Subscription roast skip undone by customer", { subscriptionId, roastDate: current.skippedRoastDate });
+      const subscription = { ...current };
+      delete subscription.skippedRoastDate;
+      res.json({ subscription });
+    } catch (error: unknown) {
+      logger.error("Unable to undo subscription skip", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to undo your skip right now." });
     }
   }
 

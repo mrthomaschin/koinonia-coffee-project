@@ -22,12 +22,6 @@
   border-bottom: 1px solid rgba(47, 43, 57, .16);
 }
 
-.menu-eyebrow {
-  margin: 0 0 24px;
-  color: #84825E;
-  font: 10px 'RethinkSans-Regular', sans-serif; line-height: 1.2;
-  letter-spacing: 2px;
-}
 
 .menu-title {
   font-family: 'HedvigLettersSerif_18pt', serif;
@@ -70,8 +64,6 @@
   }
 
   .menu-header { display: block; min-height: 175px; padding: 54px 0 32px; }
-
-  .menu-eyebrow { margin-bottom: 20px; }
 
   .menu-title {
     font-size: 58px;

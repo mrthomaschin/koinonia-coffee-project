@@ -1,0 +1,78 @@
+/*
+ * Design tokens for Koinonia Coffee Project.
+ * Single source of truth for color, type, and spacing values.
+ * Reference these variables instead of hardcoding hex/px values in page CSS —
+ * see src/components/ui/Typography.tsx and src/components/ui/Button.tsx for the
+ * shared components built on top of this scale.
+ */
+:root {
+  /* ===== Brand colors (Brand Style Guide, 02.2026) ===== */
+  --color-midnight: #2F2B39;
+  --color-marina: #313D66;
+  --color-linen: #CBC5B9;
+  --color-pearl: #F8F5EB;
+  --color-denim: #59667E;
+  --color-smoke: #C2CAD3;
+  --color-eucalyptus: #84825E;
+  --color-sage: #C3C8A4;
+
+  /* Semantic aliases */
+  --color-text: var(--color-midnight);
+  --color-text-secondary: rgba(47, 43, 57, .76);
+  --color-text-muted: rgba(47, 43, 57, .6);
+  --color-hairline: rgba(47, 43, 57, .18);
+  --color-bg: var(--color-pearl);
+
+  /* ===== Font families ===== */
+  --font-heading: 'HedvigLettersSerif_18pt', Georgia, serif;
+  --font-body: 'RethinkSans-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-accent: 'Besley-Italic', Georgia, serif;
+
+  /* =====================================================================
+   * Type scale — one role, one size. Reuse these anywhere the same role
+   * appears (page hero, section heading, card heading, body copy, eyebrow
+   * label, link) instead of picking a new number per page.
+   * ===================================================================== */
+
+  /* Display: page hero h1 */
+  --size-display: clamp(48px, 6vw, 76px);
+  --lh-display: .9;
+  --tracking-display: -3px;
+
+  /* Section heading: h2, major section titles within a page */
+  --size-h2: clamp(32px, 4vw, 50px);
+  --lh-h2: .9;
+  --tracking-h2: -2px;
+
+  /* Sub/card heading: h3, card or sub-section titles */
+  --size-h3: 26px;
+  --lh-h3: 1.05;
+
+  /* Body copy */
+  --size-body: 15px;
+  --lh-body: 1.75;
+  --size-body-sm: 13px;
+  --lh-body-sm: 1.5;
+
+  /* Eyebrow / kicker label */
+  --size-eyebrow: 11px;
+  --tracking-eyebrow: .2em;
+
+  /* Callout (italic accent copy) */
+  --size-callout: 17px;
+  --lh-callout: 1.4;
+
+  /* Link / button label */
+  --size-link: 12px;
+  --tracking-link: 1.5px;
+
+  /* ===== Spacing scale ===== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+}

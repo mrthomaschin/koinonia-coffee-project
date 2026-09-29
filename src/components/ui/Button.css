@@ -1,0 +1,42 @@
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  text-transform: uppercase;
+  font: var(--size-link)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-link);
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.ui-button--primary {
+  color: var(--color-pearl);
+  background: var(--color-eucalyptus);
+  border-color: var(--color-eucalyptus);
+}
+
+.ui-button--primary:hover {
+  background: var(--color-midnight);
+  border-color: var(--color-midnight);
+}
+
+.ui-button--outline {
+  color: var(--color-midnight);
+  background: transparent;
+  border-color: currentColor;
+}
+
+.ui-button--outline:hover {
+  color: var(--color-pearl);
+  background: var(--color-midnight);
+}
+
+.ui-button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}

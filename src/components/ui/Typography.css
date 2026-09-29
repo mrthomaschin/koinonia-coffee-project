@@ -1,34 +1,53 @@
 .ui-text { box-sizing: border-box; }
 
 .ui-eyebrow {
-  margin: 0 0 18px;
-  color: #84825e;
-  font: 10.88px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: .2em;
+  margin: 0 0 var(--space-4);
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow) var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   line-height: 1.2;
   text-transform: uppercase;
 }
 
 .ui-body-text {
-  color: rgba(47, 43, 57, .76);
-  font: 14px/1.7 'RethinkSans-Regular', sans-serif;
+  color: var(--color-text-secondary);
+  font: var(--size-body)/var(--lh-body) var(--font-body);
+}
+
+.ui-body-text--small {
+  font-size: var(--size-body-sm);
+  line-height: var(--lh-body-sm);
 }
 
 .ui-display-heading,
-.ui-section-heading {
-  color: #2f2b39;
-  font-family: 'HedvigLettersSerif_18pt', Georgia, serif;
+.ui-section-heading,
+.ui-subheading {
+  color: var(--color-text);
+  font-family: var(--font-heading);
   font-weight: 400;
 }
 
-.ui-display-heading { font-size: clamp(54px, 6vw, 76px); line-height: .86; letter-spacing: -3px; }
-.ui-section-heading { font-size: clamp(32px, 4vw, 50px); line-height: .9; letter-spacing: -2px; }
+.ui-display-heading { font-size: var(--size-display); line-height: var(--lh-display); letter-spacing: var(--tracking-display); }
+.ui-section-heading { font-size: var(--size-h2); line-height: var(--lh-h2); letter-spacing: var(--tracking-h2); }
+.ui-subheading { font-size: var(--size-h3); line-height: var(--lh-h3); }
+
+.ui-callout {
+  color: var(--color-text);
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--size-callout);
+  line-height: var(--lh-callout);
+}
 
 .ui-text-link {
-  color: #313d66;
-  font: 12px/1.2 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1.5px;
+  display: inline-block;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-eucalyptus);
+  color: var(--color-marina);
+  font: var(--size-link)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-link);
   text-decoration: none;
 }
 
-.ui-text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.ui-text-link:hover { color: var(--color-eucalyptus); }

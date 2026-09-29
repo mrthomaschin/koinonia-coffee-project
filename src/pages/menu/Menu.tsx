@@ -15,7 +15,7 @@ const Menu: React.FC<MenuProps> = ({ availableHeight }) => {
         <div className="menu-header">
           <div>
             <Eyebrow as="span">MENU</Eyebrow>
-            <h1 className="menu-title">Our current<br />offerings.</h1>
+            <h1 className="menu-title">Our current offerings.</h1>
           </div>
         </div>
         <div className="menu-image-wrapper">

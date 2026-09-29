@@ -19,6 +19,10 @@ export const DisplayHeading: React.FC<Omit<TypographyProps, 'as'>> = (props) => 
 
 export const SectionHeading: React.FC<Omit<TypographyProps, 'as'>> = (props) => <Typography {...props} as="h2" className={`ui-section-heading ${props.className || ''}`} />;
 
+export const SubHeading: React.FC<Omit<TypographyProps, 'as'>> = (props) => <Typography {...props} as="h3" className={`ui-subheading ${props.className || ''}`} />;
+
+export const Callout: React.FC<TypographyProps> = (props) => <Typography {...props} className={`ui-callout ${props.className || ''}`} />;
+
 export const TextLink: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({ children, className = '', ...props }) => (
   <a {...props} className={`ui-text-link ${className}`.trim()}>{children}</a>
 );

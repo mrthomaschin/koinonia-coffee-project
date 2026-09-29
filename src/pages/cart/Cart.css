@@ -608,14 +608,6 @@
     border-bottom: 1px solid rgba(47, 43, 57, .16);
 }
 
-.cart-eyebrow {
-    margin: 0 0 24px;
-    color: #84825e;
-    font: 13px 'RethinkSans-Regular', sans-serif;
-    line-height: 1.2;
-    letter-spacing: 2px;
-}
-
 .cart-intro h1 {
     margin: 0;
     font: 400 clamp(56px, 5.5vw, 68px) 'HedvigLettersSerif_18pt', Georgia, serif;

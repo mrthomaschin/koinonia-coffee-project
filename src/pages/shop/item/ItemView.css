@@ -752,12 +752,6 @@
   background: #c7c2b8;
 }
 
-.coffee-detail-eyebrow {
-  margin: 0 0 23px;
-  color: #84825e;
-  font: 10px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 2px;
-}
 
 .coffee-story-section h2 {
   margin: 0;
@@ -966,12 +960,6 @@
   margin-bottom: 29px;
 }
 
-.related-eyebrow {
-  margin: 0 0 21px;
-  color: #84825e;
-  font: 10px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 2px;
-}
 
 .related-heading h2 {
   margin: 0;

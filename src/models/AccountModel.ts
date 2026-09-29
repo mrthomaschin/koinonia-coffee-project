@@ -40,7 +40,8 @@ export interface Subscription {
     discountPercent: 5;
     freeShipping: boolean;
     status: 'active' | 'paused' | 'canceled';
-    skipNextDelivery: boolean;
+    // Roast date (YYYY-MM-DD) the customer skipped; it applies only while it matches upcomingRoastDate.
+    skippedRoastDate?: string;
     isLocalPickup?: boolean;
     orderPickupId?: string;
     createdAt: string;

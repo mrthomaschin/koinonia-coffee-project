@@ -3,6 +3,7 @@ import './Catering.css';
 import { FlashquotesEmbed } from '../../components/FlashquotesEmbed';
 import SEO from '../../components/SEO';
 import { Eyebrow } from '../../components/ui/Typography';
+import Button from '../../components/ui/Button';
 
 const cateringFaqs = [
   {
@@ -31,7 +32,7 @@ const cateringFaqs = [
   },
   {
     question: 'Do you offer service for night events?',
-    answer: 'Absolutely! You can switch your coffee bar to our signature decaf blend. Same great taste, without the caffeiene.',
+    answer: 'Yes. We can swap in our signature decaf blend so your guests can enjoy the same coffee bar experience later in the day.',
   },
   {
     question: 'How do I get a quote?',
@@ -90,7 +91,7 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
           <h2>Serving Los Angeles, Orange County, and the Inland Empire.</h2>
           <p>Bring freshly prepared coffee and warm, professional service to your wedding, corporate event, or private gathering.</p>
           <p>Our self-contained mobile coffee cart makes event planning easy, with quick communication and thoughtful service from setup through tear-down.</p>
-          <a className="catering-button" href="#catering-inquiry" onClick={handleQuoteClick}>GET YOUR CUSTOM QUOTE</a>
+          <Button as="a" href="#catering-inquiry" onClick={handleQuoteClick}>GET YOUR CUSTOM QUOTE</Button>
         </div>
         <div className="catering-hero-image">
           <img src="/assets/images/koinonia-29.jpg" alt="Koinonia coffee cart team serving an event" />
@@ -98,7 +99,7 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
       </section>
 
       <section className="catering-inquiry" id="catering-inquiry">
-        <div className="inquiry-copy"><Eyebrow>GET STARTED</Eyebrow><h2>Get an instant quote for your next event.</h2><p>Fill out the form to the right and we'll follow up with a custom quote for your event. Once that's done, you'll have unlimited drinks and friendly, professional service at your event, taking it to the next level.</p></div>
+        <div className="inquiry-copy"><Eyebrow>GET STARTED</Eyebrow><h2>Get an instant quote for your next event.</h2><p>Fill out the form to the right with a few details about your event, and we'll follow up with a custom quote, unlimited drinks included.</p></div>
         <div className="catering-form-embed"><FlashquotesEmbed /></div>
       </section>
 
@@ -109,21 +110,21 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
         <div className="catering-introduction-copy">
           <h2>A coffee experience to remember.</h2>
           <p>Koinonia Coffee Project brings a self-contained mobile espresso bar to weddings, markets, corporate events, and private gatherings. We take care of the coffee, setup, service, and tear-down so you can stay present with your people.</p>
-          <a className="catering-button" href="#catering-inquiry" onClick={handleQuoteClick}>GET YOUR QUOTE</a>
+          <Button as="a" href="#catering-inquiry" onClick={handleQuoteClick}>GET YOUR QUOTE</Button>
         </div>
       </section>
 
       <section className="catering-pillars">
-        <article><Eyebrow>01 / CARE</Eyebrow><h3>Warm service</h3><p>Our staff's goal is to put you and your guests first! We're here for you, and that shows from the moment you book with us to the end of your event.</p></article>
-        <article><Eyebrow>02 / CRAFT</Eyebrow><h3>Excellent coffee</h3><p>We strive our best drinks to your event. Made from our own roasted coffee beans, our drinks are sure to bring smiles and caffeine to your guests. A great combo!</p></article>
-        <article><Eyebrow>03 / COMFORT</Eyebrow><h3>All handled</h3><p>Speedy bookings, ingredients, materials, setup, tear-down, and service are all taken care of so you can focus on what matters most.</p></article>
+        <article><Eyebrow>01 / CARE</Eyebrow><h3>Warm service</h3><p>We put you and your guests first, from the moment you book with us to the last drink served.</p></article>
+        <article><Eyebrow>02 / CRAFT</Eyebrow><h3>Excellent coffee</h3><p>Every drink is made from beans we roast ourselves, brought to your event with the same care we'd give a cup for a friend.</p></article>
+        <article><Eyebrow>03 / COMFORT</Eyebrow><h3>All handled</h3><p>Booking, ingredients, setup, tear-down, and service are all covered on our end, start to finish.</p></article>
       </section>
 
       <section className="catering-experience">
         <div className="experience-copy">
           <Eyebrow>THE EXPERIENCE</Eyebrow>
           <h2>Everything you need, thoughtfully covered.</h2>
-          <p>Our standard espresso bar features hot and iced lattes, mochas, and Americanos, as well as matcha and hojicha drinks. We offer whole and oat milk, vanilla syrup, and a caffeine-free hot chocolate option. Lactaid is also available for guests with lactose intolerance. Yes, you read that right.</p>
+          <p>Our standard espresso bar features hot and iced lattes, mochas, and Americanos, as well as matcha and hojicha drinks. We offer whole and oat milk, vanilla syrup, and a caffeine-free hot chocolate option, with Lactaid available for guests with lactose intolerance.</p>
           <div className="experience-details">
             <div className="experience-details-heading"><Eyebrow>INCLUDED</Eyebrow></div>
             <div><strong>Espresso bar</strong></div>
@@ -144,7 +145,7 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
         <div className="catering-faq-intro">
           <Eyebrow>GOOD TO KNOW</Eyebrow>
           <h2 id="catering-faq-title">Frequently asked questions</h2>
-          <a className="catering-button" href="#catering-inquiry" onClick={handleQuoteClick}>BOOK YOUR EVENT</a>
+          <Button as="a" href="#catering-inquiry" onClick={handleQuoteClick}>BOOK YOUR EVENT</Button>
           <img className="catering-faq-image" src="/assets/images/koinonia-18.jpg" alt="Guests gathering around the Koinonia Coffee Project cart" loading="lazy" />
         </div>
         <div className="catering-faq-list">

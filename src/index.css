@@ -1,3 +1,5 @@
+@import './styles/tokens.css';
+
 @font-face {
   font-family: 'HedvigLettersSerif_18pt';
   src: url('../public/assets/fonts/HedvigLettersSerif_18pt-Regular.ttf') format('truetype');
@@ -52,7 +54,13 @@ body {
   background-color: #F8F5EB;
 }
 
-/* Shared eyebrow treatment. Individual page classes only control layout. */
+/*
+ * Shared eyebrow treatment. This is the same visual role as
+ * `.ui-eyebrow` (src/components/ui/Typography.tsx) — new code should
+ * use the <Eyebrow> component directly. These class names are kept as
+ * aliases for older markup that hasn't been migrated yet, so every
+ * eyebrow label on the site stays in sync from one definition.
+ */
 .eyebrow,
 .account-kicker,
 .account-section-kicker,
@@ -64,11 +72,11 @@ body {
 .cart-eyebrow,
 .coffee-detail-eyebrow,
 .related-eyebrow {
-  margin: 0 0 18px !important;
-  color: #84825e !important;
-  font: 10.88px 'RethinkSans-Regular', sans-serif !important;
-  letter-spacing: .2em !important;
-  text-transform: uppercase !important;
+  margin: 0 0 var(--space-4);
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow) var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
 }
 
 code {
