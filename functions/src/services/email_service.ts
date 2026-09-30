@@ -10,6 +10,24 @@ const getNotion = () => {
 };
 
 export class EmailService {
+    /** Sends a single-use link that confirms the recipient owns this email address. */
+    static async sendEmailVerification(params: { toEmail: string; customerName: string; verificationUrl: string; purpose: "signup" | "change" }): Promise<void> {
+        const serviceId = process.env.EMAILJS_SERVICE_ID;
+        const templateId = process.env.EMAILJS_VERIFY_EMAIL_TEMPLATE_ID;
+        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+        if (!serviceId || !templateId || !publicKey || !privateKey) throw new Error("EmailJS email verification template is not configured");
+        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
+            to_email: params.toEmail,
+            customer_name: params.customerName,
+            verification_url: params.verificationUrl,
+            email_purpose: params.purpose === "signup"
+                ? "please confirm your email address to finish setting up your Koinonia Coffee Project account."
+                : "please confirm your new email address. Your account keeps using your current email until you do.",
+            expires_in: "24 hours",
+        }, "EmailJS email verification failed");
+    }
+
     static async sendSubscriptionRenewalReminder(params: { toEmail: string; customerName: string; renewalDate: string; deliveryMethod: string; totalAmount: number; itemsHtml: string; manageSubscriptionUrl: string }): Promise<void> {
         const serviceId = process.env.EMAILJS_SERVICE_ID;
         const templateId = process.env.EMAILJS_RENEWAL_REMINDER_TEMPLATE_ID;

@@ -8,6 +8,11 @@ interface AuthResponse {
   token: string;
 }
 
+interface CreateAccountResponse extends AuthResponse {
+  // False when the account was created but the verification email could not be sent.
+  verificationSent: boolean;
+}
+
 interface CreateAccountInput {
   firstName: string;
   lastName: string;
@@ -23,6 +28,11 @@ interface UpdateProfileInput {
   email: string;
   // Required only when the email changes.
   currentPassword?: string;
+}
+
+interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
 }
 
 // Omit a field to leave it unchanged; null removes the saved address.
@@ -50,7 +60,7 @@ class AccountService {
     return this.request('/account/login', { method: 'POST', body: JSON.stringify({ username, password }) });
   }
 
-  createAccount(input: CreateAccountInput): Promise<AuthResponse> {
+  createAccount(input: CreateAccountInput): Promise<CreateAccountResponse> {
     return this.request('/account/create', { method: 'POST', body: JSON.stringify(input) });
   }
 
@@ -58,8 +68,25 @@ class AccountService {
     return this.request('/account/details', { headers: { Authorization: `Bearer ${token}` } });
   }
 
-  updateProfile(token: string, input: UpdateProfileInput): Promise<{ account: AccountProfile }> {
+  // verificationSent is present only when the request asked for a new email.
+  updateProfile(token: string, input: UpdateProfileInput): Promise<{ account: AccountProfile; verificationSent?: boolean }> {
     return this.request('/account/details', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    });
+  }
+
+  verifyEmail(verificationToken: string): Promise<{ account: AccountProfile }> {
+    return this.request('/account/verify-email', { method: 'POST', body: JSON.stringify({ token: verificationToken }) });
+  }
+
+  resendVerification(token: string): Promise<{ sentTo: string }> {
+    return this.request('/account/verify-email/resend', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  changePassword(token: string, input: ChangePasswordInput): Promise<{ signedOutSessions: number }> {
+    return this.request('/account/password', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify(input),
@@ -136,4 +163,4 @@ class AccountService {
 }
 
 export const accountService = new AccountService();
-export type { AccountProfile, CreateAccountInput, AuthResponse, UpdateProfileInput, UpdateAddressesInput };
+export type { AccountProfile, CreateAccountInput, AuthResponse, UpdateProfileInput, UpdateAddressesInput, ChangePasswordInput };

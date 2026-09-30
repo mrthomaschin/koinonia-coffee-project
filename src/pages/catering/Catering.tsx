@@ -40,38 +40,89 @@ const cateringFaqs = [
   },
 ];
 
-const cateringStructuredData = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Caterer',
-    name: 'Koinonia Coffee Project',
-    url: 'https://koinoniacoffeeproject.com/catering',
-    image: 'https://koinoniacoffeeproject.com/assets/images/koinonia-29.jpg',
-    description: 'Mobile coffee cart catering for weddings, corporate events, markets, and private gatherings in Los Angeles, Orange County, and the Inland Empire.',
-    areaServed: [
-      { '@type': 'AdministrativeArea', name: 'Los Angeles County' },
-      { '@type': 'AdministrativeArea', name: 'Orange County' },
-      { '@type': 'AdministrativeArea', name: 'Inland Empire' },
-    ],
-    serviceType: 'Mobile coffee cart catering',
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: cateringFaqs.map(({ question, answer }) => ({
-      '@type': 'Question',
-      name: question,
-      acceptedAnswer: { '@type': 'Answer', text: answer },
-    })),
-  },
+interface AreaServed {
+  '@type': 'AdministrativeArea' | 'City' | 'Place';
+  name: string;
+}
+
+export interface CateringPageConfig {
+  /** Visible h1 on the page. */
+  title: string;
+  /** <title> tag / og:title. */
+  seoTitle: string;
+  description: string;
+  path: string;
+  /** Short label used in the breadcrumb trail, e.g. "Weddings". */
+  breadcrumbName?: string;
+  serviceType?: string;
+  areaServed?: AreaServed[];
+}
+
+const SITE_URL = 'https://koinoniacoffeeproject.com';
+const HERO_IMAGE = `${SITE_URL}/assets/images/koinonia-29.jpg`;
+
+const defaultAreaServed: AreaServed[] = [
+  { '@type': 'AdministrativeArea', name: 'Los Angeles County' },
+  { '@type': 'AdministrativeArea', name: 'Orange County' },
+  { '@type': 'AdministrativeArea', name: 'Inland Empire' },
 ];
+
+const hubPage: CateringPageConfig = {
+  title: 'Coffee cart catering for your next event.',
+  seoTitle: 'Coffee Cart Catering Los Angeles | Koinonia Coffee Project',
+  description: 'Book a mobile coffee cart for weddings, corporate events, and private gatherings in Los Angeles, Orange County, and the Inland Empire.',
+  path: '/catering',
+};
+
+const buildStructuredData = (page: CateringPageConfig) => {
+  const url = `${SITE_URL}${page.path}`;
+  const breadcrumbs = [
+    { name: 'Home', item: `${SITE_URL}/` },
+    { name: 'Catering', item: `${SITE_URL}/catering` },
+    ...(page.breadcrumbName ? [{ name: page.breadcrumbName, item: url }] : []),
+  ];
+
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Caterer',
+      name: 'Koinonia Coffee Project',
+      url,
+      image: HERO_IMAGE,
+      description: page.description,
+      areaServed: page.areaServed ?? defaultAreaServed,
+      serviceType: page.serviceType ?? 'Mobile coffee cart catering',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: breadcrumbs.map(({ name, item }, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name,
+        item,
+      })),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: cateringFaqs.map(({ question, answer }) => ({
+        '@type': 'Question',
+        name: question,
+        acceptedAnswer: { '@type': 'Answer', text: answer },
+      })),
+    },
+  ];
+};
 
 interface CateringProps {
   availableHeight: number;
+  page?: CateringPageConfig;
 }
 
-const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }) => {
+const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight, page = hubPage }) => {
   const [openFaq, setOpenFaq] = React.useState<number | null>(null);
+  const structuredData = React.useMemo(() => buildStructuredData(page), [page]);
   const handleQuoteClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     const inquirySection = document.getElementById('catering-inquiry');
@@ -83,11 +134,11 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight }
 
   return (
     <main className="catering-page">
-      <SEO title="Coffee Cart Catering Los Angeles | Koinonia Coffee Project" description="Book a mobile coffee cart for weddings, corporate events, and private gatherings in Los Angeles, Orange County, and the Inland Empire." path="/catering" image="https://koinoniacoffeeproject.com/assets/images/koinonia-29.jpg" structuredData={cateringStructuredData} />
+      <SEO title={page.seoTitle} description={page.description} path={page.path} image={HERO_IMAGE} structuredData={structuredData} />
       <section className="catering-hero">
         <div className="catering-hero-copy">
           <Eyebrow>BRING KOINONIA COFFEE PROJECT TO YOU</Eyebrow>
-          <h1>Coffee cart catering for your next event.</h1>
+          <h1>{page.title}</h1>
           <h2>Serving Los Angeles, Orange County, and the Inland Empire.</h2>
           <p>Bring freshly prepared coffee and warm, professional service to your wedding, corporate event, or private gathering.</p>
           <p>Our self-contained mobile coffee cart makes event planning easy, with quick communication and thoughtful service from setup through tear-down.</p>

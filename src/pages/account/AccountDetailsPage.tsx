@@ -30,7 +30,7 @@ const AddressFields: React.FC<{ section: 'shipping' | 'billing'; value: SavedAdd
 };
 
 const ContactCard: React.FC = () => {
-  const { account, updateProfile } = useAccount();
+  const { account, updateProfile, resendVerification } = useAccount();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -59,9 +59,11 @@ const ContactCard: React.FC = () => {
     setError('');
     setSaving(true);
     try {
-      await updateProfile({ firstName, lastName, email, ...(emailChanged ? { currentPassword } : {}) });
+      const { verificationSent } = await updateProfile({ firstName, lastName, email, ...(emailChanged ? { currentPassword } : {}) });
       setEditing(false);
-      setNotice('Your details were updated.');
+      if (!emailChanged) setNotice('Your details were updated.');
+      else if (verificationSent) setNotice(`We sent a confirmation link to ${email.trim().toLowerCase()}. Your email changes once you open it.`);
+      else setNotice('Your change is saved, but we couldn’t send the confirmation email. Use “Resend link” to try again.');
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -69,11 +71,39 @@ const ContactCard: React.FC = () => {
     }
   };
 
+  const run = async (request: () => Promise<string>): Promise<void> => {
+    setError('');
+    setNotice('');
+    setSaving(true);
+    try {
+      setNotice(await request());
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resend = (): Promise<void> => run(async () => `We sent a new link to ${await resendVerification()}.`);
+  // Submitting the current email cancels the pending change.
+  const cancelEmailChange = (): Promise<void> => run(async () => {
+    await updateProfile({ firstName: account.user.firstName, lastName: account.user.lastName, email: account.user.email });
+    return 'The email change was canceled.';
+  });
+
   if (!editing) {
     return <article className="account-detail-card">
       <h3>Contact information</h3>
       <p>{account.user.firstName} {account.user.lastName}<br />{account.user.email}</p>
+      {account.pendingEmail && <div className="account-pending">
+        <p>Waiting for you to confirm <strong>{account.pendingEmail}</strong>. Open the link we emailed to finish the change.</p>
+        <span className="account-form-actions">
+          <button className="account-link" onClick={() => void resend()} disabled={saving}>Resend link</button>
+          <button className="account-cancel" onClick={() => void cancelEmailChange()} disabled={saving}>Cancel change</button>
+        </span>
+      </div>}
       {notice && <p className="account-success" role="status">{notice}</p>}
+      {error && <p className="account-error" role="alert">{error}</p>}
       <button className="account-link" onClick={startEditing}>Manage details</button>
     </article>;
   }
@@ -88,7 +118,7 @@ const ContactCard: React.FC = () => {
       <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" disabled={isPartner} required /></label>
       {isPartner && <p className="account-hint">Please contact us to change the email on a partner account.</p>}
       {emailChanged && <label>Current password<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>}
-      {emailChanged && <p className="account-hint">For your security, confirm your password to change your email. Orders placed under your previous email stay in your order history.</p>}
+      {emailChanged && <p className="account-hint">For your security, enter your password. We’ll email a link to the new address, and your email changes once you open it. Orders placed under your previous email stay in your order history.</p>}
       {error && <p className="account-error" role="alert">{error}</p>}
       <div className="account-form-actions">
         <button type="submit" className="account-submit" disabled={saving}>{saving ? 'Saving…' : 'Save details'}</button>
@@ -174,10 +204,74 @@ const AddressesCard: React.FC = () => {
   </article>;
 };
 
+const PasswordCard: React.FC = () => {
+  const { changePassword } = useAccount();
+  const [editing, setEditing] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = (): void => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setRepeatPassword('');
+    setError('');
+    setNotice('');
+    setEditing(true);
+  };
+
+  const submit = async (event: FormEvent): Promise<void> => {
+    event.preventDefault();
+    setError('');
+    if (newPassword !== repeatPassword) {
+      setError('New passwords do not match.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const signedOut = await changePassword({ currentPassword, newPassword });
+      setEditing(false);
+      setNotice(signedOut > 0
+        ? `Your password was changed, and ${signedOut === 1 ? 'your other device was' : `${signedOut} other devices were`} signed out.`
+        : 'Your password was changed.');
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return <article className="account-detail-card">
+      <h3>Password</h3>
+      <p>Changing your password signs you out on your other devices.</p>
+      {notice && <p className="account-success" role="status">{notice}</p>}
+      <button className="account-link" onClick={startEditing}>Change password</button>
+    </article>;
+  }
+
+  return <article className="account-detail-card account-detail-card-editing">
+    <h3>Password</h3>
+    <form onSubmit={submit} className="account-form">
+      <label>Current password<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
+      <label>New password<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={8} required /></label>
+      <label>Repeat new password<input type="password" value={repeatPassword} onChange={(event) => setRepeatPassword(event.target.value)} autoComplete="new-password" minLength={8} required /></label>
+      {error && <p className="account-error" role="alert">{error}</p>}
+      <div className="account-form-actions">
+        <button type="submit" className="account-submit" disabled={saving}>{saving ? 'Saving…' : 'Change password'}</button>
+        <button type="button" className="account-link" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+      </div>
+    </form>
+  </article>;
+};
+
 const AccountDetailsPage: React.FC = () => {
   const { account } = useAccount();
   if (!account) return null;
-  return <><p className="account-section-kicker">Your information</p><h2>Account details</h2><div className="account-detail-grid"><ContactCard /><AddressesCard /></div></>;
+  return <><p className="account-section-kicker">Your information</p><h2>Account details</h2><div className="account-detail-grid"><ContactCard /><AddressesCard /><PasswordCard /></div></>;
 };
 
 export default AccountDetailsPage;

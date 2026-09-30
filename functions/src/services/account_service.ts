@@ -15,6 +15,8 @@ import { weightInPounds } from "../domain/shipping/weight";
 import { AccountRepository } from "../repositories/account_repository";
 import { SubscriptionRepository } from "../repositories/subscription_repository";
 import { SubscriptionRenewalUseCase } from "../application/subscription_renewal_use_case";
+import { EmailVerification, EmailVerificationPurpose, EmailVerificationRepository } from "../repositories/email_verification_repository";
+import { siteUrlFor } from "../config/site";
 
 export type AccountLabel = "consumer" | "partner" | "wholesale" | "church-ministry";
 export type PartnerAccountLabel = Extract<AccountLabel, "wholesale" | "church-ministry">;
@@ -55,16 +57,26 @@ const getStripe = (): Stripe => {
 const database = getDatabase;
 const accounts = (): AccountRepository => new AccountRepository(database());
 const subscriptions = (): SubscriptionRepository => new SubscriptionRepository(database());
+const verifications = (): EmailVerificationRepository => new EmailVerificationRepository(database());
 
 export interface AccountProfile {
   id: string;
   user: { firstName: string; lastName: string; email: string };
   username: string;
   label: AccountLabel;
+  // False until the account's email is confirmed through an emailed link.
+  emailVerified: boolean;
+  // A requested new email; it replaces user.email once its link is confirmed.
+  pendingEmail?: string;
 }
 
-interface StoredAccount extends AccountProfile {
+interface StoredAccount extends Omit<AccountProfile, "emailVerified" | "pendingEmail"> {
   passwordHash: string;
+  // null until verified. Absent on accounts created before email verification
+  // existed; those are treated as verified.
+  emailVerifiedAt?: number | null;
+  pendingEmail?: string | null;
+  verificationSentAt?: number;
   // Emails this account used before. They stay reserved to the account so
   // order history recorded under them remains linked and cannot be claimed.
   previousEmails?: string[];
@@ -405,12 +417,37 @@ const findAccount = async (username: string): Promise<StoredAccount | null> => {
   return await accounts().findByUsername(username, DEFAULT_ACCOUNT_LABEL) as StoredAccount | null;
 };
 
+const isEmailVerified = (account: StoredAccount): boolean => account.emailVerifiedAt !== null;
+
 const publicProfile = (account: StoredAccount): AccountProfile => ({
   id: account.id,
   user: account.user,
   username: account.username,
   label: account.label || DEFAULT_ACCOUNT_LABEL,
+  emailVerified: isEmailVerified(account),
+  ...(account.pendingEmail ? { pendingEmail: account.pendingEmail } : {}),
 });
+
+const emailKey = (email: string): string => Buffer.from(email).toString("base64url");
+
+const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
+
+/** Verification emails go to addresses the requester may not own, so each account can send at most one a minute. */
+const verificationCooldownActive = (account: StoredAccount): boolean =>
+  !!account.verificationSentAt && Date.now() - account.verificationSentAt < VERIFICATION_RESEND_COOLDOWN_MS;
+
+/** Emails a single-use verification link for `email` and records when it was sent. */
+const sendVerificationEmail = async (account: StoredAccount, email: string, purpose: EmailVerificationPurpose, origin?: string): Promise<void> => {
+  const token = await verifications().issue(account.id, email, purpose);
+  await database().collection("accounts").doc(account.id).update({ verificationSentAt: Date.now() });
+  await EmailService.sendEmailVerification({
+    toEmail: email,
+    customerName: account.user.firstName,
+    verificationUrl: `${siteUrlFor(origin)}/verify-email?token=${encodeURIComponent(token)}`,
+    purpose,
+  });
+  logger.info("Email verification sent", { accountId: account.id, purpose });
+};
 
 const issueSession = async (account: StoredAccount): Promise<string> => {
   const token = randomBytes(32).toString("base64url");
@@ -454,8 +491,9 @@ const churchMinistryPriceOverrides = async (email: string): Promise<Record<strin
   }, {});
 };
 
+// Pricing is matched by email, so it applies only once the account has proven it owns that email.
 const partnerPriceOverridesFor = async (account: AccountProfile): Promise<Record<string, number>> => (
-  account.label === "church-ministry" ? churchMinistryPriceOverrides(account.user.email) : {}
+  account.label === "church-ministry" && account.emailVerified ? churchMinistryPriceOverrides(account.user.email) : {}
 );
 
 const partnerPriceForWeight = (pricePerPound: number, weight: string): number => {
@@ -703,13 +741,14 @@ export class AccountService {
     }
   }
 
-  /** Link guest orders to an account when the account is created or updated. */
+  /** Link guest orders to an account once its email is verified, and on later account updates. */
   static async linkOrdersToAccount(accountId: string): Promise<void> {
     const accountSnapshot = await database().collection("accounts").doc(accountId).get();
     if (!accountSnapshot.exists) return;
     const account = accountSnapshot.data() as StoredAccount;
     const email = account.user.email.trim().toLowerCase();
-    if (!email) return;
+    // Guest orders carry names and addresses; link them only to an owner of the email.
+    if (!email || !isEmailVerified(account)) return;
 
     // Read/filter instead of relying only on emailNormalized so older orders
     // imported before that field existed are linked as well.
@@ -918,17 +957,17 @@ export class AccountService {
       const accountId = `acct_${randomUUID()}`;
       const normalizedUsername = username.toLowerCase();
       const usernameKey = Buffer.from(normalizedUsername).toString("base64url");
-      const emailKey = Buffer.from(email).toString("base64url");
       const account: StoredAccount = {
         id: accountId,
         user: { firstName, lastName, email },
         username,
         label: requestedLabel,
         passwordHash: await createPasswordHash(password),
+        emailVerifiedAt: null,
       };
       const created = await database().runTransaction(async (transaction) => {
         const usernameRef = database().collection("account_usernames").doc(usernameKey);
-        const emailRef = database().collection("account_emails").doc(emailKey);
+        const emailRef = database().collection("account_emails").doc(emailKey(email));
         const accountRef = database().collection("accounts").doc(accountId);
         const [usernameSnapshot, emailSnapshot] = await Promise.all([
           transaction.get(usernameRef),
@@ -944,7 +983,15 @@ export class AccountService {
         res.status(409).json({ error: "That username or email is already in use." });
         return;
       }
-      res.status(201).json({ account: publicProfile(account), token: await issueSession(account) });
+      const token = await issueSession(account);
+      // The account works right away; guest-order linking and partner pricing wait for verification.
+      const verificationSent = await sendVerificationEmail(account, email, "signup", req.header("Origin"))
+        .then(() => true)
+        .catch((error: Error) => {
+          logger.error("Unable to send signup verification email", { accountId, error: error.message });
+          return false;
+        });
+      res.status(201).json({ account: publicProfile(account), token, verificationSent });
     } catch (error: unknown) {
       logger.error("Unable to create account", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to create an account right now." });
@@ -1264,9 +1311,10 @@ export class AccountService {
   }
 
   /**
-   * Updates name and email. Changing the email requires the current password,
-   * keeps the old email reserved to this account, and is unavailable for
-   * partner accounts, whose pricing is matched by email.
+   * Updates the name right away. A new email needs the current password and is
+   * held as pendingEmail until its emailed link is confirmed (verifyEmail).
+   * Submitting the current email cancels a pending change. Partner accounts
+   * cannot change email, because their pricing is matched by email.
    */
   static async updateProfile(req: Request, res: Response): Promise<void> {
     try {
@@ -1284,44 +1332,177 @@ export class AccountService {
         res.status(400).json({ error: "Enter your first name, last name, and a valid email." });
         return;
       }
-      const previousEmail = current.user.email.trim().toLowerCase();
-      const emailChanged = email !== previousEmail;
-      if (emailChanged && isPartnerLabel(current.label)) {
-        res.status(403).json({ error: "Please contact us to change the email on a partner account." });
-        return;
-      }
-      if (emailChanged && !(await passwordMatches(currentPassword, current.passwordHash))) {
-        res.status(403).json({ error: "Enter your current password to change your email." });
-        return;
-      }
-
-      const accountRef = database().collection("accounts").doc(current.id);
-      const user = { firstName, lastName, email };
-      const updated = await database().runTransaction(async (transaction) => {
-        if (emailChanged) {
-          const emailRef = database().collection("account_emails").doc(Buffer.from(email).toString("base64url"));
-          const owner = (await transaction.get(emailRef)).data()?.accountId;
-          if (owner && owner !== current.id) return false;
-          transaction.set(emailRef, { accountId: current.id, email });
+      const emailChanged = email !== current.user.email.trim().toLowerCase();
+      if (emailChanged) {
+        if (isPartnerLabel(current.label)) {
+          res.status(403).json({ error: "Please contact us to change the email on a partner account." });
+          return;
         }
-        transaction.update(accountRef, {
-          user,
-          ...(emailChanged ? { previousEmails: FieldValue.arrayUnion(previousEmail) } : {}),
-          updatedAt: Date.now(),
-        });
-        return true;
-      });
-      if (!updated) {
-        res.status(409).json({ error: "That email is already in use." });
-        return;
+        if (!(await passwordMatches(currentPassword, current.passwordHash))) {
+          res.status(403).json({ error: "Enter your current password to change your email." });
+          return;
+        }
+        const owner = (await database().collection("account_emails").doc(emailKey(email)).get()).data()?.accountId;
+        if (owner && owner !== current.id) {
+          res.status(409).json({ error: "That email is already in use." });
+          return;
+        }
+        if (verificationCooldownActive(current)) {
+          res.status(429).json({ error: "Please wait a minute before requesting another confirmation email." });
+          return;
+        }
       }
-      logger.info("Account profile updated", { accountId: current.id, emailChanged });
 
-      await AccountService.syncProfileElsewhere({ ...current, user });
-      res.json({ account: publicProfile({ ...current, user }) });
+      const user = { ...current.user, firstName, lastName };
+      await database().collection("accounts").doc(current.id).update({
+        user,
+        pendingEmail: emailChanged ? email : FieldValue.delete(),
+        updatedAt: Date.now(),
+      });
+      const updated: StoredAccount = { ...current, user, pendingEmail: emailChanged ? email : null };
+      logger.info("Account profile updated", { accountId: current.id, emailChangeRequested: emailChanged });
+
+      const verificationSent = emailChanged
+        ? await sendVerificationEmail(updated, email, "change", req.header("Origin")).then(() => true).catch((error: Error) => {
+          logger.error("Unable to send email change verification", { accountId: current.id, error: error.message });
+          return false;
+        })
+        : undefined;
+      if (firstName !== current.user.firstName || lastName !== current.user.lastName) await AccountService.syncProfileElsewhere(updated);
+      res.json({ account: publicProfile(updated), ...(verificationSent === undefined ? {} : { verificationSent }) });
     } catch (error: unknown) {
       logger.error("Unable to update account profile", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to update your details right now." });
+    }
+  }
+
+  /**
+   * Confirms an emailed link. No session is needed: the single-use token
+   * proves ownership of the email it was sent to. A signup link verifies the
+   * account's email; a change link swaps in the new email, keeping the old one
+   * reserved to this account.
+   */
+  static async verifyEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const token = String(req.body?.token || "");
+      if (!token) {
+        res.status(400).json({ error: "This link is invalid or has expired." });
+        return;
+      }
+      const verificationRef = verifications().ref(token);
+      const result = await database().runTransaction(async (transaction) => {
+        // Firestore transactions require every read before any write.
+        const verification = (await transaction.get(verificationRef)).data() as EmailVerification | undefined;
+        if (!verification || EmailVerificationRepository.isExpired(verification)) return { outcome: "invalid" as const };
+        const accountRef = database().collection("accounts").doc(verification.accountId);
+        const account = (await transaction.get(accountRef)).data() as StoredAccount | undefined;
+        const emailRef = database().collection("account_emails").doc(emailKey(verification.email));
+        const owner = verification.purpose === "change" ? (await transaction.get(emailRef)).data()?.accountId : undefined;
+
+        transaction.delete(verificationRef);
+        const stillRequested = verification.purpose === "signup"
+          ? account?.user.email === verification.email
+          : account?.pendingEmail === verification.email;
+        if (!account || !stillRequested) return { outcome: "invalid" as const };
+        const now = Date.now();
+        if (verification.purpose === "signup") {
+          transaction.update(accountRef, { emailVerifiedAt: now, updatedAt: now });
+          return { outcome: "verified" as const, account: { ...account, emailVerifiedAt: now } };
+        }
+        if (owner && owner !== account.id) {
+          transaction.update(accountRef, { pendingEmail: FieldValue.delete(), updatedAt: now });
+          return { outcome: "taken" as const };
+        }
+        const previousEmail = account.user.email.trim().toLowerCase();
+        const user = { ...account.user, email: verification.email };
+        transaction.set(emailRef, { accountId: account.id, email: verification.email });
+        transaction.update(accountRef, {
+          user, emailVerifiedAt: now, pendingEmail: FieldValue.delete(),
+          previousEmails: FieldValue.arrayUnion(previousEmail), updatedAt: now,
+        });
+        return { outcome: "verified" as const, account: { ...account, user, emailVerifiedAt: now, pendingEmail: null }, emailChanged: true };
+      });
+
+      if (result.outcome === "invalid") {
+        res.status(400).json({ error: "This link is invalid or has expired. You can request a new one from your account." });
+        return;
+      }
+      if (result.outcome === "taken") {
+        res.status(409).json({ error: "That email is now used by another account, so it could not be added." });
+        return;
+      }
+      logger.info("Email verified", { accountId: result.account.id, emailChanged: !!result.emailChanged });
+      if (result.emailChanged) await AccountService.syncProfileElsewhere(result.account);
+      res.json({ account: publicProfile(result.account) });
+    } catch (error: unknown) {
+      logger.error("Unable to verify email", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to verify your email right now." });
+    }
+  }
+
+  /** Resends the link for a pending email change, or for an unverified account email. */
+  static async resendVerification(req: Request, res: Response): Promise<void> {
+    try {
+      const session = await sessionAccount(req);
+      const current = session ? await storedAccount(session.id) : null;
+      if (!current) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const target: { email: string; purpose: EmailVerificationPurpose } | null = current.pendingEmail
+        ? { email: current.pendingEmail, purpose: "change" }
+        : !isEmailVerified(current) ? { email: current.user.email, purpose: "signup" } : null;
+      if (!target) {
+        res.status(400).json({ error: "Your email is already verified." });
+        return;
+      }
+      if (verificationCooldownActive(current)) {
+        res.status(429).json({ error: "Please wait a minute before requesting another confirmation email." });
+        return;
+      }
+      await sendVerificationEmail(current, target.email, target.purpose, req.header("Origin"));
+      res.json({ sentTo: target.email });
+    } catch (error: unknown) {
+      logger.error("Unable to resend verification email", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to send the confirmation email right now." });
+    }
+  }
+
+  /** Changes the password after checking the current one, then signs out every other session. */
+  static async changePassword(req: Request, res: Response): Promise<void> {
+    try {
+      const session = await sessionAccount(req);
+      const current = session ? await storedAccount(session.id) : null;
+      const sessionToken = req.header("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+      if (!current || !sessionToken) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const currentPassword = String(req.body?.currentPassword || "");
+      const newPassword = String(req.body?.newPassword || "");
+      if (newPassword.length < 8) {
+        res.status(400).json({ error: "Choose a new password of at least 8 characters." });
+        return;
+      }
+      if (!(await passwordMatches(currentPassword, current.passwordHash))) {
+        res.status(403).json({ error: "Your current password is incorrect." });
+        return;
+      }
+      if (await passwordMatches(newPassword, current.passwordHash)) {
+        res.status(400).json({ error: "Choose a password different from your current one." });
+        return;
+      }
+      await database().collection("accounts").doc(current.id).update({
+        passwordHash: await createPasswordHash(newPassword),
+        passwordChangedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      const signedOutSessions = await accounts().deleteSessionsExcept(current.id, sessionToken);
+      logger.info("Account password changed", { accountId: current.id, signedOutSessions });
+      res.json({ signedOutSessions });
+    } catch (error: unknown) {
+      logger.error("Unable to change password", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to change your password right now." });
     }
   }
 

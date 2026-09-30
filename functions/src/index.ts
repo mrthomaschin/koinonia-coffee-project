@@ -12,6 +12,7 @@ import { StripeService } from "./services/stripe_services";
 import { getShippingRates, purchaseShipment } from "./services/easypost_service";
 import { AccountService, getAllEventsCalendarDetails, refreshAllEventsCalendar } from "./services/account_service";
 import { getDatabase } from "./integrations/firebase_admin";
+import { ALLOWED_ORIGINS } from "./config/site";
 import { RenewalFulfillmentUseCase } from "./application/renewal_fulfillment_use_case";
 
 // Load .env.local for development (emulator only)
@@ -127,14 +128,7 @@ const syncInventoryToCache = async (): Promise<void> => {
 const app = express();
 
 // Configure CORS for deployed environment (v2)
-const allowedOrigins = [
-  'https://koinoniacoffeeproject.com',
-  'https://koinonia-coffee-project.web.app',
-  'http://localhost:3001',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5001'
-];
+const allowedOrigins = ALLOWED_ORIGINS;
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -242,6 +236,9 @@ app.post("/account/subscriptions/:subscriptionId/add-on", AccountService.addSubs
 app.get("/account/details", AccountService.getDetails);
 app.post("/account/details", AccountService.updateProfile);
 app.post("/account/addresses", AccountService.updateAddresses);
+app.post("/account/verify-email", AccountService.verifyEmail);
+app.post("/account/verify-email/resend", AccountService.resendVerification);
+app.post("/account/password", AccountService.changePassword);
 app.post("/account/logout", AccountService.logout);
 
 // One-way Firestore -> Notion projection. Notion is an operations view only;
@@ -542,7 +539,12 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_ORDER_PICKUP_DATABASE_ID",
     "NOTION_ALL_EVENTS_DATABASE_ID",
     "PICTIFY_API_KEY",
-    "PICTIFY_RECEIPT_TEMPLATE_UID"
+    "PICTIFY_RECEIPT_TEMPLATE_UID",
+    // Account email verification
+    "EMAILJS_SERVICE_ID",
+    "EMAILJS_PUBLIC_KEY",
+    "EMAILJS_PRIVATE_KEY",
+    "EMAILJS_VERIFY_EMAIL_TEMPLATE_ID"
   ];
 }
 export const api = onRequest(apiOptions, app);

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { SavedAddresses } from '../models/AccountModel';
-import { AccountProfile, accountService, AuthResponse, CreateAccountInput, UpdateAddressesInput, UpdateProfileInput } from '../services/accountService';
+import { AccountProfile, accountService, AuthResponse, ChangePasswordInput, CreateAccountInput, UpdateAddressesInput, UpdateProfileInput } from '../services/accountService';
 
 interface AccountContextType {
   account: AccountProfile | null;
@@ -9,9 +9,17 @@ interface AccountContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  createAccount: (input: CreateAccountInput) => Promise<void>;
-  updateProfile: (input: UpdateProfileInput) => Promise<void>;
+  // Resolves to whether the verification email was sent.
+  createAccount: (input: CreateAccountInput) => Promise<{ verificationSent: boolean }>;
+  // verificationSent is present when the update requested a new email.
+  updateProfile: (input: UpdateProfileInput) => Promise<{ verificationSent?: boolean }>;
   updateAddresses: (input: UpdateAddressesInput) => Promise<void>;
+  // Resends the link for a pending or unverified email; resolves to the address it was sent to.
+  resendVerification: () => Promise<string>;
+  // Resolves to how many other devices were signed out.
+  changePassword: (input: ChangePasswordInput) => Promise<number>;
+  // Applies a profile returned by an email verification link when it is this browser's account.
+  applyVerifiedAccount: (profile: AccountProfile) => void;
   logout: () => Promise<void>;
   token: string | null;
 }
@@ -87,18 +95,31 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     login: async (username, password) => saveSession(await accountService.login(username, password)),
     createAccount: async (input) => {
       const previousToken = token;
-      const session = await accountService.createAccount(input);
+      const { verificationSent, ...session } = await accountService.createAccount(input);
       saveSession(session);
       // Replace the browser session with the newly created account, then
       // revoke the previous session so it cannot remain active elsewhere.
       if (previousToken && previousToken !== session.token) {
         await accountService.logout(previousToken).catch(() => undefined);
       }
+      return { verificationSent };
     },
     updateProfile: async (input) => {
       if (!token) throw new Error('Your session has expired. Please log in again.');
-      const { account: updated } = await accountService.updateProfile(token, input);
+      const { account: updated, verificationSent } = await accountService.updateProfile(token, input);
       saveSession({ account: updated, token });
+      return { verificationSent };
+    },
+    resendVerification: async () => {
+      if (!token) throw new Error('Your session has expired. Please log in again.');
+      return (await accountService.resendVerification(token)).sentTo;
+    },
+    changePassword: async (input) => {
+      if (!token) throw new Error('Your session has expired. Please log in again.');
+      return (await accountService.changePassword(token, input)).signedOutSessions;
+    },
+    applyVerifiedAccount: (profile) => {
+      if (token && account?.id === profile.id) saveSession({ account: profile, token });
     },
     updateAddresses: async (input) => {
       if (!token) throw new Error('Your session has expired. Please log in again.');

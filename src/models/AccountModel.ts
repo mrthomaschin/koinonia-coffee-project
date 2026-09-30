@@ -40,6 +40,10 @@ export interface Account {
     username: string;
     password: string;
     label: AccountLabel;
+    // False until the email is confirmed through an emailed link.
+    emailVerified: boolean;
+    // A requested new email; it replaces user.email once its link is confirmed.
+    pendingEmail?: string;
 }
 
 export interface Subscription {

@@ -14,6 +14,7 @@ import { PAGES, LAYOUT } from './util/constants';
 import { isPageEnabled } from './util/devConfig';
 import './App.css';
 import Catering from './pages/catering/Catering';
+import { cateringSubpages } from './pages/catering/subpages';
 import Calendar, { EventDetail } from './pages/calendar/Calendar';
 import Shop from './pages/shop/ShopView';
 import { ItemView } from './pages/shop/item/ItemView';
@@ -28,6 +29,7 @@ import AccountSubscriptionsPage from './pages/account/AccountSubscriptionsPage';
 import AccountDetailsPage from './pages/account/AccountDetailsPage';
 import PartnerStorePage from './pages/account/PartnerStorePage';
 import AccountLoginPage from './pages/account/AccountLoginPage';
+import VerifyEmailPage from './pages/account/VerifyEmailPage';
 import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
 import Gallery from './pages/gallery/Gallery';
@@ -65,7 +67,7 @@ const MainContent: React.FC = () => {
       <NotificationBar enabled={true} message="Free shipping on orders over $40" />
       <AppBar />
       <div className="main-content">
-        {(/^(\/account(?:\/|$)|\/account-login$|\/create-account$|\/create-partner-account$|\/cart$|\/order-confirmation$)/).test(location.pathname) && (
+        {(/^(\/account(?:\/|$)|\/account-login$|\/create-account$|\/create-partner-account$|\/verify-email$|\/cart$|\/order-confirmation$)/).test(location.pathname) && (
           <SEO title="Koinonia Coffee Project" description="Koinonia Coffee Project account and order page." path={location.pathname} noIndex />
         )}
         <Routes>
@@ -110,6 +112,19 @@ const MainContent: React.FC = () => {
               )
             }
           />
+          {cateringSubpages.map(({ path, Component }) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                isPageEnabled(PAGES.CATERING) ? (
+                  <Component availableHeight={availableHeight} />
+                ) : (
+                  <ComingSoon availableHeight={availableHeight} />
+                )
+              }
+            />
+          ))}
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/calendar/:eventId" element={<EventDetail />} />
           <Route
@@ -158,6 +173,7 @@ const MainContent: React.FC = () => {
             <Route path="partner-store" element={<PartnerStorePage />} />
           </Route>
           <Route path="/account-login" element={<AccountLoginPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/partner-account" element={<Navigate to="/account-login" replace />} />
           <Route path="/create-account" element={<AccountPage initialMode="create" />} />
           <Route path="/create-partner-account" element={<AccountPage initialMode="create" partnerMode />} />

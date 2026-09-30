@@ -41,6 +41,12 @@
 .account-form-actions .account-submit { padding-inline: 28px; }
 .account-hint { margin: -8px 0 0; color: #77737a; font-size: 11.52px; line-height: 1.45; }
 .account-detail-card .account-success { min-height: 0; margin: -6px 0 14px; color: #68714b; }
+.account-pending { margin: -4px 0 16px; padding: 12px 14px; border-left: 2px solid #84825e; background: #eeeadf; }
+.account-detail-card .account-pending p { min-height: 0; margin: 0 0 10px; }
+.account-verify-banner { margin: 0 0 30px; padding: 16px 18px; border: 1px solid #d3cdc0; border-left: 3px solid #313d66; background: #eeeadf; }
+.account-verify-banner p { margin: 0 0 10px; color: #2f2b39; font-size: 12.8px; line-height: 1.5; }
+.account-verify-banner .account-success, .account-verify-banner .account-error { margin: 0 0 10px; }
+.account-verify-continue { width: 100%; margin-top: 24px; }
 .account-subscriptions { margin-top: 40px; padding-top: 26px; border-top: 1px solid #c9c3b7; }
 .account-subscriptions-active { margin-top: 0; padding-top: 0; border-top: 0; }
 .account-subscriptions h2 { font-size: 26.4px; }
@@ -53,6 +59,7 @@
 .account-cancel { padding: 0; border: 0; background: none; color: #a62929; font: inherit; text-decoration: underline; cursor: pointer; }
 .subscription-actions .account-cancel:first-child { color: #313d66; }
 .account-empty { color: #68656c; font-size: 13.12px; }
+.account-success { margin: 0; color: #68714b; font: 12px 'RethinkSans-Regular', sans-serif; line-height: 1.45; letter-spacing: .02em; }
 .account-error { margin: 0; color: #a62929; font: 12px 'RethinkSans-Regular', sans-serif; line-height: 1.45; letter-spacing: .02em; }
 .account-login-wrap { display: flex; justify-content: center; padding: 56px 24px 80px; }
 .account-login-card { width: min(100%, 470px); padding: 38px 42px 42px; border: 1px solid #d3cdc0; }

@@ -47,6 +47,16 @@ export class AccountRepository {
     return data;
   }
 
+  /** Signs the account out everywhere except the session making the request. */
+  async deleteSessionsExcept(accountId: string, keepToken: string): Promise<number> {
+    const sessions = await this.db.collection("account_sessions").where("accountId", "==", accountId).get();
+    const others = sessions.docs.filter((session) => session.id !== keepToken);
+    const batch = this.db.batch();
+    others.forEach((session) => batch.delete(session.ref));
+    if (others.length) await batch.commit();
+    return others.length;
+  }
+
   async deleteSession(token: string): Promise<void> {
     await this.db.collection("account_sessions").doc(token).delete();
   }
