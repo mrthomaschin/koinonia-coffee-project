@@ -19,6 +19,21 @@ export const ACCOUNT_LABEL_PARENTS: Record<AccountLabel, AccountLabel | null> = 
     'church-ministry': 'partner',
 };
 
+/** A saved postal address, in the same shape Stripe's AddressElement uses. */
+export interface SavedAddress {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+}
+
+export interface SavedAddresses {
+    shipping: SavedAddress | null;
+    billing: SavedAddress | null;
+}
+
 export interface Account {
     id: string;
     user: User;

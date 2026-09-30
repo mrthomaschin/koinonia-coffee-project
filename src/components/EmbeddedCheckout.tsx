@@ -11,6 +11,7 @@ import { SHIPPING_RESTRICTION_MESSAGE, cartContainsCoffee } from '../services/sh
 import { validateStripeAddress, type AddressValidationResult } from '../services/addressValidationService';
 import { notionService, type OrderPickupOption } from '../services/notionService';
 import { useAccount } from '../contexts/AccountContext';
+import { SavedAddress } from '../models/AccountModel';
 import './EmbeddedCheckout.css';
 
 const logger = createLogger('EmbeddedCheckout');
@@ -67,7 +68,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { account } = useAccount();
+  const { account, savedAddresses } = useAccount();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(true);
@@ -115,6 +116,27 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     if (accountName && !customerName) setCustomerName(accountName);
     if (account.user.email && !customerEmail) setCustomerEmail(account.user.email);
   }, [account, customerEmail, customerName]);
+
+  // Saved account addresses prefill Stripe's address forms. Stripe reads
+  // defaultValues only when an element mounts, so the elements are keyed to
+  // remount once the saved addresses arrive.
+  const accountFullName = account ? `${account.user.firstName} ${account.user.lastName}`.trim() : '';
+  const savedAddressesKey = savedAddresses ? 'saved' : 'blank';
+  const addressDefaults = (address?: SavedAddress | null) => address
+    ? { defaultValues: { name: accountFullName, address: { ...address, line2: address.line2 || null } } }
+    : {};
+
+  const updateBillingAddress = (address?: { line1: string; line2: string | null; city: string; state: string; postal_code: string; country: string }) => {
+    if (!address) return;
+    setBillingAddress([
+      address.line1,
+      address.line2,
+      address.city,
+      address.state,
+      address.postal_code,
+      address.country,
+    ].filter(Boolean).join(', '));
+  };
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -990,11 +1012,16 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <div className="address-section">
               <h3>Shipping Address</h3>
               <AddressElement
-                options={{ mode: 'shipping' }}
+                key={`shipping-${savedAddressesKey}`}
+                options={{ mode: 'shipping', ...addressDefaults(savedAddresses?.shipping) }}
                 onChange={handleAddressChange}
-                onReady={() => {
+                onReady={(element) => {
                   logger.log('[stripe] Shipping address element ready');
                   setElementsMounted(prev => ({ ...prev, shipping: true }));
+                  // A complete saved address needs rates and tax without the customer editing it.
+                  void element.getValue().then(({ complete, value }) => {
+                    if (complete) void handleAddressChange({ complete, value });
+                  });
                 }}
               />
               {!elementsMounted.shipping && <div className="debug-info">Shipping address loading...</div>}
@@ -1028,22 +1055,13 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         <div className="address-section">
           <h3>Billing Address</h3>
               <AddressElement
-                options={{ mode: 'billing' }}
-                onChange={(event) => {
-                  const address = event.value?.address;
-                  if (!address) return;
-                  setBillingAddress([
-                    address.line1,
-                    address.line2,
-                    address.city,
-                    address.state,
-                    address.postal_code,
-                    address.country,
-                  ].filter(Boolean).join(', '));
-                }}
-                onReady={() => {
+                key={`billing-${savedAddressesKey}`}
+                options={{ mode: 'billing', ...addressDefaults(savedAddresses?.billing) }}
+                onChange={(event) => updateBillingAddress(event.value?.address)}
+                onReady={(element) => {
               logger.log('[stripe] Billing address element ready');
               setElementsMounted(prev => ({ ...prev, billing: true }));
+              void element.getValue().then(({ value }) => updateBillingAddress(value?.address));
             }}
           />
           {!elementsMounted.billing && <div className="debug-info">Billing address loading...</div>}

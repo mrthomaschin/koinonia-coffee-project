@@ -1,4 +1,4 @@
-import { Account, AccountLabel, Subscription, SubscriptionPlan } from '../models/AccountModel';
+import { Account, AccountLabel, SavedAddress, SavedAddresses, Subscription, SubscriptionPlan } from '../models/AccountModel';
 import { Order } from '../models/OrderModel';
 
 type AccountProfile = Omit<Account, 'password' | 'orders'>;
@@ -15,6 +15,20 @@ interface CreateAccountInput {
   username: string;
   password: string;
   label?: AccountLabel;
+}
+
+interface UpdateProfileInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  // Required only when the email changes.
+  currentPassword?: string;
+}
+
+// Omit a field to leave it unchanged; null removes the saved address.
+interface UpdateAddressesInput {
+  shippingAddress?: SavedAddress | null;
+  billingAddress?: SavedAddress | null;
 }
 
 class AccountService {
@@ -38,6 +52,26 @@ class AccountService {
 
   createAccount(input: CreateAccountInput): Promise<AuthResponse> {
     return this.request('/account/create', { method: 'POST', body: JSON.stringify(input) });
+  }
+
+  getDetails(token: string): Promise<{ account: AccountProfile; addresses: SavedAddresses }> {
+    return this.request('/account/details', { headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  updateProfile(token: string, input: UpdateProfileInput): Promise<{ account: AccountProfile }> {
+    return this.request('/account/details', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    });
+  }
+
+  updateAddresses(token: string, input: UpdateAddressesInput): Promise<{ addresses: SavedAddresses }> {
+    return this.request('/account/addresses', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    });
   }
 
   getOrders(token: string): Promise<{ orders: Order[] }> {
@@ -102,4 +136,4 @@ class AccountService {
 }
 
 export const accountService = new AccountService();
-export type { AccountProfile, CreateAccountInput, AuthResponse };
+export type { AccountProfile, CreateAccountInput, AuthResponse, UpdateProfileInput, UpdateAddressesInput };

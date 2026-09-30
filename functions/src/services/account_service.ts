@@ -65,8 +65,24 @@ export interface AccountProfile {
 
 interface StoredAccount extends AccountProfile {
   passwordHash: string;
+  // Emails this account used before. They stay reserved to the account so
+  // order history recorded under them remains linked and cannot be claimed.
+  previousEmails?: string[];
+  phone?: string;
+  billing?: { stripeCustomerId?: string | null; stripePaymentMethodId?: string | null };
+  // Subscription renewals ship to shippingAddressData; shippingAddress is its display form.
+  shippingAddressData?: ShippingAddressData | null;
+  shippingAddress?: string | null;
+  billingAddressData?: ShippingAddressData | null;
 }
 
+/** Saved addresses returned to the signed-in account holder, never cached in the browser. */
+interface SavedAddresses {
+  shipping: ShippingAddressData | null;
+  billing: ShippingAddressData | null;
+}
+
+/** A postal address, used for both shipping and billing. */
 interface ShippingAddressData {
   line1: string;
   line2: string;
@@ -340,6 +356,22 @@ const normalizedShippingAddress = (value: unknown): ShippingAddressData | null =
   if (!line1 || !city || !state || !postalCode || !country) return null;
   return { line1, line2: String(input.line2 || "").trim().slice(0, 200), city, state, postal_code: postalCode, country };
 };
+
+/** Matches the display format checkout stores for shipping addresses. */
+const formatAddress = (address: ShippingAddressData): string =>
+  [address.line1, address.line2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(", ");
+
+const savedAddresses = (account: StoredAccount): SavedAddresses => ({
+  shipping: account.shippingAddressData || null,
+  billing: account.billingAddressData || null,
+});
+
+/** Current email first, then earlier emails, for order-history lookups. */
+const accountEmails = (account: StoredAccount): string[] =>
+  [...new Set([account.user.email, ...(account.previousEmails || [])].map((email) => email.trim().toLowerCase()).filter(Boolean))];
+
+const storedAccount = async (accountId: string): Promise<StoredAccount | null> =>
+  await accounts().findById(accountId, DEFAULT_ACCOUNT_LABEL) as StoredAccount | null;
 
 const text = (property: any): string => {
   if (!property) return "";
@@ -970,9 +1002,12 @@ export class AccountService {
       const accountOrderSnapshots = await db.collection("orders").where("accountId", "==", account.id).get();
       const firestoreOrders = accountOrderSnapshots.docs.map((document) => document.data() as Order);
       const notionDatabaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+      const stored = await storedAccount(account.id);
+      const emailFilters = (stored ? accountEmails(stored) : [account.user.email])
+        .map((email) => ({ property: "Email", email: { equals: email } }));
       const notionOrders: Order[] = !notionDatabaseId ? [] : (await getNotion().databases.query({
         database_id: notionDatabaseId,
-        filter: { property: "Email", email: { equals: account.user.email } },
+        filter: emailFilters.length === 1 ? emailFilters[0] : { or: emailFilters },
         sorts: [{ property: "Order created", direction: "descending" }],
       })).results.map((page: any) => {
         const properties = page.properties || {};
@@ -1209,6 +1244,143 @@ export class AccountService {
     } catch (error: unknown) {
       logger.error("Unable to add subscription coffee", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to add coffee to your next subscription right now." });
+    }
+  }
+
+  /** Returns the signed-in account's profile and saved addresses. */
+  static async getDetails(req: Request, res: Response): Promise<void> {
+    try {
+      const session = await sessionAccount(req);
+      const account = session ? await storedAccount(session.id) : null;
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      res.json({ account: publicProfile(account), addresses: savedAddresses(account) });
+    } catch (error: unknown) {
+      logger.error("Unable to load account details", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to load your account details right now." });
+    }
+  }
+
+  /**
+   * Updates name and email. Changing the email requires the current password,
+   * keeps the old email reserved to this account, and is unavailable for
+   * partner accounts, whose pricing is matched by email.
+   */
+  static async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const session = await sessionAccount(req);
+      const current = session ? await storedAccount(session.id) : null;
+      if (!current) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const firstName = String(req.body?.firstName || "").trim().slice(0, 80);
+      const lastName = String(req.body?.lastName || "").trim().slice(0, 80);
+      const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 254);
+      const currentPassword = String(req.body?.currentPassword || "");
+      if (!firstName || !lastName || !/^\S+@\S+\.\S+$/.test(email)) {
+        res.status(400).json({ error: "Enter your first name, last name, and a valid email." });
+        return;
+      }
+      const previousEmail = current.user.email.trim().toLowerCase();
+      const emailChanged = email !== previousEmail;
+      if (emailChanged && isPartnerLabel(current.label)) {
+        res.status(403).json({ error: "Please contact us to change the email on a partner account." });
+        return;
+      }
+      if (emailChanged && !(await passwordMatches(currentPassword, current.passwordHash))) {
+        res.status(403).json({ error: "Enter your current password to change your email." });
+        return;
+      }
+
+      const accountRef = database().collection("accounts").doc(current.id);
+      const user = { firstName, lastName, email };
+      const updated = await database().runTransaction(async (transaction) => {
+        if (emailChanged) {
+          const emailRef = database().collection("account_emails").doc(Buffer.from(email).toString("base64url"));
+          const owner = (await transaction.get(emailRef)).data()?.accountId;
+          if (owner && owner !== current.id) return false;
+          transaction.set(emailRef, { accountId: current.id, email });
+        }
+        transaction.update(accountRef, {
+          user,
+          ...(emailChanged ? { previousEmails: FieldValue.arrayUnion(previousEmail) } : {}),
+          updatedAt: Date.now(),
+        });
+        return true;
+      });
+      if (!updated) {
+        res.status(409).json({ error: "That email is already in use." });
+        return;
+      }
+      logger.info("Account profile updated", { accountId: current.id, emailChanged });
+
+      await AccountService.syncProfileElsewhere({ ...current, user });
+      res.json({ account: publicProfile({ ...current, user }) });
+    } catch (error: unknown) {
+      logger.error("Unable to update account profile", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to update your details right now." });
+    }
+  }
+
+  /**
+   * Best-effort: keeps Stripe receipts and the Notion subscription view on the
+   * account's current name and email. Firestore is already updated, so a
+   * failure here is logged rather than failing the request.
+   */
+  private static async syncProfileElsewhere(account: StoredAccount): Promise<void> {
+    const { firstName, lastName, email } = account.user;
+    const stripeCustomerId = account.billing?.stripeCustomerId;
+    const results = await Promise.allSettled([
+      ...(stripeCustomerId ? [getStripe().customers.update(stripeCustomerId, { email, name: `${firstName} ${lastName}` })] : []),
+      subscriptions().listForAccount(account.id).then((snapshots) =>
+        Promise.all(snapshots.map((snapshot) => AccountService.syncSubscriptionMirrorById(snapshot.id)))),
+    ]);
+    results.forEach((result) => {
+      if (result.status === "rejected") logger.error("Unable to sync updated profile", { accountId: account.id, error: (result.reason as Error).message });
+    });
+  }
+
+  /**
+   * Saves shipping and billing addresses. A field left out is unchanged; null
+   * removes it. Subscription renewals ship to the saved shipping address.
+   */
+  static async updateAddresses(req: Request, res: Response): Promise<void> {
+    try {
+      const session = await sessionAccount(req);
+      const current = session ? await storedAccount(session.id) : null;
+      if (!current) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const update: Record<string, unknown> = {};
+      for (const [field, dataField] of [["shippingAddress", "shippingAddressData"], ["billingAddress", "billingAddressData"]] as const) {
+        const input = req.body?.[field];
+        if (input === undefined) continue;
+        const address = input === null ? null : normalizedShippingAddress(input);
+        if (input !== null && !address) {
+          res.status(400).json({ error: `Enter a complete ${field === "shippingAddress" ? "shipping" : "billing"} address.` });
+          return;
+        }
+        update[dataField] = address;
+        if (field === "shippingAddress") update.shippingAddress = address ? formatAddress(address) : null;
+      }
+      if (update.shippingAddressData === null) {
+        const shipsToAccount = (await subscriptions().listForAccount(current.id))
+          .some((snapshot) => snapshot.data()?.status === "active" && !snapshot.data()?.isLocalPickup);
+        if (shipsToAccount) {
+          res.status(400).json({ error: "Your active subscription ships to this address. Update it instead of removing it." });
+          return;
+        }
+      }
+      await database().collection("accounts").doc(current.id).update({ ...update, updatedAt: Date.now() });
+      logger.info("Account addresses updated", { accountId: current.id, fields: Object.keys(update) });
+      res.json({ addresses: savedAddresses({ ...current, ...update } as StoredAccount) });
+    } catch (error: unknown) {
+      logger.error("Unable to update account addresses", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to save your addresses right now." });
     }
   }
 
