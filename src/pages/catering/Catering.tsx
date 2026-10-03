@@ -16,11 +16,11 @@ const cateringFaqs = [
   },
   {
     question: 'How do you price your packages?',
-    answer: 'Pricing is tailored to your event based on service length, guest count, and destination. Add-ons can be included in your custom quote, along with the equipment, travel, and staffing needed for your event.',
+    answer: 'Pricing is based on guest count, service length, and travel, and includes the staffing, equipment, and ingredients your event needs. Most events range from $800 to $3,000. Please choose your full service time when you request a quote.',
   },
   {
     question: 'What add-ons are available?',
-    answer: 'You can add custom cups, portable power, or additional service hours. Share your preferences in the quote form and we’ll include them in your custom quote.',
+    answer: 'You can add our Selah Decaf Blend, an additional barista, custom cups, custom cart branding, or a latte printer. Select them in the quote form and we’ll include them in your custom quote.',
   },
   {
     question: 'What is included in the coffee bar?',
@@ -28,11 +28,11 @@ const cateringFaqs = [
   },
   {
     question: 'Can you set up outside?',
-    answer: 'Yes! Our mobile coffee cart can set up at outdoor events. We can run our full service on portable power when an outlet is not accessible.',
+    answer: 'Yes! Our cart is fully self-contained with portable power included, so we can set up almost anywhere, no outlet needed.',
   },
   {
     question: 'Do you offer service for night events?',
-    answer: 'Yes. We can swap in our signature decaf blend so your guests can enjoy the same coffee bar experience later in the day.',
+    answer: 'Yes. We serve both daytime and evening events. For later gatherings, add our Selah Decaf Blend, served alongside our Koin Blend, so guests can enjoy the same coffee bar experience without the caffeine.',
   },
   {
     question: 'How do I get a quote?',
@@ -150,7 +150,7 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight, 
       </section>
 
       <section className="catering-inquiry" id="catering-inquiry">
-        <div className="inquiry-copy"><Eyebrow>GET STARTED</Eyebrow><h2>Get an instant quote for your next event.</h2><p>Fill out the form to the right with a few details about your event, and we'll follow up with a custom quote, unlimited drinks included.</p></div>
+        <div className="inquiry-copy"><Eyebrow>GET STARTED</Eyebrow><h2>Get your custom quote.</h2><p>Share a few details about your event, and we'll follow up with your custom quote, unlimited drinks included.</p></div>
         <div className="catering-form-embed"><FlashquotesEmbed /></div>
       </section>
 
@@ -175,16 +175,19 @@ const Catering: React.FC<CateringProps> = ({ availableHeight: _availableHeight, 
         <div className="experience-copy">
           <Eyebrow>THE EXPERIENCE</Eyebrow>
           <h2>Everything you need, thoughtfully covered.</h2>
-          <p>Our standard espresso bar features hot and iced lattes, mochas, and Americanos, as well as matcha and hojicha drinks. We offer whole and oat milk, vanilla syrup, and a caffeine-free hot chocolate option, with Lactaid available for guests with lactose intolerance.</p>
+          <p>Our standard espresso bar features hot and iced lattes, mochas, and Americanos, as well as matcha and hojicha drinks. We offer whole and oat milk, house-made vanilla syrup, and a caffeine-free hot chocolate option, with Lactaid available for guests with lactose intolerance.</p>
           <div className="experience-details">
             <div className="experience-details-heading"><Eyebrow>INCLUDED</Eyebrow></div>
             <div><strong>Espresso bar</strong></div>
             <div><strong>Unlimited drinks</strong></div>
             <div><strong>Matcha / Hojicha Bar</strong></div>
-            <div className="experience-details-heading experience-addons-heading"><Eyebrow>OPTIONAL ADD-ONS</Eyebrow></div>
-            <div><strong>Custom Cups</strong></div>
             <div><strong>Portable Power</strong></div>
-            <div><strong>Additional Hours</strong></div>
+            <div className="experience-details-heading experience-addons-heading"><Eyebrow>OPTIONAL ADD-ONS</Eyebrow></div>
+            <div><strong>Selah Decaf Blend</strong></div>
+            <div><strong>Additional Barista</strong></div>
+            <div><strong>Custom Cups</strong></div>
+            <div><strong>Custom Branded Cart</strong></div>
+            <div><strong>Latte Printer</strong></div>
           </div>
         </div>
         <div className="experience-image">
