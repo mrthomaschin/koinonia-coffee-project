@@ -11,12 +11,20 @@ const cateringFaqs = [
     answer: 'We cater events throughout the greater Los Angeles area, including Los Angeles County, Orange County, and the Inland Empire.',
   },
   {
+    question: 'Is there a travel fee?',
+    answer: 'Travel is $1 per mile, round trip from our base in Lawndale, and is included in your custom quote. For most events in Los Angeles, that comes to about $20–$40.',
+  },
+  {
     question: 'What kinds of events do you cater?',
     answer: 'Our mobile coffee cart is available for weddings, markets, corporate events, private gatherings, and more.',
   },
   {
     question: 'How do you price your packages?',
     answer: 'Pricing is based on guest count, service length, and travel, and includes the staffing, equipment, and ingredients your event needs. Most events range from $800 to $3,000. Please choose your full service time when you request a quote.',
+  },
+  {
+    question: 'How far in advance should I book?',
+    answer: 'We recommend booking as early as you can, since each date can only go to one event. We need at least 4 days’ notice to prepare your coffee bar, and events booked within 10 days of the event date include a 10% short-notice fee.',
   },
   {
     question: 'What add-ons are available?',
