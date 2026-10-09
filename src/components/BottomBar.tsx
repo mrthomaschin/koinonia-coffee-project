@@ -13,6 +13,8 @@ const BottomBar: React.FC = () => (
       <nav className="bottom-bar-section" aria-label="Company">
         <h2 className="section-title">COMPANY</h2>
         <Link className="section-link" to={`/${PAGES.ABOUT}`}>About</Link>
+        <Link className="section-link" to={`/${PAGES.CHURCH_PARTNERSHIP}`}>Church partnerships</Link>
+
       </nav>
 
       <nav className="bottom-bar-section" aria-label="Account">

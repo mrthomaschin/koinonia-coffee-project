@@ -33,6 +33,7 @@ import VerifyEmailPage from './pages/account/VerifyEmailPage';
 import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
 import Gallery from './pages/gallery/Gallery';
+import ChurchPartnership from './pages/church-partnership/ChurchPartnership';
 import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages/legal/LegalPage';
 
 const MainContent: React.FC = () => {
@@ -125,6 +126,7 @@ const MainContent: React.FC = () => {
               }
             />
           ))}
+          <Route path={`/${PAGES.CHURCH_PARTNERSHIP}`} element={<ChurchPartnership />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/calendar/:eventId" element={<EventDetail />} />
           <Route
