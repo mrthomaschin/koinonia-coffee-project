@@ -2,6 +2,7 @@ import { createLogger } from "../logger";
 import { getShipmentStatus } from "./easypost_service";
 import { getNotionClient } from "../integrations/notion/notion_client";
 import { sendEmailJs } from "../integrations/email/emailjs_client";
+import { orderPurchaseDate, ReviewService } from "./review_service";
 
 const logger = createLogger("email");
 
@@ -379,14 +380,29 @@ export class EmailService {
 
             const notion = getNotion();
 
-            // Query all orders (filter in code to catch old deliveries)
-            const response = await notion.databases.query({
-                database_id: databaseId,
-            });
+            // Every order still waiting on its final (delivered or picked up) email,
+            // read page by page so none are missed once there are more than 100.
+            const openOrders: any[] = [];
+            let cursor: string | undefined;
+            do {
+                const response = await notion.databases.query({
+                    database_id: databaseId,
+                    start_cursor: cursor,
+                    page_size: 100,
+                    filter: {
+                        and: [
+                            { property: "Delivered Email Sent", checkbox: { equals: false } },
+                            { property: "Picked Up Email Sent", checkbox: { equals: false } },
+                        ],
+                    },
+                });
+                openOrders.push(...response.results);
+                cursor = response.has_more ? response.next_cursor || undefined : undefined;
+            } while (cursor);
 
-            logger.info(`Found ${response.results.length} recently updated orders`);
+            logger.info(`Found ${openOrders.length} orders awaiting status emails`);
 
-            for (const page of response.results) {
+            for (const page of openOrders) {
                 if (!("properties" in page)) continue;
 
                 const properties = page.properties;
@@ -402,6 +418,7 @@ export class EmailService {
                 const customerProp = properties["Customer"];
                 const orderIdProp = properties["Order #"];
                 const itemsOrderedProp = properties["Items ordered"];
+                const itemsOrderedFormattedProp = properties["Items ordered formatted"];
                 const shippingAddressProp = properties["Shipping address"];
                 const trackingCarrierProp = properties["Tracking Carrier"];
                 const trackingInfoProp = properties["Tracking Info"];
@@ -444,6 +461,16 @@ export class EmailService {
                     logger.warn(`Order ${orderId} has no email address, skipping`);
                     continue;
                 }
+
+                const queueReviewRequest = () => ReviewService.queueReviewRequest({
+                    orderId,
+                    email: customerEmail,
+                    customerFullName,
+                    purchaseDate: orderPurchaseDate(page),
+                    itemsFormatted: itemsOrderedFormattedProp?.type === "rich_text" ?
+                        (itemsOrderedFormattedProp.rich_text as any).map((part: any) => part.plain_text).join("") : "",
+                    notionOrderPageId: page.id,
+                }).catch((error: Error) => logger.error(`Failed to queue review request for ${orderId}:`, error));
 
                 // Parse items for HTML rendering
                 const itemsHtml: string = EmailService.parseItemsToHtml(itemsOrdered);
@@ -582,6 +609,7 @@ export class EmailService {
                         });
 
                         logger.info(`✅ Delivered notification sent and Notion updated for order ${orderId}`);
+                        await queueReviewRequest();
                     } catch (error) {
                         logger.error(`Failed to send delivered notification for ${orderId}:`, error);
                     }
@@ -623,6 +651,7 @@ export class EmailService {
                         });
 
                         logger.info(`✅ Picked up notification sent and Notion updated for order ${orderId}`);
+                        await queueReviewRequest();
                     } catch (error) {
                         logger.error(`Failed to send picked up notification for ${orderId}:`, error);
                     }

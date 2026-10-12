@@ -1,6 +1,7 @@
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import { useAccount } from '../../contexts/AccountContext';
 import { SavedAddress } from '../../models/AccountModel';
+import { accountService } from '../../services/accountService';
 
 const EMPTY_ADDRESS: SavedAddress = { line1: '', line2: '', city: '', state: '', postal_code: '', country: 'US' };
 
@@ -268,10 +269,55 @@ const PasswordCard: React.FC = () => {
   </article>;
 };
 
+const EmailPreferencesCard: React.FC = () => {
+  const { token } = useAccount();
+  const [reviewRequests, setReviewRequests] = useState<boolean | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    accountService.getEmailPreferences(token)
+      .then((preferences) => setReviewRequests(preferences.reviewRequests))
+      .catch((requestError) => setError(errorMessage(requestError)));
+  }, [token]);
+
+  const toggleReviewRequests = async (enabled: boolean): Promise<void> => {
+    if (!token) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const preferences = await accountService.updateEmailPreferences(token, enabled);
+      setReviewRequests(preferences.reviewRequests);
+      setNotice(preferences.reviewRequests ? "We'll ask you to review your orders after they arrive." : "We won't send you review requests.");
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <article className="account-detail-card">
+    <h3>Email preferences</h3>
+    <p>Order confirmations and shipping updates are always sent.</p>
+    {reviewRequests === null && !error && <p>Loading…</p>}
+    {reviewRequests !== null && <div className="account-form">
+      <label className="account-checkbox">
+        <input type="checkbox" checked={reviewRequests} disabled={saving} onChange={(event) => toggleReviewRequests(event.target.checked)} />
+        Review requests after my orders arrive
+      </label>
+    </div>}
+    {notice && <p className="account-success" role="status">{notice}</p>}
+    {error && <p className="account-error" role="alert">{error}</p>}
+  </article>;
+};
+
 const AccountDetailsPage: React.FC = () => {
   const { account } = useAccount();
   if (!account) return null;
-  return <><p className="account-section-kicker">Your information</p><h2>Account details</h2><div className="account-detail-grid"><ContactCard /><AddressesCard /><PasswordCard /></div></>;
+  return <><p className="account-section-kicker">Your information</p><h2>Account details</h2><div className="account-detail-grid"><ContactCard /><AddressesCard /><PasswordCard /><EmailPreferencesCard /></div></>;
 };
 
 export default AccountDetailsPage;

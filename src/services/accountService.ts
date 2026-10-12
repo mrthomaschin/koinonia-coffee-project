@@ -105,6 +105,23 @@ class AccountService {
     return this.request('/account/orders', { headers: { Authorization: `Bearer ${token}` } });
   }
 
+  /** The review page path for one of the account's delivered orders. */
+  getOrderReviewPath(token: string, orderId: string): Promise<{ path: string }> {
+    return this.request(`/account/orders/${encodeURIComponent(orderId)}/review`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  getEmailPreferences(token: string): Promise<{ reviewRequests: boolean }> {
+    return this.request('/account/email-preferences', { headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  updateEmailPreferences(token: string, reviewRequests: boolean): Promise<{ reviewRequests: boolean }> {
+    return this.request('/account/email-preferences', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reviewRequests }),
+    });
+  }
+
   getSubscriptions(token: string): Promise<{ subscriptions: Subscription[] }> {
     return this.request('/account/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
   }

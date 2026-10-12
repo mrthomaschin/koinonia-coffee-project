@@ -13,7 +13,7 @@
 .account-content h2, .account-login-card h1, .account-detail-card h3 { font-family: 'HedvigLettersSerif_18pt', Georgia, serif; font-weight: 400; font-variant-ligatures: none; font-feature-settings: 'liga' 0; }
 .account-content h2 { margin: 0 0 18px; font-size: 32px; }
 .account-section-kicker { margin: 0 0 24px; color: #84825e; font-size: 10.88px; letter-spacing: .2em; text-transform: uppercase; }
-.order-row { display: grid; grid-template-columns: 1.45fr 1fr auto; align-items: center; gap: 22px; padding: 15px 0 17px; border-top: 1px solid #c9c3b7; }
+.order-row { display: grid; grid-template-columns: 1.45fr 1fr; align-items: center; gap: 22px; padding: 15px 0 17px; border-top: 1px solid #c9c3b7; }
 .order-row > div, .subscription-row > div { display: grid; gap: 5px; }
 .order-row > div:last-child, .subscription-row > div:last-child { justify-items: end; }
 .order-row strong, .subscription-row strong { font-family: 'HedvigLettersSerif_18pt', Georgia, serif; font-size: 18.88px; font-weight: 400; }
@@ -23,6 +23,8 @@
 .order-status-canceled, .order-status-cancelled { color: #a62929 !important; }
 .account-view-order, .account-link { border: 0; border-bottom: 1px solid currentColor; background: transparent; color: #313d66; font: 10.56px 'RethinkSans-Regular', sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
 .account-view-order { padding: 0 0 3px; }
+.order-review-link { justify-self: end; width: auto; margin-top: 4px; padding: 0 0 3px; }
+@media (max-width: 760px) { .order-review-link { justify-self: start; } }
 .account-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 34px; }
 .account-detail-card { min-height: 156px; padding: 23px 21px; border: 1px solid #d3cdc0; }
 .account-detail-card h3 { margin: 0 0 14px; font-size: 24.8px; }

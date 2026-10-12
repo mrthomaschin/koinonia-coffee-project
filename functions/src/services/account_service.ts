@@ -17,6 +17,8 @@ import { SubscriptionRepository } from "../repositories/subscription_repository"
 import { SubscriptionRenewalUseCase } from "../application/subscription_renewal_use_case";
 import { EmailVerification, EmailVerificationPurpose, EmailVerificationRepository } from "../repositories/email_verification_repository";
 import { siteUrlFor } from "../config/site";
+import { ReviewService } from "./review_service";
+import { findReviewedOrderIds } from "../repositories/notion_review_repository";
 
 export type AccountLabel = "consumer" | "partner" | "wholesale" | "church-ministry";
 export type PartnerAccountLabel = Extract<AccountLabel, "wholesale" | "church-ministry">;
@@ -130,6 +132,10 @@ interface Order {
   trackingLabelUrl?: string;
   shippingCarrier?: string | null;
   shippingService?: string | null;
+  // True once the order is delivered or picked up (and not refunded), so the customer can review it.
+  reviewable?: boolean;
+  // True when the customer has reviewed at least one product in the order.
+  reviewed?: boolean;
 }
 
 type PurchasedItem = NonNullable<Order["items"]>[number];
@@ -390,6 +396,13 @@ const text = (property: any): string => {
   if (property.type === "email") return property.email || "";
   if (property.type === "title") return property.title?.map((value: any) => value.plain_text).join("") || "";
   return property.rich_text?.map((value: any) => value.plain_text).join("") || "";
+};
+
+/** Delivered or picked up, and not refunded. */
+const isReviewableOrderPage = (page: any): boolean => {
+  const fulfillment = page.properties?.["Fulfillment"]?.status?.name;
+  const payment = page.properties?.["Status"]?.status?.name;
+  return (fulfillment === "Delivered" || fulfillment === "Picked up") && payment !== "Refunded";
 };
 
 const status = (property: any): Order["status"] => {
@@ -1066,12 +1079,15 @@ export class AccountService {
           status: status(properties.Status),
           paymentIntentId: text(properties["Transaction ID"]) || undefined,
           itemsSummary: text(properties["Items ordered"]) || undefined,
+          reviewable: isReviewableOrderPage(page),
         };
       });
       const notionItemsByOrderId = new Map(notionOrders.map((order) => [order.id, order.itemsSummary]));
+      const notionReviewableByOrderId = new Map(notionOrders.map((order) => [order.id, order.reviewable]));
       const enrichedFirestoreOrders = firestoreOrders.map((order) => ({
         ...order,
         itemsSummary: order.itemsSummary || notionItemsByOrderId.get(order.id),
+        reviewable: notionReviewableByOrderId.get(order.id) || false,
       }));
       const paymentIntentIds = new Set<string>();
       const orders = [...enrichedFirestoreOrders, ...notionOrders]
@@ -1083,7 +1099,13 @@ export class AccountService {
           return true;
         })
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
-      res.json({ orders });
+      // A review lookup failure shouldn't hide the order history.
+      const reviewedIds = await findReviewedOrderIds(orders.filter((order) => order.reviewable).map((order) => order.id))
+        .catch((error: Error) => {
+          logger.warn("Unable to check reviewed orders", { error: error.message });
+          return new Set<string>();
+        });
+      res.json({ orders: orders.map((order) => ({ ...order, reviewed: reviewedIds.has(order.id) })) });
     } catch (error: unknown) {
       logger.error("Unable to get account orders", { error: (error as Error).message });
       res.status(500).json({ error: "Unable to load orders right now." });
@@ -1295,6 +1317,88 @@ export class AccountService {
   }
 
   /** Returns the signed-in account's profile and saved addresses. */
+  /**
+   * POST /account/orders/:orderId/review — the review page link for one of the
+   * account's delivered orders. Works whether or not the customer gets review emails.
+   */
+  static async getOrderReviewLink(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+      if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
+      const stored = await storedAccount(account.id);
+      const emails = stored ? accountEmails(stored) : [account.user.email.toLowerCase()];
+      const page: any = (await getNotion().databases.query({
+        database_id: databaseId,
+        filter: { property: "Order #", rich_text: { equals: req.params.orderId } },
+      })).results[0];
+      const orderEmail = text(page?.properties?.["Email"]).trim().toLowerCase();
+      if (!page || !emails.includes(orderEmail)) {
+        res.status(404).json({ error: "We couldn't find that order on your account." });
+        return;
+      }
+      if (!isReviewableOrderPage(page)) {
+        res.status(409).json({ error: "You can review this order once it has been delivered or picked up." });
+        return;
+      }
+      const path = await ReviewService.reviewPathForOrderPage(page);
+      if (!path) {
+        res.status(422).json({ error: "There's nothing to review on this order." });
+        return;
+      }
+      res.json({ path });
+    } catch (error: unknown) {
+      logger.error("Unable to get order review link", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to open the review page right now." });
+    }
+  }
+
+  /** GET /account/email-preferences — which optional emails the account receives. */
+  static async getEmailPreferences(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const stored = await storedAccount(account.id);
+      const emails = stored ? accountEmails(stored) : [account.user.email];
+      res.json({ reviewRequests: !(await ReviewService.isOptedOut(emails)) });
+    } catch (error: unknown) {
+      logger.error("Unable to get email preferences", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to load your email preferences." });
+    }
+  }
+
+  /**
+   * POST /account/email-preferences — turns review request emails on or off for
+   * every email on the account. Shares the list the unsubscribe link writes to.
+   */
+  static async updateEmailPreferences(req: Request, res: Response): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res.status(401).json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      if (typeof req.body?.reviewRequests !== "boolean") {
+        res.status(400).json({ error: "reviewRequests must be true or false." });
+        return;
+      }
+      const stored = await storedAccount(account.id);
+      const emails = stored ? accountEmails(stored) : [account.user.email];
+      await ReviewService.setOptedOut(emails, !req.body.reviewRequests, `account ${account.id}`);
+      res.json({ reviewRequests: req.body.reviewRequests });
+    } catch (error: unknown) {
+      logger.error("Unable to update email preferences", { error: (error as Error).message });
+      res.status(500).json({ error: "Unable to update your email preferences." });
+    }
+  }
+
   static async getDetails(req: Request, res: Response): Promise<void> {
     try {
       const session = await sessionAccount(req);

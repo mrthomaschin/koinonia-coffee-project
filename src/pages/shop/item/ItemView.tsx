@@ -16,6 +16,7 @@ import { generateSlug } from '../shopData';
 import SEO, { SITE_URL } from '../../../components/SEO';
 import NotionBody from '../../../components/NotionBody';
 import { Eyebrow } from '../../../components/ui/Typography';
+import ProductReviews, { useProductReviews } from '../../../components/reviews/ProductReviews';
 
 interface ItemViewProps {
   availableHeight?: number;
@@ -65,6 +66,9 @@ export const ItemView: React.FC<ItemViewProps> = ({
     ? inventoryItems.filter((relatedItem) => relatedItem.sku !== item.sku).slice(0, 3)
     : [];
 
+  // Only the fully rendered detail view shows reviews; the routed wrapper
+  // delegates to Coffee/Merch detail, which renders this view again with itemProp.
+  const reviewSummary = useProductReviews(itemProp ? item?.sku : undefined);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -203,6 +207,13 @@ export const ItemView: React.FC<ItemViewProps> = ({
       price: item.price.toFixed(2),
       availability: item.quantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
     },
+    ...(reviewSummary && reviewSummary.count > 0 ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: reviewSummary.average,
+        reviewCount: reviewSummary.count,
+      },
+    } : {}),
   };
 
   const productSeo = <SEO title={`${item.name} | Koinonia Coffee Project`} description={(item.itemDetails || item.itemSummary).slice(0, 160)} path={`/shop/${generateSlug(item.name)}`} image={productImage} structuredData={productStructuredData} />;
@@ -349,6 +360,9 @@ export const ItemView: React.FC<ItemViewProps> = ({
           {renderDetailsSection ? renderDetailsSection(item) : <NotionBody content={item.itemSummary} fallback="More details about this item will be displayed here." />}
         </div>
       </div>}
+
+      <ProductReviews summary={reviewSummary} />
+
       {renderBrewingMethod && renderBrewingMethod(item)}
 
       {relatedItems.length > 0 && (

@@ -34,6 +34,8 @@ import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
 import Gallery from './pages/gallery/Gallery';
 import ChurchPartnership from './pages/church-partnership/ChurchPartnership';
+import ReviewPage from './pages/review/ReviewPage';
+import ReviewUnsubscribePage from './pages/review/ReviewUnsubscribePage';
 import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages/legal/LegalPage';
 
 const MainContent: React.FC = () => {
@@ -68,7 +70,7 @@ const MainContent: React.FC = () => {
       <NotificationBar enabled={true} message="Free shipping on orders over $40" />
       <AppBar />
       <div className="main-content">
-        {(/^(\/account(?:\/|$)|\/account-login$|\/create-account$|\/create-partner-account$|\/verify-email$|\/cart$|\/order-confirmation$)/).test(location.pathname) && (
+        {(/^(\/account(?:\/|$)|\/account-login$|\/create-account$|\/create-partner-account$|\/verify-email$|\/review(?:\/unsubscribe)?$|\/cart$|\/order-confirmation$)/).test(location.pathname) && (
           <SEO title="Koinonia Coffee Project" description="Koinonia Coffee Project account and order page." path={location.pathname} noIndex />
         )}
         <Routes>
@@ -176,6 +178,8 @@ const MainContent: React.FC = () => {
           </Route>
           <Route path="/account-login" element={<AccountLoginPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/review" element={<ReviewPage availableHeight={availableHeight} />} />
+          <Route path="/review/unsubscribe" element={<ReviewUnsubscribePage availableHeight={availableHeight} />} />
           <Route path="/partner-account" element={<Navigate to="/account-login" replace />} />
           <Route path="/create-account" element={<AccountPage initialMode="create" />} />
           <Route path="/create-partner-account" element={<AccountPage initialMode="create" partnerMode />} />

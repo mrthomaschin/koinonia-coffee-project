@@ -4,6 +4,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createLogger } from "./logger";
 import express, { Request, Response } from "express";
+import { timingSafeEqual } from "crypto";
 import cors from "cors";
 import * as dotenv from "dotenv";
 import { NotionService } from "./services/notion_services";
@@ -14,6 +15,7 @@ import { AccountService, getAllEventsCalendarDetails, refreshAllEventsCalendar }
 import { getDatabase } from "./integrations/firebase_admin";
 import { ALLOWED_ORIGINS } from "./config/site";
 import { RenewalFulfillmentUseCase } from "./application/renewal_fulfillment_use_case";
+import { MAX_REVIEW_PHOTO_BYTES, ReviewService } from "./services/review_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -197,6 +199,51 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
 // Get upcoming local pickup options from Notion
 app.get("/get-order-pickup-options", async (req: Request, res: Response) => NotionService.getOrderPickupOptions(req, res));
 
+// Product reviews (cached from Notion) and emailed review-link lookups.
+// "/reviews/request" must be registered before "/reviews/:sku".
+app.get("/reviews/request", ReviewService.handleGetReviewRequest);
+app.post("/reviews/photos", express.raw({ type: "image/*", limit: MAX_REVIEW_PHOTO_BYTES }), ReviewService.handleUploadReviewPhoto);
+/**
+ * Admin-only tools for testing review emails against live data. Every request
+ * needs "Authorization: Bearer <ADMIN_API_TOKEN>". Emails only go to ?to=, and
+ * links point to the live site.
+ */
+const requireAdmin = (req: Request, res: Response, next: () => void): void => {
+  const expected = process.env.ADMIN_API_TOKEN || "";
+  const given = req.header("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const matches = expected.length >= 32 && given.length === expected.length &&
+    timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+  if (!matches) {
+    res.status(401).json({ error: "Not authorized." });
+    return;
+  }
+  next();
+};
+const withInventory = (handler: (req: Request, res: Response) => Promise<void>) =>
+  async (req: Request, res: Response): Promise<void> => {
+    // Variant SKUs map to their parent product through the inventory cache.
+    await getInventoryWithFallback().catch(() => undefined);
+    await handler(req, res);
+  };
+// ?order=<Order #> — the review email's product list and button for an order.
+app.get("/admin/reviews/links", requireAdmin, withInventory(ReviewService.handleAdminReviewLinks));
+// ?order=<Order #>&to=<email> — sends the review email for an order to ?to= only. Changes nothing else.
+app.get("/admin/reviews/send-test-email", requireAdmin, withInventory(ReviewService.handleAdminSendTestEmail));
+// ?order=<Order #>&to=<email> — runs the daily job's next step for one order, skipping the waits.
+app.get("/admin/reviews/run", requireAdmin, withInventory(ReviewService.handleAdminRunReviewEmails));
+// Pulls the Notion reviews database into the public cache right away.
+app.get("/admin/reviews/refresh", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    res.json(await ReviewService.syncReviewsCache());
+  } catch (error: unknown) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+app.post("/reviews/submit", ReviewService.handleSubmitReview);
+app.post("/reviews/unsubscribe", ReviewService.handleUnsubscribe);
+app.post("/reviews/resubscribe", ReviewService.handleResubscribe);
+app.get("/reviews/:sku", ReviewService.handleGetProductReviews);
+
 app.get("/events", async (_req: Request, res: Response) => {
   try {
     res.json({ events: await getAllEventsCalendarDetails() });
@@ -225,6 +272,9 @@ app.post("/validate-discount-code", async (req: Request, res: Response) => Notio
 app.post("/account/login", AccountService.login);
 app.post("/account/create", AccountService.createAccount);
 app.get("/account/orders", AccountService.getOrders);
+app.post("/account/orders/:orderId/review", AccountService.getOrderReviewLink);
+app.get("/account/email-preferences", AccountService.getEmailPreferences);
+app.post("/account/email-preferences", AccountService.updateEmailPreferences);
 app.get("/account/subscriptions", AccountService.getSubscriptions);
 app.get("/account/partner-prices", AccountService.getPartnerPrices);
 app.post("/account/subscriptions", AccountService.createSubscription);
@@ -524,6 +574,49 @@ export const syncEventsCalendar = onSchedule(
   }
 );
 
+// Emails review requests 7 days after delivery/pickup, plus one reminder a week later
+export const sendReviewRequests = onSchedule(
+  {
+    schedule: "every day 10:00",
+    timeZone: "America/Los_Angeles",
+    ...(process.env.FUNCTIONS_EMULATOR !== "true" ? {
+      secrets: [
+        "NOTION_TOKEN",
+        "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
+        "EMAILJS_SERVICE_ID",
+        "EMAILJS_PUBLIC_KEY",
+        "EMAILJS_PRIVATE_KEY",
+        "EMAILJS_REVIEW_REQUEST_TEMPLATE_ID",
+      ],
+    } : {}),
+  },
+  async () => {
+    try {
+      await ReviewService.sendDueReviewRequests();
+    } catch (error) {
+      logger.error("Error sending review requests", { error: (error as Error).message });
+    }
+  }
+);
+
+// Keeps the public reviews cache in step with the Notion reviews database
+export const syncReviewsCache = onSchedule(
+  {
+    schedule: "every 30 minutes",
+    timeZone: "America/Los_Angeles",
+    ...(process.env.FUNCTIONS_EMULATOR !== "true" ? {
+      secrets: ["NOTION_TOKEN", "NOTION_PRODUCT_REVIEWS_DATABASE_ID"],
+    } : {}),
+  },
+  async () => {
+    try {
+      await ReviewService.syncReviewsCache();
+    } catch (error) {
+      logger.error("Error syncing reviews cache", { error: (error as Error).message });
+    }
+  }
+);
+
 // Export the Express app as a Firebase Functions v2 HTTP function
 const apiOptions: any = {};
 // Only add secrets in production (not in emulator)
@@ -538,13 +631,17 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_SUBSCRIPTIONS_DATABASE_ID",
     "NOTION_ORDER_PICKUP_DATABASE_ID",
     "NOTION_ALL_EVENTS_DATABASE_ID",
+    "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
     "PICTIFY_API_KEY",
     "PICTIFY_RECEIPT_TEMPLATE_UID",
     // Account email verification
     "EMAILJS_SERVICE_ID",
     "EMAILJS_PUBLIC_KEY",
     "EMAILJS_PRIVATE_KEY",
-    "EMAILJS_VERIFY_EMAIL_TEMPLATE_ID"
+    "EMAILJS_VERIFY_EMAIL_TEMPLATE_ID",
+    // Reviews
+    "EMAILJS_REVIEW_REQUEST_TEMPLATE_ID",
+    "ADMIN_API_TOKEN",
   ];
 }
 export const api = onRequest(apiOptions, app);
