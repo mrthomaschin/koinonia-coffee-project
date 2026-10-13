@@ -153,6 +153,18 @@ export const parseOrderedSkus = (itemsFormatted: string): { name: string; sku: s
   }).filter((line): line is { name: string; sku: string } => !!line);
 
 /**
+ * Finds the product for a SKU that's no longer in inventory, such as a retired
+ * one-off variant like B-KOIN-200G-VAR, through the longest current SKU it
+ * extends (B-KOIN-200G, so Koin Blend).
+ */
+const retiredVariantProduct = (sku: string, lookup: Map<string, InventoryLookup>): InventoryLookup | undefined => {
+  const base = [...lookup.keys()]
+    .filter((known) => sku.startsWith(`${known}-`))
+    .sort((a, b) => b.length - a.length)[0];
+  return base ? lookup.get(base) : undefined;
+};
+
+/**
  * The products a customer is asked to review for an order: one per product,
  * however many lines, units or sizes of it they bought. Quantity is ignored,
  * and variants (e.g. 200g and 1kg of the same coffee) share their parent's review.
@@ -160,7 +172,7 @@ export const parseOrderedSkus = (itemsFormatted: string): { name: string; sku: s
 export const reviewableItems = (itemsFormatted: string, lookup: Map<string, InventoryLookup>): ReviewRequestItem[] => {
   const items = new Map<string, ReviewRequestItem>();
   for (const line of parseOrderedSkus(itemsFormatted)) {
-    const product = lookup.get(line.sku);
+    const product = lookup.get(line.sku) || retiredVariantProduct(line.sku, lookup);
     const parentSku = product?.parentSku || line.sku;
     if (items.has(parentSku)) continue;
     items.set(parentSku, { sku: line.sku, parentSku, name: product?.name || line.name, imageUrl: product?.imageUrl || "" });
@@ -548,6 +560,116 @@ export class ReviewService {
     await checkOrderBox(orderPage, REMINDER_SENT_PROPERTY, request.orderId);
     logger.info("Sent review reminder", { orderId: request.orderId, remaining: remaining.length });
     return `sent reminder for ${remaining.map((item) => item.name).join(", ")}`;
+  }
+
+  /**
+   * Admin: asks every past delivered or picked-up order for a review, once.
+   * A dry run unless called with ?send=true. One email per order, listing only
+   * products not yet reviewed, and no reminder afterwards. Sends at most
+   * ?limit= orders per call (default 15) to stay inside the request time
+   * limit; each sent order gets "Review Request Sent" ticked, so calling it
+   * again carries on with the rest.
+   */
+  static async handleAdminBackfill(req: Request, res: Response): Promise<void> {
+    const send = req.query.send === "true";
+    const limit = Math.max(1, Math.min(25, Number(req.query.limit) || 15));
+    try {
+      const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+      if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pages: any[] = [];
+      let cursor: string | undefined;
+      do {
+        const response = await getNotionClient().databases.query({
+          database_id: databaseId,
+          start_cursor: cursor,
+          page_size: 100,
+          filter: {
+            or: [
+              { property: "Fulfillment", status: { equals: "Delivered" } },
+              { property: "Fulfillment", status: { equals: "Picked up" } },
+            ],
+          },
+          sorts: [{ property: "Order created", direction: "ascending" }],
+        });
+        pages.push(...response.results);
+        cursor = response.has_more ? response.next_cursor || undefined : undefined;
+      } while (cursor);
+
+      const lookup = await loadInventoryLookup();
+      const reviewedByOrder = new Map<string, Set<string>>();
+      for (const review of await listReviews()) {
+        const reviewed = reviewedByOrder.get(review.orderId) || new Set<string>();
+        [review.parentProductId, review.productId].filter(Boolean).forEach((sku) => reviewed.add(sku));
+        reviewedByOrder.set(review.orderId, reviewed);
+      }
+
+      const eligible: { page: unknown; orderId: string; email: string; customer: string; ordered: string; items: ReviewRequestItem[] }[] = [];
+      const skipped: { orderId: string; customer: string; reason: string }[] = [];
+      for (const page of pages) {
+        const props = page.properties || {};
+        const orderId = plainText(props["Order #"]);
+        const customer = plainText(props["Customer"]);
+        const email = props["Email"]?.type === "email" && typeof props["Email"].email === "string" ? props["Email"].email.trim() : "";
+        const skip = (reason: string) => skipped.push({ orderId: orderId || "(none)", customer, reason });
+        if (!orderId) { skip("no Order #"); continue; }
+        if (!email) { skip("no email"); continue; }
+        if (isRefunded(page)) { skip("refunded"); continue; }
+        if (isOrderChecked(page, REQUEST_SENT_PROPERTY)) { skip(`"${REQUEST_SENT_PROPERTY}" already checked`); continue; }
+        if ((await reviewRequests().doc(orderId).get()).exists) { skip("already has a review request"); continue; }
+        if ((await getDatabase().collection("orders").doc(orderId).get()).data()?.source === "subscription-renewal") {
+          skip("subscription renewal");
+          continue;
+        }
+        if (await hasOptedOut(email)) { skip("customer unsubscribed"); continue; }
+        const reviewed = reviewedByOrder.get(orderId) || new Set<string>();
+        const items = reviewableItems(plainText(props["Items ordered formatted"]), lookup)
+          .filter((item) => !reviewed.has(item.parentSku) && !reviewed.has(item.sku));
+        if (items.length === 0) { skip("nothing left to review"); continue; }
+        eligible.push({ page, orderId, email, customer, ordered: orderPurchaseDate(page).slice(0, 10), items });
+      }
+
+      const summary = (entry: typeof eligible[number]) => ({
+        orderId: entry.orderId, customer: entry.customer, email: entry.email, ordered: entry.ordered,
+        products: entry.items.map((item) => item.name),
+      });
+      if (!send) {
+        res.json({ dryRun: true, wouldEmail: eligible.length, orders: eligible.map(summary), skipped });
+        return;
+      }
+
+      const results: { orderId: string; result: string }[] = [];
+      for (const entry of eligible.slice(0, limit)) {
+        try {
+          await ReviewService.queueFromOrderPage(entry.page, true);
+          const ref = reviewRequests().doc(entry.orderId);
+          const request = (await ref.get()).data() as ReviewRequest | undefined;
+          if (!request || request.status !== "queued") {
+            results.push({ orderId: entry.orderId, result: "skipped: no queued request" });
+            continue;
+          }
+          await ref.update({ status: "sending" });
+          try {
+            await ReviewService.sendRequestEmail(request, entry.items, false);
+          } catch (error) {
+            await ref.update({ status: "queued" });
+            throw error;
+          }
+          // One ask only: "done" means the daily job never sends these a reminder.
+          await ref.update({ status: "done", firstSentAt: Date.now(), backfill: true });
+          await checkOrderBox(entry.page, REQUEST_SENT_PROPERTY, entry.orderId);
+          results.push({ orderId: entry.orderId, result: "sent" });
+        } catch (error) {
+          results.push({ orderId: entry.orderId, result: `failed: ${(error as Error).message}` });
+        }
+        await sleep(1200); // stay well under EmailJS's rate limit
+      }
+      res.json({ dryRun: false, sent: results.filter((entry) => entry.result === "sent").length,
+        remaining: Math.max(0, eligible.length - limit), results });
+    } catch (error) {
+      logger.error("Error running review backfill", { error: (error as Error).message });
+      res.status(500).json({ error: (error as Error).message });
+    }
   }
 
   /**

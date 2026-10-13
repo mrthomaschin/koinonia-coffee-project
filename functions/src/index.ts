@@ -16,6 +16,7 @@ import { getDatabase } from "./integrations/firebase_admin";
 import { ALLOWED_ORIGINS } from "./config/site";
 import { RenewalFulfillmentUseCase } from "./application/renewal_fulfillment_use_case";
 import { MAX_REVIEW_PHOTO_BYTES, ReviewService } from "./services/review_service";
+import { MonthlyMetricsService } from "./services/monthly_metrics_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -231,6 +232,8 @@ app.get("/admin/reviews/links", requireAdmin, withInventory(ReviewService.handle
 app.get("/admin/reviews/send-test-email", requireAdmin, withInventory(ReviewService.handleAdminSendTestEmail));
 // ?order=<Order #>&to=<email> — runs the daily job's next step for one order, skipping the waits.
 app.get("/admin/reviews/run", requireAdmin, withInventory(ReviewService.handleAdminRunReviewEmails));
+// One-time review email to past orders. Dry run unless ?send=true; sends ?limit= (default 15) per call.
+app.get("/admin/reviews/backfill", requireAdmin, withInventory(ReviewService.handleAdminBackfill));
 // Pulls the Notion reviews database into the public cache right away.
 app.get("/admin/reviews/refresh", requireAdmin, async (_req: Request, res: Response) => {
   try {
@@ -613,6 +616,25 @@ export const syncReviewsCache = onSchedule(
       await ReviewService.syncReviewsCache();
     } catch (error) {
       logger.error("Error syncing reviews cache", { error: (error as Error).message });
+    }
+  }
+);
+
+// Logs subscription and account totals to the Notion monthly metrics database.
+// Runs late each night so the last run of a month records that month's final totals.
+export const syncMonthlyMetrics = onSchedule(
+  {
+    schedule: "every day 23:50",
+    timeZone: "America/Los_Angeles",
+    ...(process.env.FUNCTIONS_EMULATOR !== "true" ? {
+      secrets: ["NOTION_TOKEN", "NOTION_MONTHLY_METRICS_DATABASE_ID"],
+    } : {}),
+  },
+  async () => {
+    try {
+      await MonthlyMetricsService.syncMonthlyMetrics();
+    } catch (error) {
+      logger.error("Error syncing monthly metrics", { error: (error as Error).message });
     }
   }
 );
