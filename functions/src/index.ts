@@ -300,6 +300,8 @@ app.post("/account/subscriptions/:subscriptionId/cancel", AccountService.cancelS
 app.post("/account/subscriptions/:subscriptionId/skip", AccountService.skipSubscription);
 app.post("/account/subscriptions/:subscriptionId/unskip", AccountService.unskipSubscription);
 app.post("/account/subscriptions/:subscriptionId/add-on", AccountService.addSubscriptionAddOn);
+app.post("/account/subscriptions/:subscriptionId/frequency", AccountService.changeSubscriptionFrequency);
+app.post("/account/subscriptions/:subscriptionId/order-now", AccountService.orderSubscriptionNow);
 app.get("/account/details", AccountService.getDetails);
 app.post("/account/details", AccountService.updateProfile);
 app.post("/account/addresses", AccountService.updateAddresses);

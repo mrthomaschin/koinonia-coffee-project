@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export class FlashquotesEmbed extends React.Component {
   private readonly iframeContent = `
@@ -26,10 +26,10 @@ export class FlashquotesEmbed extends React.Component {
       <iframe
         srcDoc={this.iframeContent}
         style={{
-          width: '100%',
-          height: '80vh',
-          border: 'none',
-          borderRadius: '8px'
+          width: "100%",
+          height: "80vh",
+          border: "none",
+          borderRadius: "8px",
         }}
         title="Flashquotes Form"
       />

@@ -363,7 +363,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
                         </p>
                     )}
                     {cartItem.selections.subscriptionPlan && (
-                        <p className="cart-item-selection">Subscription: {cartItem.selections.subscriptionPlan.includes('every-other') ? 'every other roast' : 'every roast'}{!isPartnerAccount && ' · Save 5%'}</p>
+                        <p className="cart-item-selection">Subscription: {cartItem.selections.subscriptionPlan.includes('every-third') ? 'every third roast' : cartItem.selections.subscriptionPlan.includes('every-other') ? 'every other roast' : 'every roast'}{!isPartnerAccount && ' · Save 5%'}</p>
                     )}
 
                     {cartItem.selections.size && (

@@ -15,6 +15,8 @@ export const calendarDateOffset = (dateValue: string, days: number): string => {
   return date.toISOString().slice(0, 10);
 };
 
-/** Returns whether a roast date has reached its renewal lead window. */
-export const isRoastDateDue = (roastDate: string, now: Date = new Date()): boolean =>
-  calendarDateOffset(roastDate, -1) <= pacificCalendarDate(now);
+/** Whether a roast's orders have closed, so its renewals are charged. */
+export const isRoastDateDue = (
+  roastDate: string,
+  now: Date = new Date(),
+): boolean => roastDate.slice(0, 10) <= pacificCalendarDate(now);

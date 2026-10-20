@@ -50,7 +50,7 @@ export interface Subscription {
     id: string;
     plan: SubscriptionPlan;
     bagCount: 1 | 2;
-    cadence: 'every-session' | 'every-other-session';
+    cadence: SubscriptionCadence;
     itemSku: string;
     itemName: string;
     weight: string;
@@ -61,6 +61,8 @@ export interface Subscription {
     status: 'active' | 'paused' | 'canceled';
     // Roast date (YYYY-MM-DD) the customer skipped; it applies only while it matches upcomingRoastDate.
     skippedRoastDate?: string;
+    // Roast date (YYYY-MM-DD) of an order-now charge that is still processing.
+    orderNowRoastDate?: string;
     isLocalPickup?: boolean;
     orderPickupId?: string;
     createdAt: string;
@@ -76,11 +78,21 @@ export interface CreateSubscriptionInput {
     weight: string;
 }
 
+export type SubscriptionCadence = 'every-session' | 'every-other-session' | 'every-third-session';
+
 export type SubscriptionPlan =
     | 'one-bag-every-session'
     | 'two-bags-every-session'
     | 'one-bag-every-other-session'
-    | 'two-bags-every-other-session';
+    | 'two-bags-every-other-session'
+    | 'one-bag-every-third-session'
+    | 'two-bags-every-third-session';
+
+export const SUBSCRIPTION_CADENCES: Array<{ id: SubscriptionCadence; label: string }> = [
+    { id: 'every-session', label: 'Every roast session' },
+    { id: 'every-other-session', label: 'Every other roast session' },
+    { id: 'every-third-session', label: 'Every third roast session' },
+];
 
 export interface SubscriptionPlanOption {
     id: SubscriptionPlan;
@@ -120,6 +132,22 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanOption[] = [
         id: 'two-bags-every-other-session',
         label: 'Two bags every other roast',
         cadenceLabel: 'Ships with every second roast session',
+        bagCount: 2,
+        discountPercent: 5,
+        freeShipping: true,
+    },
+    {
+        id: 'one-bag-every-third-session',
+        label: 'One bag every third roast',
+        cadenceLabel: 'Ships with every third roast session',
+        bagCount: 1,
+        discountPercent: 5,
+        freeShipping: false,
+    },
+    {
+        id: 'two-bags-every-third-session',
+        label: 'Two bags every third roast',
+        cadenceLabel: 'Ships with every third roast session',
         bagCount: 2,
         discountPercent: 5,
         freeShipping: true,

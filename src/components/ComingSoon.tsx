@@ -1,6 +1,6 @@
-import React from 'react';
-import { ICONS } from '../util/constants';
-import './ComingSoon.css';
+import React from "react";
+import { ICONS } from "../util/constants";
+import "./ComingSoon.css";
 
 interface ComingSoonProps {
   availableHeight: number;

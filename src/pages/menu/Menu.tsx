@@ -1,7 +1,7 @@
-import React from 'react';
-import './Menu.css';
-import SEO from '../../components/SEO';
-import { Eyebrow } from '../../components/ui/Typography';
+import React from "react";
+import "./Menu.css";
+import SEO from "../../components/SEO";
+import { Eyebrow } from "../../components/ui/Typography";
 
 interface MenuProps {
   availableHeight: number;
@@ -10,7 +10,11 @@ interface MenuProps {
 const Menu: React.FC<MenuProps> = ({ availableHeight }) => {
   return (
     <div className="menu-page" style={{ minHeight: availableHeight }}>
-      <SEO title="Koinonia Coffee Project | Menu" description="Explore the Koinonia Coffee Project menu, from espresso drinks to thoughtfully prepared coffee." path="/menu" />
+      <SEO
+        title="Koinonia Coffee Project | Menu"
+        description="Explore the Koinonia Coffee Project menu, from espresso drinks to thoughtfully prepared coffee."
+        path="/menu"
+      />
       <div className="menu-container">
         <div className="menu-header">
           <div>

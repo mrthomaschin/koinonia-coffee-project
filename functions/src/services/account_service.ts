@@ -9,7 +9,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
-import { SubscriptionService } from "./subscription_domain";
+import {
+  SubscriptionCadence,
+  SubscriptionService,
+} from "./subscription_domain";
 import { getDatabase } from "../integrations/firebase_admin";
 import { getNotionClient } from "../integrations/notion/notion_client";
 import {
@@ -22,7 +25,10 @@ import { EmailService } from "./email_service";
 import { weightInPounds } from "../domain/shipping/weight";
 import { AccountRepository } from "../repositories/account_repository";
 import { SubscriptionRepository } from "../repositories/subscription_repository";
-import { SubscriptionRenewalUseCase } from "../application/subscription_renewal_use_case";
+import {
+  OrderNowRejected,
+  SubscriptionRenewalUseCase,
+} from "../application/subscription_renewal_use_case";
 import {
   EmailVerification,
   EmailVerificationPurpose,
@@ -184,13 +190,15 @@ type SubscriptionPlan =
   | "one-bag-every-session"
   | "two-bags-every-session"
   | "one-bag-every-other-session"
-  | "two-bags-every-other-session";
+  | "two-bags-every-other-session"
+  | "one-bag-every-third-session"
+  | "two-bags-every-third-session";
 
 interface Subscription {
   id: string;
   plan: SubscriptionPlan;
   bagCount: 1 | 2;
-  cadence: "every-session" | "every-other-session";
+  cadence: SubscriptionCadence;
   itemSku: string;
   itemName: string;
   weight: string;
@@ -204,6 +212,8 @@ interface Subscription {
   status: "active" | "paused" | "canceled";
   // Roast date (YYYY-MM-DD) the customer skipped; see SubscriptionService.isSkipped.
   skippedRoastDate?: string;
+  // Roast date (YYYY-MM-DD) of a pending order-now charge; see SubscriptionService.isOrderNowRequested.
+  orderNowRoastDate?: string;
   isLocalPickup?: boolean;
   orderPickupId?: string;
   createdAt: string;
@@ -236,7 +246,23 @@ const subscriptionPlans: Record<
     cadence: "every-other-session",
     freeShipping: true,
   },
+  "one-bag-every-third-session": {
+    bagCount: 1,
+    cadence: "every-third-session",
+    freeShipping: false,
+  },
+  "two-bags-every-third-session": {
+    bagCount: 2,
+    cadence: "every-third-session",
+    freeShipping: true,
+  },
 };
+
+const planFor = (
+  bagCount: Subscription["bagCount"],
+  cadence: SubscriptionCadence,
+): SubscriptionPlan =>
+  `${bagCount === 2 ? "two-bags" : "one-bag"}-${cadence}` as SubscriptionPlan;
 
 // Mirrors src/util/shipping.ts so recurring shipments use the same box rules
 // and weight calculation as EmbeddedCheckout.
@@ -456,15 +482,13 @@ export const nextRoastSessionDate = async (
   );
 };
 
+/** The roast a purchase placed now goes into; see SubscriptionService.earliestOpenSession. */
 export const nextUpcomingRoastSessionDate = async (): Promise<string> => {
   const calendar = await getRoastSessionCalendar();
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const nextDate = calendar.find((date) => date.slice(0, 10) >= today);
+  const nextDate = SubscriptionService.earliestOpenSession(
+    calendar,
+    pacificCalendarDate(),
+  );
   if (!nextDate)
     throw new Error("The Notion roast-date calendar has no upcoming dates");
   return nextDate;
@@ -1280,21 +1304,15 @@ export class AccountService {
         return;
       }
       if (!isLocalPickup && !shippingAddressData) {
-        res
-          .status(400)
-          .json({
-            error:
-              "A complete shipping address is required for a subscription.",
-          });
+        res.status(400).json({
+          error: "A complete shipping address is required for a subscription.",
+        });
         return;
       }
       if (isLocalPickup && !orderPickupId) {
-        res
-          .status(400)
-          .json({
-            error:
-              "A pickup option is required for a local-pickup subscription.",
-          });
+        res.status(400).json({
+          error: "A pickup option is required for a local-pickup subscription.",
+        });
         return;
       }
       const paymentIntent =
@@ -1347,7 +1365,8 @@ export class AccountService {
         .slice(0, 40);
       if (customerId && savedPhone)
         await getStripe().customers.update(customerId, { phone: savedPhone });
-      const upcomingRoastDate = await nextUpcomingRoastSessionDate();
+      // The checkout payment covers this roast; renewals start after it.
+      const checkoutRoastDate = await nextUpcomingRoastSessionDate();
       const priceOverrides = await partnerPriceOverridesFor(account);
       const subscriptions: StoredSubscription[] = [];
       for (const item of items) {
@@ -1378,29 +1397,22 @@ export class AccountService {
             itemWeightInPounds < minimumWeight ||
             itemWeightInPounds * 2 !== Math.round(itemWeightInPounds * 2)
           ) {
-            res
-              .status(400)
-              .json({
-                error: `Partner subscriptions must be at least ${minimumWeight} lb in half-pound increments.`,
-              });
+            res.status(400).json({
+              error: `Partner subscriptions must be at least ${minimumWeight} lb in half-pound increments.`,
+            });
             return;
           }
           if (!/koin blend|ethiopia/i.test(itemName)) {
-            res
-              .status(400)
-              .json({
-                error:
-                  "Partner subscriptions are available for Koin Blend and Ethiopian coffee.",
-              });
+            res.status(400).json({
+              error:
+                "Partner subscriptions are available for Koin Blend and Ethiopian coffee.",
+            });
             return;
           }
           if (!["B-KOIN-WS", "B-ETH-W-WS"].includes(itemSku)) {
-            res
-              .status(400)
-              .json({
-                error:
-                  "Partner subscriptions must use the partner coffee SKUs.",
-              });
+            res.status(400).json({
+              error: "Partner subscriptions must use the partner coffee SKUs.",
+            });
             return;
           }
           const overridePrice = priceOverrides[itemSku];
@@ -1419,6 +1431,15 @@ export class AccountService {
           res.status(400).json({ error: "Invalid subscription item." });
           return;
         }
+        const firstRenewalRoastDate = await nextRoastSessionDate(
+          checkoutRoastDate,
+          selectedPlan.cadence,
+        );
+        if (!firstRenewalRoastDate)
+          logger.warn(
+            "No roast after the checkout roast in the calendar; skipping the checkout roast so it is not charged twice",
+            { checkoutRoastDate },
+          );
         subscriptions.push({
           id: `sub_${randomUUID()}`,
           accountId: account.id,
@@ -1437,7 +1458,13 @@ export class AccountService {
           status: "active",
           createdAt: new Date().toISOString(),
           ...(isLocalPickup ? { isLocalPickup: true, orderPickupId } : {}),
-          upcomingRoastDate,
+          ...(firstRenewalRoastDate
+            ? { upcomingRoastDate: firstRenewalRoastDate }
+            : {
+                upcomingRoastDate: checkoutRoastDate,
+                skippedRoastDate:
+                  SubscriptionService.roastDateKey(checkoutRoastDate),
+              }),
         });
       }
       const batch = database().batch();
@@ -1568,12 +1595,10 @@ export class AccountService {
         ),
       );
       await batch.commit();
-      res
-        .status(201)
-        .json({
-          created: true,
-          subscriptionIds: subscriptions.map((item) => item.id),
-        });
+      res.status(201).json({
+        created: true,
+        subscriptionIds: subscriptions.map((item) => item.id),
+      });
     } catch (error: unknown) {
       logger.error("Unable to complete subscription checkout", {
         error: (error as Error).message,
@@ -1634,12 +1659,10 @@ export class AccountService {
         password.length < 8 ||
         !/^\S+@\S+\.\S+$/.test(email)
       ) {
-        res
-          .status(400)
-          .json({
-            error:
-              "Enter a name, valid email, username, and password of at least 8 characters.",
-          });
+        res.status(400).json({
+          error:
+            "Enter a name, valid email, username, and password of at least 8 characters.",
+        });
         return;
       }
       const accountId = `acct_${randomUUID()}`;
@@ -1935,11 +1958,9 @@ export class AccountService {
         !Number.isSafeInteger(unitAmount) ||
         unitAmount < 50
       ) {
-        res
-          .status(400)
-          .json({
-            error: "Choose a coffee and bag size for your subscription.",
-          });
+        res.status(400).json({
+          error: "Choose a coffee and bag size for your subscription.",
+        });
         return;
       }
       const subscription: StoredSubscription = {
@@ -2114,12 +2135,10 @@ export class AccountService {
         return;
       }
       if (account.label !== "church-ministry") {
-        res
-          .status(403)
-          .json({
-            error:
-              "Only Church & Ministry accounts can add coffee to the next subscription round.",
-          });
+        res.status(403).json({
+          error:
+            "Only Church & Ministry accounts can add coffee to the next subscription round.",
+        });
         return;
       }
       const subscriptionId = String(req.params.subscriptionId || "");
@@ -2139,11 +2158,9 @@ export class AccountService {
         !Number.isSafeInteger(addOnUnitAmount) ||
         addOnUnitAmount < 50
       ) {
-        res
-          .status(400)
-          .json({
-            error: "Add-ons must be a valid half-pound amount and price.",
-          });
+        res.status(400).json({
+          error: "Add-ons must be a valid half-pound amount and price.",
+        });
         return;
       }
       const current = snapshot.data() as StoredSubscription;
@@ -2168,11 +2185,106 @@ export class AccountService {
       logger.error("Unable to add subscription coffee", {
         error: (error as Error).message,
       });
+      res.status(500).json({
+        error: "Unable to add coffee to your next subscription right now.",
+      });
+    }
+  }
+
+  /**
+   * POST /account/subscriptions/:subscriptionId/frequency — switches the
+   * cadence and keeps the bag count. The upcoming roast is unchanged; the new
+   * cadence spaces the roasts after it.
+   */
+  static async changeSubscriptionFrequency(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res
+          .status(401)
+          .json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const subscriptionId = String(req.params.subscriptionId || "");
+      const snapshot = await accountSubscription(account.id, subscriptionId);
+      if (!snapshot) {
+        res.status(404).json({ error: "Subscription not found." });
+        return;
+      }
+      const current = snapshot.data() as StoredSubscription;
+      const cadence = String(req.body?.cadence || "") as SubscriptionCadence;
+      const plan = planFor(current.bagCount, cadence);
+      if (!subscriptionPlans[plan]) {
+        res.status(400).json({ error: "Choose a valid delivery frequency." });
+        return;
+      }
+      if (current.status === "canceled") {
+        res
+          .status(400)
+          .json({ error: "Canceled subscriptions cannot be changed." });
+        return;
+      }
+      await snapshot.ref.update({ plan, cadence, updatedAt: Date.now() });
+      logger.info("Subscription frequency changed by customer", {
+        subscriptionId,
+        from: current.cadence,
+        to: cadence,
+      });
+      res.json({ subscription: { ...current, plan, cadence } });
+    } catch (error: unknown) {
+      logger.error("Unable to change subscription frequency", {
+        error: (error as Error).message,
+      });
       res
         .status(500)
-        .json({
-          error: "Unable to add coffee to your next subscription right now.",
+        .json({ error: "Unable to change your delivery frequency right now." });
+    }
+  }
+
+  /**
+   * POST /account/subscriptions/:subscriptionId/order-now — charges the saved
+   * payment method now for the earliest open roast session and re-anchors the
+   * subscription's schedule on that roast.
+   */
+  static async orderSubscriptionNow(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const account = await sessionAccount(req);
+      if (!account) {
+        res
+          .status(401)
+          .json({ error: "Your session has expired. Please log in again." });
+        return;
+      }
+      const subscriptionId = String(req.params.subscriptionId || "");
+      const result = await new SubscriptionRenewalUseCase(database()).orderNow(
+        account.id,
+        subscriptionId,
+      );
+      const snapshot = await accountSubscription(account.id, subscriptionId);
+      const subscription = snapshot?.data() as StoredSubscription | undefined;
+      if (result.status === "failed") {
+        res.status(402).json({
+          error: `We couldn't place your order: ${result.error}`,
+          subscription,
         });
+        return;
+      }
+      res.json({ ...result, subscription });
+    } catch (error: unknown) {
+      if (error instanceof OrderNowRejected) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      logger.error("Unable to order subscription now", {
+        error: (error as Error).message,
+      });
+      res.status(500).json({ error: "Unable to place your order right now." });
     }
   }
 
@@ -2214,12 +2326,10 @@ export class AccountService {
         return;
       }
       if (!isReviewableOrderPage(page)) {
-        res
-          .status(409)
-          .json({
-            error:
-              "You can review this order once it has been delivered or picked up.",
-          });
+        res.status(409).json({
+          error:
+            "You can review this order once it has been delivered or picked up.",
+        });
         return;
       }
       const path = await ReviewService.reviewPathForOrderPage(page);
@@ -2353,30 +2463,24 @@ export class AccountService {
         .slice(0, 254);
       const currentPassword = String(req.body?.currentPassword || "");
       if (!firstName || !lastName || !/^\S+@\S+\.\S+$/.test(email)) {
-        res
-          .status(400)
-          .json({
-            error: "Enter your first name, last name, and a valid email.",
-          });
+        res.status(400).json({
+          error: "Enter your first name, last name, and a valid email.",
+        });
         return;
       }
       const emailChanged = email !== current.user.email.trim().toLowerCase();
       if (emailChanged) {
         if (isPartnerLabel(current.label)) {
-          res
-            .status(403)
-            .json({
-              error:
-                "Please contact us to change the email on a partner account.",
-            });
+          res.status(403).json({
+            error:
+              "Please contact us to change the email on a partner account.",
+          });
           return;
         }
         if (!(await passwordMatches(currentPassword, current.passwordHash))) {
-          res
-            .status(403)
-            .json({
-              error: "Enter your current password to change your email.",
-            });
+          res.status(403).json({
+            error: "Enter your current password to change your email.",
+          });
           return;
         }
         const owner = (
@@ -2390,12 +2494,10 @@ export class AccountService {
           return;
         }
         if (verificationCooldownActive(current)) {
-          res
-            .status(429)
-            .json({
-              error:
-                "Please wait a minute before requesting another confirmation email.",
-            });
+          res.status(429).json({
+            error:
+              "Please wait a minute before requesting another confirmation email.",
+          });
           return;
         }
       }
@@ -2542,21 +2644,17 @@ export class AccountService {
       });
 
       if (result.outcome === "invalid") {
-        res
-          .status(400)
-          .json({
-            error:
-              "This link is invalid or has expired. You can request a new one from your account.",
-          });
+        res.status(400).json({
+          error:
+            "This link is invalid or has expired. You can request a new one from your account.",
+        });
         return;
       }
       if (result.outcome === "taken") {
-        res
-          .status(409)
-          .json({
-            error:
-              "That email is now used by another account, so it could not be added.",
-          });
+        res.status(409).json({
+          error:
+            "That email is now used by another account, so it could not be added.",
+        });
         return;
       }
       logger.info("Email verified", {
@@ -2598,12 +2696,10 @@ export class AccountService {
         return;
       }
       if (verificationCooldownActive(current)) {
-        res
-          .status(429)
-          .json({
-            error:
-              "Please wait a minute before requesting another confirmation email.",
-          });
+        res.status(429).json({
+          error:
+            "Please wait a minute before requesting another confirmation email.",
+        });
         return;
       }
       await sendVerificationEmail(
@@ -2649,11 +2745,9 @@ export class AccountService {
         return;
       }
       if (await passwordMatches(newPassword, current.passwordHash)) {
-        res
-          .status(400)
-          .json({
-            error: "Choose a password different from your current one.",
-          });
+        res.status(400).json({
+          error: "Choose a password different from your current one.",
+        });
         return;
       }
       await database()
@@ -2745,11 +2839,9 @@ export class AccountService {
         const address =
           input === null ? null : normalizedShippingAddress(input);
         if (input !== null && !address) {
-          res
-            .status(400)
-            .json({
-              error: `Enter a complete ${field === "shippingAddress" ? "shipping" : "billing"} address.`,
-            });
+          res.status(400).json({
+            error: `Enter a complete ${field === "shippingAddress" ? "shipping" : "billing"} address.`,
+          });
           return;
         }
         update[dataField] = address;
@@ -2765,12 +2857,10 @@ export class AccountService {
             !snapshot.data()?.isLocalPickup,
         );
         if (shipsToAccount) {
-          res
-            .status(400)
-            .json({
-              error:
-                "Your active subscription ships to this address. Update it instead of removing it.",
-            });
+          res.status(400).json({
+            error:
+              "Your active subscription ships to this address. Update it instead of removing it.",
+          });
           return;
         }
       }

@@ -1,5 +1,5 @@
 .coming-soon {
-  background-color: #F8F5EB;
+  background-color: #f8f5eb;
   padding: 40px;
   display: flex;
   flex-direction: column;
@@ -9,14 +9,15 @@
 
 .coming-soon-logo {
   height: 50px;
-  filter: invert(20%) sepia(15%) saturate(1000%) hue-rotate(210deg) brightness(95%);
+  filter: invert(20%) sepia(15%) saturate(1000%) hue-rotate(210deg)
+    brightness(95%);
   margin-bottom: 20px;
 }
 
 .coming-soon-title {
-  font-family: 'HedvigLettersSerif_18pt', serif;
+  font-family: "HedvigLettersSerif_18pt", serif;
   font-size: 32px;
   font-weight: bold;
-  color: #2F2B39;
+  color: #2f2b39;
   margin: 0;
 }

@@ -6,7 +6,11 @@ import { ICONS } from "../../../../util/constants";
 import "./CoffeeBagDetail.css";
 import { ItemType } from "../ItemModel";
 import { allowsUnlimitedPurchases } from "../../../../util/limitedTimeOffer";
-import { SubscriptionPlan } from "../../../../models/AccountModel";
+import {
+  SUBSCRIPTION_CADENCES,
+  SubscriptionCadence,
+  SubscriptionPlan,
+} from "../../../../models/AccountModel";
 import { useAccount } from "../../../../contexts/AccountContext";
 
 interface CoffeeBagDetailProps {
@@ -48,9 +52,8 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const [purchaseMode, setPurchaseMode] = useState<"one-time" | "subscription">(
     "one-time",
   );
-  const [subscriptionFrequency, setSubscriptionFrequency] = useState<
-    "every-session" | "every-other-session"
-  >("every-session");
+  const [subscriptionFrequency, setSubscriptionFrequency] =
+    useState<SubscriptionCadence>("every-session");
   const selectedVariant = item.variants
     ?.filter((v) => v.weight === selectedWeight && isPartnerVariant(v))
     .sort(
@@ -241,38 +244,27 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
             <div className="subscription-frequency">
               <p>Select delivery frequency</p>
               <div className="subscription-plan-options">
-                <label
-                  className={
-                    subscriptionFrequency === "every-session" ? "selected" : ""
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="subscription-frequency"
-                    checked={subscriptionFrequency === "every-session"}
-                    onChange={() => setSubscriptionFrequency("every-session")}
-                  />
-                  <span>Every roast session</span>
-                </label>
-                <label
-                  className={
-                    subscriptionFrequency === "every-other-session"
-                      ? "selected"
-                      : ""
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="subscription-frequency"
-                    checked={subscriptionFrequency === "every-other-session"}
-                    onChange={() =>
-                      setSubscriptionFrequency("every-other-session")
+                {SUBSCRIPTION_CADENCES.map((cadence) => (
+                  <label
+                    key={cadence.id}
+                    className={
+                      subscriptionFrequency === cadence.id ? "selected" : ""
                     }
-                  />
-                  <span>Every other roast session</span>
-                </label>
+                  >
+                    <input
+                      type="radio"
+                      name="subscription-frequency"
+                      checked={subscriptionFrequency === cadence.id}
+                      onChange={() => setSubscriptionFrequency(cadence.id)}
+                    />
+                    <span>{cadence.label}</span>
+                  </label>
+                ))}
               </div>
-              <p>You can skip or cancel anytime from your account.</p>
+              <p>
+                You can skip, change frequency, order early, or cancel anytime
+                from your account.
+              </p>
             </div>
           )}
         </fieldset>

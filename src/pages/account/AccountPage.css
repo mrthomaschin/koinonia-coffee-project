@@ -59,7 +59,10 @@
 .subscription-add-on label { display: grid; gap: 4px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
 .subscription-add-on input { width: 80px; padding: 6px; border: 1px solid #aaa58f; background: transparent; color: inherit; font: inherit; }
 .account-cancel { padding: 0; border: 0; background: none; color: #a62929; font: inherit; text-decoration: underline; cursor: pointer; }
-.subscription-actions .account-cancel:first-child { color: #313d66; }
+.subscription-actions .account-cancel:not(:last-child) { color: #313d66; }
+.subscription-actions .account-cancel:disabled { opacity: .5; cursor: default; }
+.subscription-frequency-select { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: #77737a; font-size: 10.88px; letter-spacing: .04em; text-transform: uppercase; }
+.subscription-frequency-select select { padding: 4px 6px; border: 1px solid #aaa58f; background: transparent; color: #313d66; font: 12px 'RethinkSans-Regular', sans-serif; letter-spacing: normal; text-transform: none; }
 .account-empty { color: #68656c; font-size: 13.12px; }
 .account-success { margin: 0; color: #68714b; font: 12px 'RethinkSans-Regular', sans-serif; line-height: 1.45; letter-spacing: .02em; }
 .account-error { margin: 0; color: #a62929; font: 12px 'RethinkSans-Regular', sans-serif; line-height: 1.45; letter-spacing: .02em; }

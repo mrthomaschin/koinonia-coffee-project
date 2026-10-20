@@ -2,6 +2,7 @@ import { Item, ItemType } from "../shop/item/ItemModel";
 import trackingService from "../../services/trackingService";
 import { TaxCodes } from "../../constants/TaxCodes";
 import { allowsUnlimitedPurchases } from "../../util/limitedTimeOffer";
+import { SubscriptionPlan } from "../../models/AccountModel";
 
 export interface CartItemSelection {
     weight?: string;
@@ -10,7 +11,7 @@ export interface CartItemSelection {
     variantSku?: string;
     variantPrice?: number;
     variantShippingWeight?: number;
-    subscriptionPlan?: 'one-bag-every-session' | 'two-bags-every-session' | 'one-bag-every-other-session' | 'two-bags-every-other-session';
+    subscriptionPlan?: SubscriptionPlan;
     isPartnerOrder?: boolean;
 }
 
