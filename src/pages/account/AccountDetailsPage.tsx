@@ -296,7 +296,7 @@ const EmailPreferencesCard: React.FC = () => {
       const preferences = await accountService.updateEmailPreferences(token, changes);
       setReviewRequests(preferences.reviewRequests);
       setNewsletters(preferences.newsletters);
-      setNotice(preferences.confirmationSent ? 'Check your inbox and confirm your email to finish subscribing.' : successNotice);
+      setNotice(successNotice);
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {

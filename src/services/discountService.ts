@@ -10,6 +10,8 @@ export interface DiscountValidation {
   code?: string;
   percentOff?: number;
   message: string;
+  // Which rule refused the code. "first-order" means the buyer has ordered before.
+  reason?: "subscription" | "partner-pricing" | "first-order";
 }
 
 /**
@@ -35,6 +37,8 @@ export const validateDiscountCode = async (
   }
   return {
     ...data,
-    message: data.message || (data.valid ? "Discount applied!" : "Invalid discount code"),
+    message:
+      data.message ||
+      (data.valid ? "Discount applied!" : "Invalid discount code"),
   };
 };

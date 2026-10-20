@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createLogger } from "../util/logger";
 import {
   Elements,
@@ -17,7 +17,6 @@ import {
   filterAllowedServices,
 } from "../util/EasyPostMapper";
 import { EasyPostRate } from "../models/ShippingModels";
-import { calculateParcel, formatParcelForEasyPost } from "../util/shipping";
 import {
   SHIPPING_RESTRICTION_MESSAGE,
   cartContainsCoffee,
@@ -33,6 +32,7 @@ import {
 import { useAccount } from "../contexts/AccountContext";
 import { subscribeToNewsletter } from "../services/newsletterService";
 import {
+  CheckoutError,
   CheckoutLine,
   CheckoutQuote,
   stripeService,
@@ -44,6 +44,17 @@ const logger = createLogger("EmbeddedCheckout");
 
 // Free shipping threshold
 const FREE_SHIPPING_THRESHOLD = 40;
+// Flat rates for consumer orders to the contiguous US. The server charges
+// these (see checkout_pricing.ts); the checkout only displays them.
+const FLAT_RATE_STANDARD = 7;
+const FLAT_RATE_EXPRESS_UPGRADE = 5;
+const FLAT_RATE_EXPRESS_MAX_OUNCES = 48;
+const STANDARD_SERVICE = { carrier: "USPS", service: "GroundAdvantage" };
+const EXPRESS_SERVICE = { carrier: "UPSDAP", service: "2ndDayAir" };
+type FlatRateTier = "standard" | "express";
+const isFlatRateTier = (id: string): id is FlatRateTier =>
+  id === "standard" || id === "express";
+const NON_CONTIGUOUS_STATES = ["AK", "HI", "PR", "VI", "GU", "AS", "MP", "AA", "AE", "AP"];
 
 const stripePromise = loadStripe(
   process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "",
@@ -109,6 +120,8 @@ interface CheckoutFormProps {
   // The cart as the server prices it, and its price when checkout opened.
   checkoutLines: CheckoutLine[];
   initialQuote: CheckoutQuote;
+  // Called when payment refuses only the discount code, so checkout can restart without it.
+  onDiscountRejected?: (message: string) => void;
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -123,6 +136,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   paymentIntentId,
   checkoutLines,
   initialQuote,
+  onDiscountRejected,
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -159,6 +173,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     null,
   );
   const [shipmentId, setShipmentId] = useState<string | null>(null);
+  // The EasyPost rates the flat-rate options buy, once the address has rates.
+  // An express price is set only when the parcel is too heavy for the flat upgrade.
+  const [flatRates, setFlatRates] = useState<{
+    loaded: boolean;
+    standard?: string;
+    express?: string;
+    expressPrice?: number;
+  }>({ loaded: false });
   const [taxAmount, setTaxAmount] = useState(0);
   const [currentAddress, setCurrentAddress] = useState<any>(null);
   const [billingAddress, setBillingAddress] = useState("");
@@ -177,10 +199,69 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   deliveryMethodRef.current = deliveryMethod;
   // Wholesale partner orders do not receive the consumer $40+ free-shipping
   // promotion. Church & Ministry orders retain the standard behavior.
+  const isPartnerAccount =
+    account?.label === "wholesale" || account?.label === "church-ministry";
   const qualifiesForFreeShipping =
-    totalAmount >= FREE_SHIPPING_THRESHOLD &&
-    account?.label !== "wholesale" &&
-    account?.label !== "church-ministry";
+    totalAmount >= FREE_SHIPPING_THRESHOLD && !isPartnerAccount;
+  // Flat-rate options show before an address is entered; partner accounts and
+  // non-contiguous addresses get live rates once the address is in.
+  const usesFlatRateTiers =
+    !isPartnerAccount &&
+    !(
+      currentAddress &&
+      ((currentAddress.country || "US") !== "US" ||
+        NON_CONTIGUOUS_STATES.includes(
+          String(currentAddress.state).toUpperCase(),
+        ))
+    );
+  const flatRateOptions = useMemo<ShippingOption[]>(() => {
+    const standardPrice = qualifiesForFreeShipping ? 0 : FLAT_RATE_STANDARD;
+    const options: ShippingOption[] = [
+      {
+        id: "standard",
+        label: "Standard – USPS Ground Advantage",
+        price: standardPrice,
+        description: "2–5 business days",
+        originalPrice: FLAT_RATE_STANDARD,
+      },
+    ];
+    // Hide express when the address has no UPS rate (e.g. a PO box).
+    if (!flatRates.loaded || flatRates.express) {
+      options.push({
+        id: "express",
+        label: "Express – UPS 2nd Day Air",
+        price:
+          flatRates.expressPrice ?? standardPrice + FLAT_RATE_EXPRESS_UPGRADE,
+        description: "2 business days",
+      });
+    }
+    return options;
+  }, [qualifiesForFreeShipping, flatRates]);
+  const displayedShippingOptions = usesFlatRateTiers
+    ? flatRateOptions
+    : shippingOptions;
+
+  // Keep the selected shipping option in step with the displayed options: pick
+  // the first when the selection disappears, and pick up price changes.
+  useEffect(() => {
+    if (deliveryMethod !== "shipping") return;
+    const current = displayedShippingOptions.find(
+      (option) => option.id === selectedShipping.id,
+    );
+    if (!current) {
+      if (displayedShippingOptions.length) {
+        onShippingChange(displayedShippingOptions[0]);
+      }
+    } else if (current.price !== selectedShipping.price) {
+      onShippingChange(current);
+    }
+  }, [
+    deliveryMethod,
+    displayedShippingOptions,
+    selectedShipping.id,
+    selectedShipping.price,
+    onShippingChange,
+  ]);
 
   // Prefill checkout contact information for signed-in account holders without
   // overwriting values they may have already entered manually.
@@ -497,50 +578,15 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         email: customerEmail || undefined,
       };
 
-      // Get cart items to calculate parcel dimensions and weight
-      let cartItems = [];
-      try {
-        const cartItemsStr = localStorage.getItem("checkout_cart_items");
-        if (cartItemsStr) {
-          cartItems = JSON.parse(cartItemsStr);
-        }
-      } catch (storageError) {
-        logger.error(
-          "[shipping] localStorage access failed (possibly Safari ITP):",
-          storageError,
-        );
-      }
-
-      logger.log("[shipping] Cart items for parcel calculation:", {
-        cartItemsCount: cartItems.length,
-        cartItems: cartItems.map((item: any) => ({
-          sku: item.item?.sku,
-          variantSku: item.variantSku,
-          shippingWeight: item.item?.shippingWeight,
-          variants: item.item?.variants?.map((v: any) => ({
-            sku: v.sku,
-            shippingWeight: v.shippingWeight,
-          })),
-          quantity: item.quantity,
-        })),
-      });
-
-      // Calculate parcel based on cart items
-      const parcel = cartItems.length > 0 ? calculateParcel(cartItems) : null;
-      const formattedParcel = parcel ? formatParcelForEasyPost(parcel) : null;
-
-      logger.log("[shipping] Fetching rates with parcel data", {
-        hasCartItems: cartItems.length > 0,
-        parcel: formattedParcel,
-      });
-
+      // The server sizes the parcel from these lines and tags the shipment
+      // with the cart, so the rates only apply to this cart.
       const response = await fetch(`${backendUrl}/get-shipping-rates`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         signal: requestController.signal,
-        body: JSON.stringify({ toAddress, parcel: formattedParcel }),
+        body: JSON.stringify({ toAddress, items: checkoutLines }),
       });
 
       if (!response.ok) {
@@ -565,6 +611,33 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         setShipmentId(data.shipmentId);
       }
 
+      // Partner accounts and non-contiguous addresses pay the label price;
+      // everyone else gets the flat-rate options, backed by these rates.
+      const isFlatRate =
+        !isPartnerAccount &&
+        (address.country || "US") === "US" &&
+        !NON_CONTIGUOUS_STATES.includes(String(address.state).toUpperCase());
+
+      if (isFlatRate) {
+        const rates = data.rates as EasyPostRate[];
+        const find = (service: { carrier: string; service: string }) =>
+          rates.find(
+            (rate) =>
+              rate.carrier === service.carrier &&
+              rate.service === service.service,
+          );
+        const express = find(EXPRESS_SERVICE);
+        const heavy =
+          !(Number(data.parcel?.weight) <= FLAT_RATE_EXPRESS_MAX_OUNCES);
+        setFlatRates({
+          loaded: true,
+          standard: find(STANDARD_SERVICE)?.id,
+          express: express?.id,
+          expressPrice: express && heavy ? Number(express.rate) : undefined,
+        });
+        return;
+      }
+
       // Filter rates by allowed services using EasyPostMapper
       const filteredRates = filterAllowedServices(data.rates as EasyPostRate[]);
 
@@ -574,17 +647,18 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       // Convert mapped rates to ShippingOption format
       // Only apply free shipping to USPS Ground Advantage
       const options: ShippingOption[] = mappedRates.map((mappedRate) => {
-        const originalPrice = parseFloat(mappedRate.price.replace("$", ""));
+        const labelPrice = parseFloat(mappedRate.price.replace("$", ""));
         const isGroundAdvantage =
           mappedRate.carrier === "USPS" &&
           mappedRate.service === "GroundAdvantage";
-        const discountedPrice =
-          qualifiesForFreeShipping && isGroundAdvantage ? 0 : originalPrice;
+        const originalPrice = labelPrice;
+        const price =
+          qualifiesForFreeShipping && isGroundAdvantage ? 0 : labelPrice;
 
         return {
           id: mappedRate.id,
           label: `${mappedRate.carrier} ${mappedRate.displayService}`,
-          price: discountedPrice,
+          price,
           description: `Estimated delivery: ${mappedRate.estimatedDelivery}`,
           carrier: mappedRate.carrier,
           service: mappedRate.service,
@@ -608,10 +682,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           const firstOption = options[0];
           // Store original price for display purposes
           if (qualifiesForFreeShipping) {
-            const originalPrice = parseFloat(
-              mappedRates[0].price.replace("$", ""),
+            setOriginalShippingPrice(
+              firstOption.originalPrice ?? firstOption.price,
             );
-            setOriginalShippingPrice(originalPrice);
           }
           onShippingChange(firstOption);
         }
@@ -644,6 +717,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     // Stripe's AddressElement should provide complete property
     // Try multiple ways to access it
     const isComplete = event.complete || addressData?.complete;
+
+    // Rates belong to the shipment for the previous address.
+    setShipmentId(null);
+    setFlatRates({ loaded: false });
 
     if (isComplete) {
       setShippingAddressComplete(true);
@@ -766,11 +843,18 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     setPhoneError(null);
 
     try {
+      const rateId = isFlatRateTier(selectedShipping.id)
+        ? flatRates[selectedShipping.id]
+        : selectedShipping.id;
       if (
         deliveryMethod === "shipping" &&
-        (!shipmentId || selectedShipping.id === "local-pickup")
+        (!shipmentId || !rateId || selectedShipping.id === "local-pickup")
       ) {
-        setErrorMessage("Please choose a shipping option.");
+        setErrorMessage(
+          isLoadingShipping
+            ? "Shipping is still loading for your address. Please try again in a moment."
+            : "Please choose a shipping option.",
+        );
         setIsProcessing(false);
         return;
       }
@@ -792,12 +876,20 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 : {
                     method: "shipping",
                     shipmentId: shipmentId as string,
-                    rateId: selectedShipping.id,
+                    rateId: rateId as string,
                   },
           },
           token,
         );
       } catch (quoteError) {
+        if (
+          quoteError instanceof CheckoutError &&
+          quoteError.discountRejected &&
+          onDiscountRejected
+        ) {
+          onDiscountRejected(quoteError.message);
+          return;
+        }
         setErrorMessage(
           quoteError instanceof Error
             ? quoteError.message
@@ -891,54 +983,22 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               // Pass formatted address directly to avoid timing issues with state updates
               currentShippingAddress = formattedAddress;
 
-              // Recalculate parcel for box size determination
-              let formattedParcel = null;
-              try {
-                const cartItemsStr = localStorage.getItem(
-                  "checkout_cart_items",
-                );
-                if (cartItemsStr) {
-                  const cartItems = JSON.parse(cartItemsStr);
-                  const parcel =
-                    cartItems.length > 0 ? calculateParcel(cartItems) : null;
-                  formattedParcel = parcel
-                    ? formatParcelForEasyPost(parcel)
-                    : null;
-                  logger.log("[shipment] Recalculated parcel for purchase", {
-                    formattedParcel,
-                  });
-                }
-              } catch (storageError) {
-                logger.error(
-                  "[shipment] Failed to recalculate parcel:",
-                  storageError,
-                );
-              }
-
-              logger.log("[shipment] Calling purchase-shipment endpoint", {
-                endpoint: `${backendUrl}/purchase-shipment`,
-                rateId: selectedShipping.id,
+              // The server buys the rate it quoted for this payment, so the
+              // browser only says which payment it was.
+              logger.log("[shipment] Calling purchase-label endpoint", {
+                paymentIntentId: paymentIntent?.id,
               });
 
-              const response = await fetch(`${backendUrl}/purchase-shipment`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  toAddress: {
-                    street1: toAddress.line1,
-                    street2: toAddress.line2,
-                    city: toAddress.city,
-                    state: toAddress.state,
-                    zip: toAddress.postal_code,
-                    country: toAddress.country || "US",
+              const response = await fetch(
+                `${backendUrl}/checkout/purchase-label`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
                   },
-                  rateId: selectedShipping.id,
-                  shipmentId: shipmentId,
-                  parcel: formattedParcel,
-                }),
-              });
+                  body: JSON.stringify({ paymentIntentId: paymentIntent?.id }),
+                },
+              );
 
               const shipmentData = await response.json();
 
@@ -1380,8 +1440,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             )}
 
             {qualifiesForFreeShipping &&
-              shippingAddressComplete &&
-              shippingOptions.length > 0 && (
+              (usesFlatRateTiers ||
+                (shippingAddressComplete && shippingOptions.length > 0)) && (
                 <div className="free-shipping-notice-checkout">
                   🎉 Free USPS Ground Advantage shipping applied!
                 </div>
@@ -1390,9 +1450,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <ShippingSelector
               onShippingChange={onShippingChange}
               selectedShipping={selectedShipping}
-              shippingOptions={shippingOptions}
-              isLoading={isLoadingShipping}
-              showShippingOptions={shippingAddressComplete}
+              shippingOptions={displayedShippingOptions}
+              isLoading={!usesFlatRateTiers && isLoadingShipping}
+              showShippingOptions={usesFlatRateTiers || shippingAddressComplete}
               qualifiesForFreeShipping={qualifiesForFreeShipping}
             />
           </div>
@@ -1509,6 +1569,8 @@ interface EmbeddedCheckoutProps {
   paymentIntentId: string;
   checkoutLines: CheckoutLine[];
   initialQuote: CheckoutQuote;
+  // Called when payment refuses only the discount code, so checkout can restart without it.
+  onDiscountRejected?: (message: string) => void;
 }
 
 const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
@@ -1521,6 +1583,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   paymentIntentId,
   checkoutLines,
   initialQuote,
+  onDiscountRejected,
 }) => {
   const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
@@ -1632,6 +1695,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
           paymentIntentId={paymentIntentId}
           checkoutLines={checkoutLines}
           initialQuote={initialQuote}
+          onDiscountRejected={onDiscountRejected}
         />
       </Elements>
     </div>

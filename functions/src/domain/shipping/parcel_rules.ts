@@ -7,6 +7,29 @@ export interface SubscriptionParcel {
   boxSize: string;
 }
 
+/**
+ * Converts an inventory "Shipping Weight" (grams) to ounces. 200 and 5 are
+ * legacy values for a 200g bag and a 5lb bag.
+ */
+export const shippingWeightOunces = (shippingWeight: number): number =>
+  shippingWeight === 200 ? 7 : shippingWeight === 5 ? 80 : shippingWeight / 28.35;
+
+/** Picks the smallest box that holds the contents and adds the box's weight. */
+export const parcelForOunces = (totalWeightOunces: number): SubscriptionParcel => {
+  const box = totalWeightOunces <= 12 ? { length: 6, width: 4, height: 2, boxWeight: 4 }
+    : totalWeightOunces <= 28 ? { length: 8, width: 6, height: 3, boxWeight: 6 }
+      : totalWeightOunces <= 96 ? { length: 10, width: 8, height: 4, boxWeight: 8 }
+        : totalWeightOunces <= 160 ? { length: 12, width: 10, height: 6, boxWeight: 12 }
+          : { length: 18, width: 14, height: 10, boxWeight: 20 };
+  return {
+    length: box.length,
+    width: box.width,
+    height: box.height,
+    weight: Math.round(totalWeightOunces + box.boxWeight),
+    boxSize: `${box.length}x${box.width}x${box.height}`,
+  };
+};
+
 /** Preserves the subscription parcel-selection rules used by renewals. */
 export const subscriptionParcel = (
   shippingWeight: number | undefined,
@@ -21,22 +44,10 @@ export const subscriptionParcel = (
     ? sourceWeight
     : Number.parseFloat(weightText.match(/\d+(?:\.\d+)?/)?.[0] || "0");
   const itemWeightOunces = typeof sourceWeight === "number"
-    ? sourceWeight === 200 ? 7 : sourceWeight === 5 ? 80 : sourceWeight / 28.35
+    ? shippingWeightOunces(sourceWeight)
     : weightText.includes("lb") ? numericWeight * 16
       : weightText.includes("oz") ? numericWeight
         : weightText.includes("g") || numericWeight > 100 ? numericWeight / 28.35
           : numericWeight;
-  const totalWeightOunces = itemWeightOunces * quantity;
-  const box = totalWeightOunces <= 12 ? { length: 6, width: 4, height: 2, boxWeight: 4 }
-    : totalWeightOunces <= 28 ? { length: 8, width: 6, height: 3, boxWeight: 6 }
-      : totalWeightOunces <= 96 ? { length: 10, width: 8, height: 4, boxWeight: 8 }
-        : totalWeightOunces <= 160 ? { length: 12, width: 10, height: 6, boxWeight: 12 }
-          : { length: 18, width: 14, height: 10, boxWeight: 20 };
-  return {
-    length: box.length,
-    width: box.width,
-    height: box.height,
-    weight: Math.round(totalWeightOunces + box.boxWeight),
-    boxSize: `${box.length}x${box.width}x${box.height}`,
-  };
+  return parcelForOunces(itemWeightOunces * quantity);
 };

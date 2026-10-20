@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
-import { AccountProfile, emailsForAccount, sessionAccount } from "./account_service";
+import {
+  AccountProfile,
+  emailsForAccount,
+  sessionAccount,
+} from "./account_service";
 import {
   DiscountCode,
   findDiscountCode,
@@ -25,28 +29,60 @@ interface CartLine {
 
 const PARTNER_LABELS = ["partner", "wholesale", "church-ministry"];
 
-const contextFor = async (account: AccountProfile | null, email: string | null, items: CartLine[]): Promise<DiscountContext> => ({
-  emails: [...(email ? [email] : []), ...(account ? await emailsForAccount(account) : [])],
+const contextFor = async (
+  account: AccountProfile | null,
+  email: string | null,
+  items: CartLine[],
+): Promise<DiscountContext> => ({
+  emails: [
+    ...(email ? [email] : []),
+    ...(account ? await emailsForAccount(account) : []),
+  ],
   hasSubscription: items.some((item) => !!item.subscriptionPlan),
-  hasPartnerPricing: items.some((item) => !!item.isPartnerOrder) || PARTNER_LABELS.includes(account?.label || ""),
+  hasPartnerPricing:
+    items.some((item) => !!item.isPartnerOrder) ||
+    PARTNER_LABELS.includes(account?.label || ""),
 });
 
+/** Which rule refused a code. "first-order" means the buyer has ordered before, which won't change. */
+type RuleViolationReason = "subscription" | "partner-pricing" | "first-order";
+
+interface RuleViolation {
+  reason: RuleViolationReason;
+  message: string;
+}
+
 /** Why the code can't be used on this order, or null when it can. */
-const ruleViolation = async (discount: DiscountCode, context: DiscountContext): Promise<string | null> => {
+const ruleViolation = async (
+  discount: DiscountCode,
+  context: DiscountContext,
+): Promise<RuleViolation | null> => {
   if (discount.noOtherDiscounts && context.hasSubscription) {
-    return "This code can't be combined with subscriptions. Remove the subscription from your cart to use it.";
+    return {
+      reason: "subscription",
+      message:
+        "This code can't be combined with subscriptions. Remove the subscription from your cart to use it.",
+    };
   }
   if (discount.noOtherDiscounts && context.hasPartnerPricing) {
-    return "This code can't be combined with partner pricing.";
+    return {
+      reason: "partner-pricing",
+      message: "This code can't be combined with partner pricing.",
+    };
   }
-  if (discount.firstOrderOnly && await hasPreviousOrders(context.emails)) {
-    return "This code is only valid on your first order.";
+  if (discount.firstOrderOnly && (await hasPreviousOrders(context.emails))) {
+    return {
+      reason: "first-order",
+      message: "This code is only valid on your first order.",
+    };
   }
   return null;
 };
 
 const cartLines = (value: unknown): CartLine[] =>
-  Array.isArray(value) ? value.filter((line) => line && typeof line === "object") : [];
+  Array.isArray(value)
+    ? value.filter((line) => line && typeof line === "object")
+    : [];
 
 export class DiscountService {
   /**
@@ -74,22 +110,33 @@ export class DiscountService {
       );
       const violation = await ruleViolation(lookup.discount, context);
       if (violation) {
-        res.json({ valid: false, message: violation });
+        res.json({
+          valid: false,
+          message: violation.message,
+          reason: violation.reason,
+        });
         return;
       }
       const { discount } = lookup;
-      logger.info("Discount code validated", { code: discount.code, percentOff: discount.percentOff });
+      logger.info("Discount code validated", {
+        code: discount.code,
+        percentOff: discount.percentOff,
+      });
       res.json({
         valid: true,
         code: discount.code,
         percentOff: discount.percentOff,
-        message: discount.firstOrderOnly ?
-          `${discount.percentOff}% off your first order applied!` :
-          `${discount.percentOff}% discount applied!`,
+        message: discount.firstOrderOnly
+          ? `${discount.percentOff}% off your first order applied!`
+          : `${discount.percentOff}% discount applied!`,
       });
     } catch (error: unknown) {
-      logger.error("Error validating discount code", { error: (error as Error).message });
-      res.status(500).json({ error: "Unable to validate discount code. Please try again later." });
+      logger.error("Error validating discount code", {
+        error: (error as Error).message,
+      });
+      res.status(500).json({
+        error: "Unable to validate discount code. Please try again later.",
+      });
     }
   }
 
@@ -103,10 +150,17 @@ export class DiscountService {
     account: AccountProfile | null,
     email: string | null,
     items: CartLine[],
-  ): Promise<{ ok: true; discount: DiscountCode } | { ok: false; message: string }> {
+  ): Promise<
+    { ok: true; discount: DiscountCode } | { ok: false; message: string }
+  > {
     const lookup = await findDiscountCode(code);
     if (!lookup.valid) return { ok: false, message: lookup.message };
-    const violation = await ruleViolation(lookup.discount, await contextFor(account, normalizeNewsletterEmail(email), items));
-    return violation ? { ok: false, message: violation } : { ok: true, discount: lookup.discount };
+    const violation = await ruleViolation(
+      lookup.discount,
+      await contextFor(account, normalizeNewsletterEmail(email), items),
+    );
+    return violation
+      ? { ok: false, message: violation.message }
+      : { ok: true, discount: lookup.discount };
   }
 }

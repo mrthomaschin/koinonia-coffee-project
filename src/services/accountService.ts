@@ -59,9 +59,6 @@ export interface NewsletterPreference {
 interface EmailPreferences {
   reviewRequests: boolean;
   newsletters: NewsletterPreference[];
-  // True when turning on a newsletter emailed a confirmation link instead,
-  // because the account's email is not verified yet.
-  confirmationSent?: boolean;
 }
 
 // Omit a field to leave it unchanged. newsletters maps newsletter IDs to on/off.

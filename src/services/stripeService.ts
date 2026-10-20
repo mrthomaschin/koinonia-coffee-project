@@ -3,6 +3,17 @@ import { createLogger } from "../util/logger";
 
 const logger = createLogger("StripeService");
 
+/** A checkout request the server refused. The message is safe to show customers. */
+export class CheckoutError extends Error {
+  // True when only the discount code was refused; checkout can go ahead without it.
+  constructor(
+    message: string,
+    readonly discountRejected = false,
+  ) {
+    super(message);
+  }
+}
+
 /** A cart line as the server prices it. */
 export interface CheckoutLine {
   sku: string;
@@ -22,7 +33,13 @@ export interface CheckoutQuote {
   shipping: number;
   tax: number;
   total: number;
-  lines: { sku: string; quantity: number; unitPrice: number; amount: number; taxCode: string }[];
+  lines: {
+    sku: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+    taxCode: string;
+  }[];
   // Each line's amount after its share of the discount; tax is charged on these.
   taxableAmounts: number[];
 }
@@ -38,7 +55,11 @@ class StripeService {
       process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
   }
 
-  private async post<T>(path: string, body: unknown, token?: string | null): Promise<T> {
+  private async post<T>(
+    path: string,
+    body: unknown,
+    token?: string | null,
+  ): Promise<T> {
     const response = await fetch(`${this.backendUrl}${path}`, {
       method: "POST",
       headers: {
@@ -49,7 +70,10 @@ class StripeService {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      throw new CheckoutError(
+        data.error || `HTTP error! status: ${response.status}`,
+        data.discountRejected === true,
+      );
     }
     return data as T;
   }
@@ -62,8 +86,15 @@ class StripeService {
     items: CheckoutLine[],
     discountCode: string | null,
     token?: string | null,
-  ): Promise<{ clientSecret: string; paymentIntentId: string; quote: CheckoutQuote }> {
-    logger.log("[stripeService] Creating payment intent", { lines: items.length, discountCode });
+  ): Promise<{
+    clientSecret: string;
+    paymentIntentId: string;
+    quote: CheckoutQuote;
+  }> {
+    logger.log("[stripeService] Creating payment intent", {
+      lines: items.length,
+      discountCode,
+    });
     return this.post("/create-payment-intent", { items, discountCode }, token);
   }
 
@@ -78,7 +109,9 @@ class StripeService {
     },
     token?: string | null,
   ): Promise<CheckoutQuote> {
-    return (await this.post<{ quote: CheckoutQuote }>("/checkout/quote", input, token)).quote;
+    return (
+      await this.post<{ quote: CheckoutQuote }>("/checkout/quote", input, token)
+    ).quote;
   }
 
   async retrieveSession(sessionId: string): Promise<any> {

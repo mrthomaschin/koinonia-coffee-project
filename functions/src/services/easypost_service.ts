@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import { createLogger } from '../logger';
 import { getEasyPostClient as createEasyPostClient } from '../integrations/easypost/easypost_client';
 
@@ -338,7 +337,8 @@ export interface ShippingRatesResponse {
 export const fetchShippingRates = async (
     toAddress: Address,
     fromAddress?: Address,
-    parcel?: Parcel
+    parcel?: Parcel,
+    reference?: string
 ): Promise<ShippingRatesResponse> => {
     try {
         const client = getEasyPostClient();
@@ -382,6 +382,7 @@ export const fetchShippingRates = async (
             to_address: easyPostToAddress,
             from_address: easyPostFromAddress,
             parcel: easyPostParcel,
+            ...(reference ? { reference } : {}),
             options: {
                 label_format: 'PNG',
                 label_size: '4x6'
@@ -404,32 +405,6 @@ export const fetchShippingRates = async (
     } catch (error) {
         logger.error('Error fetching shipping rates', { error: (error as Error).message });
         throw error;
-    }
-};
-
-/**
- * Express handler for fetching shipping rates
- */
-export const getShippingRates = async (req: Request, res: Response) => {
-    try {
-        const { toAddress, fromAddress, parcel } = req.body;
-
-        if (!toAddress) {
-            return res.status(400).json({ error: 'toAddress is required' });
-        }
-
-        // Validate required toAddress fields
-        if (!toAddress.street1 || !toAddress.city || !toAddress.state || !toAddress.zip || !toAddress.country) {
-            return res.status(400).json({
-                error: 'toAddress must include street1, city, state, zip, and country'
-            });
-        }
-
-        const rates = await fetchShippingRates(toAddress, fromAddress, parcel);
-        return res.json({ rates: rates.rates, shipmentId: rates.shipmentId });
-    } catch (error) {
-        logger.error('Error in getShippingRates handler', { error: (error as Error).message });
-        return res.status(500).json({ error: (error as Error).message });
     }
 };
 

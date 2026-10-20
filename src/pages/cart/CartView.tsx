@@ -1,15 +1,26 @@
-import React, { useMemo, useCallback, useState } from "react";
+import React, {
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { CartItem } from "./CartViewModel";
 import { ItemType, getThumbnailUrl } from "../shop/item/ItemModel";
 import { useCart } from "../../contexts/CartContext";
 import { useAccount } from "../../contexts/AccountContext";
 import {
+  CheckoutError,
   CheckoutLine,
   CheckoutQuote,
   stripeService,
 } from "../../services/stripeService";
 import { validateDiscountCode } from "../../services/discountService";
+import {
+  clearPendingDiscountCode,
+  getPendingDiscountCode,
+} from "../../services/newsletterService";
 import EmbeddedCheckout from "../../components/EmbeddedCheckout";
 import { ShippingOption } from "../../components/ShippingSelector";
 import "./Cart.css";
@@ -37,7 +48,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   // The server's price when checkout opened: items and discount, before shipping and tax.
-  const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuote | null>(null);
+  const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuote | null>(
+    null,
+  );
   const [isLoadingCheckout, setIsLoadingCheckout] = useState(false);
   const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [isValidatingDiscount, setIsValidatingDiscount] = useState(false);
@@ -254,7 +267,80 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     showToast,
   ]);
 
+  // Removes a code that no longer applies and tells the customer why. A
+  // newsletter code saved for auto-apply is forgotten too, so it isn't
+  // applied again; it's still in their welcome email.
+  const dropDiscountCode = useCallback(
+    (message: string) => {
+      if (viewModel.discountCode?.code === getPendingDiscountCode()) {
+        clearPendingDiscountCode();
+      }
+      viewModel.clearDiscountCode();
+      setDiscountCodeInput("");
+      setUpdateTrigger((prev) => prev + 1);
+      forceUpdate();
+      showToast(`${message} The code was removed from your cart.`, "error");
+    },
+    [viewModel, forceUpdate, showToast],
+  );
+
+  // Applies the code a new newsletter subscriber was shown, once per cart and
+  // sign-in state. It's validated like a typed code. If the buyer has ordered
+  // before, they're told why and the code is forgotten; if it doesn't apply
+  // for a reason that can change (like a subscription in the cart), the cart
+  // is left as is and it's tried again later.
+  const autoApplyAttempt = useRef("");
+  useEffect(() => {
+    const pending = getPendingDiscountCode();
+    if (!pending || viewModel.discountCode || !viewModel.cartItems.length) {
+      return;
+    }
+    const attempt = `${pending}|${viewModel.cartItems.length}|${token || ""}`;
+    if (autoApplyAttempt.current === attempt) return;
+    autoApplyAttempt.current = attempt;
+    validateDiscountCode({ code: pending, items: discountCartLines() }, token)
+      .then((result) => {
+        if (!result.valid && result.reason === "first-order") {
+          clearPendingDiscountCode();
+          showToast(
+            `Your newsletter code ${pending} is for first orders only, so it wasn't applied.`,
+            "info",
+          );
+          return;
+        }
+        if (
+          !result.valid ||
+          !result.code ||
+          !result.percentOff ||
+          viewModel.discountCode
+        ) {
+          return;
+        }
+        viewModel.setDiscountCode(result.code, result.percentOff);
+        setUpdateTrigger((prev) => prev + 1);
+        forceUpdate();
+        showToast(
+          `Your newsletter code ${result.code} was applied.`,
+          "success",
+        );
+      })
+      .catch((error) =>
+        logger.error("[discount] Could not apply newsletter code:", error),
+      );
+  }, [
+    discountCartLines,
+    forceUpdate,
+    showToast,
+    token,
+    viewModel,
+    viewModel.cartItems,
+    viewModel.discountCode,
+  ]);
+
   const handleRemoveDiscount = useCallback(() => {
+    if (viewModel.discountCode?.code === getPendingDiscountCode()) {
+      clearPendingDiscountCode();
+    }
     viewModel.clearDiscountCode();
     setDiscountCodeInput("");
     setUpdateTrigger((prev) => prev + 1);
@@ -290,14 +376,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
           token,
         );
         if (!check.valid) {
-          viewModel.clearDiscountCode();
-          setDiscountCodeInput("");
-          setUpdateTrigger((prev) => prev + 1);
-          forceUpdate();
-          showToast(
-            `${check.message} The code was removed from your cart.`,
-            "error",
-          );
+          dropDiscountCode(check.message);
           return;
         }
       }
@@ -354,6 +433,10 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
       setShowCheckout(true);
     } catch (error) {
       logger.error("[checkout] Error creating payment intent:", error);
+      if (error instanceof CheckoutError && error.discountRejected) {
+        dropDiscountCode(error.message);
+        return;
+      }
       showToast(
         error instanceof Error && error.message
           ? error.message
@@ -366,6 +449,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
   }, [
     checkoutLines,
     discountCartLines,
+    dropDiscountCode,
     forceUpdate,
     getInternalQuantity,
     hasAnyChanges,
@@ -488,6 +572,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         orderPickupId: orderPickupId || null,
       };
 
+      // A newsletter code that was used on this order is done.
+      if (
+        orderData.discountCode &&
+        orderData.discountCode === getPendingDiscountCode()
+      ) {
+        clearPendingDiscountCode();
+      }
       viewModel.cartItems = [];
       viewModel.clearDiscountCode();
       forceUpdate();
@@ -522,6 +613,16 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     setPaymentIntentId(null);
     setCheckoutQuote(null);
   }, []);
+
+  // The code was refused at payment (for example, the email has ordered
+  // before). Close checkout and remove it so the customer can check out again.
+  const handleDiscountRejected = useCallback(
+    (message: string) => {
+      handleCheckoutCancel();
+      dropDiscountCode(`${message} Please check out again.`);
+    },
+    [dropDiscountCode, handleCheckoutCancel],
+  );
 
   const formatWeight = (weight: string): string => {
     return weight;
@@ -761,11 +862,13 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
               checkoutLines={checkoutLines()}
               initialQuote={checkoutQuote}
               totalAmount={
-                (checkoutQuote.subtotal - (checkoutQuote.discount?.amount || 0)) /
+                (checkoutQuote.subtotal -
+                  (checkoutQuote.discount?.amount || 0)) /
                 100
               }
               onSuccess={handleCheckoutSuccess}
               onCancel={handleCheckoutCancel}
+              onDiscountRejected={handleDiscountRejected}
               discountCode={viewModel.discountCode}
               hasSubscription={viewModel.cartItems.some(
                 (item) => !!item.selections.subscriptionPlan,

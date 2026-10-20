@@ -5,7 +5,9 @@ import { getFirestore } from "firebase-admin/firestore";
 import { sessionAccount } from "./account_service";
 import { computeTax, TAX_CODES } from "./tax_service";
 import {
+  cartHashFor,
   DeliveryInput,
+  parcelForCartLines,
   parseCartLines,
   PricingError,
   publicQuote,
@@ -13,6 +15,8 @@ import {
   quoteMetadata,
 } from "./checkout_pricing";
 import { getStripeClient } from "../integrations/stripe/stripe_client";
+import { getEasyPostClient } from "../integrations/easypost/easypost_client";
+import { Address, fetchShippingRates, purchaseShipmentOnce } from "./easypost_service";
 
 const logger = createLogger("stripe");
 
@@ -111,7 +115,10 @@ export class StripeService {
       });
     } catch (error: unknown) {
       if (error instanceof PricingError) {
-        res.status(400).json({ error: error.message });
+        res.status(400).json({
+          error: error.message,
+          ...(error.discountRejected ? { discountRejected: true } : {}),
+        });
         return;
       }
       logger.error("Error creating payment intent", {
@@ -167,17 +174,99 @@ export class StripeService {
 
       await getStripe().paymentIntents.update(paymentIntentId, {
         amount: quote.total,
-        metadata: { ...quoteMetadata(quote), deliveryMethod: delivery.method },
+        metadata: {
+          ...quoteMetadata(quote),
+          deliveryMethod: delivery.method,
+          // The label bought after payment is this quoted rate; an empty value clears it for pickup.
+          shipmentId: delivery.method === "shipping" ? delivery.shipmentId : "",
+          rateId: delivery.method === "shipping" ? delivery.rateId : "",
+        },
       });
       logger.info("Checkout quoted", { paymentIntentId, total: quote.total, shipping: quote.shipping, tax: quote.tax });
       res.json({ quote: publicQuote(quote) });
     } catch (error: unknown) {
       if (error instanceof PricingError) {
-        res.status(400).json({ error: error.message });
+        res.status(400).json({
+          error: error.message,
+          ...(error.discountRejected ? { discountRejected: true } : {}),
+        });
         return;
       }
       logger.error("Error quoting checkout", { error: (error as Error).message });
       res.status(500).json({ error: "We couldn't confirm your total. Please try again." });
+    }
+  }
+
+  /**
+   * POST /get-shipping-rates — body { toAddress, items }. The parcel is sized
+   * on the server from the cart's inventory weights, and the shipment is tagged
+   * with the cart's hash so the quote can't apply its rates to another cart.
+   */
+  static async getShippingRates(req: Request, res: Response): Promise<void> {
+    try {
+      const to = req.body?.toAddress;
+      if (!to?.street1 || !to.city || !to.state || !to.zip || !to.country) {
+        res.status(400).json({ error: "Please enter a complete shipping address." });
+        return;
+      }
+      const lines = parseCartLines(req.body?.items);
+      const parcel = await parcelForCartLines(lines);
+      const toAddress: Address = {
+        street1: String(to.street1),
+        city: String(to.city),
+        state: String(to.state),
+        zip: String(to.zip),
+        country: String(to.country),
+        ...(to.street2 ? { street2: String(to.street2) } : {}),
+        ...(to.name ? { name: String(to.name) } : {}),
+        ...(to.phone ? { phone: String(to.phone) } : {}),
+        ...(to.email ? { email: String(to.email) } : {}),
+      };
+      const { boxSize, ...dimensions } = parcel;
+      const rates = await fetchShippingRates(toAddress, undefined, dimensions, cartHashFor(lines));
+      res.json({ rates: rates.rates, shipmentId: rates.shipmentId, parcel: { ...dimensions, boxSize } });
+    } catch (error: unknown) {
+      if (error instanceof PricingError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      logger.error("Error fetching shipping rates", { error: (error as Error).message });
+      res.status(500).json({ error: "We couldn't load shipping options. Please try again." });
+    }
+  }
+
+  /**
+   * POST /checkout/purchase-label — body { paymentIntentId }. Buys the
+   * shipping label for a paid web checkout: the shipment and rate saved on
+   * the payment when it was quoted, never ones the browser sends. Buying is
+   * idempotent, so a retry returns the label already bought.
+   */
+  static async purchaseCheckoutLabel(req: Request, res: Response): Promise<void> {
+    try {
+      const paymentIntentId = String(req.body?.paymentIntentId || "");
+      const paymentIntent = paymentIntentId.startsWith("pi_") ?
+        await getStripe().paymentIntents.retrieve(paymentIntentId).catch(() => null) :
+        null;
+      const { shipmentId, rateId, deliveryMethod } = paymentIntent?.metadata || {};
+      if (!paymentIntent || paymentIntent.status !== "succeeded" || deliveryMethod !== "shipping" || !shipmentId || !rateId) {
+        res.status(409).json({ error: "This order has no paid shipment to purchase." });
+        return;
+      }
+
+      const shipment: any = await getEasyPostClient().Shipment.retrieve(shipmentId);
+      const to = shipment.to_address || {};
+      const { length, width, height, weight } = shipment.parcel || {};
+      const label = await purchaseShipmentOnce(
+        { street1: to.street1, street2: to.street2 || undefined, city: to.city, state: to.state, zip: to.zip, country: to.country || "US" },
+        rateId,
+        { length, width, height, weight },
+        shipmentId,
+      );
+      logger.info("Checkout label purchased", { paymentIntentId, shipmentId, trackingNumber: label.trackingNumber });
+      res.json({ ...label, boxSize: length ? `${length}x${width}x${height}` : "" });
+    } catch (error: unknown) {
+      logger.error("Error purchasing checkout label", { error: (error as Error).message });
+      res.status(500).json({ error: "We couldn't create your shipping label." });
     }
   }
 

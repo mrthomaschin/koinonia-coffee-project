@@ -7,6 +7,10 @@ import {
 import { createLogger } from "../logger";
 import { Address, fetchShippingRates } from "../services/easypost_service";
 import {
+  FLAT_RATE_STANDARD_CENTS,
+  usesFlatRateShipping,
+} from "../services/checkout_pricing";
+import {
   RecurringOrderService,
   SubscriptionCadence,
   SubscriptionService,
@@ -437,7 +441,10 @@ export class SubscriptionRenewalUseCase {
     return account as ChargeableAccount;
   }
 
-  /** Prices one roast: products, add-ons, and the cheapest shipping rate. */
+  /**
+   * Prices one roast: products, add-ons, and shipping. The label is the
+   * cheapest rate; the customer pays the flat rate where it applies.
+   */
   private async createQuote(
     subscription: RenewalSubscription,
     account: ChargeableAccount,
@@ -476,10 +483,12 @@ export class SubscriptionRenewalUseCase {
     const shipping = subscription.isLocalPickup
       ? null
       : await this.quoteShipping(subscription, account);
-    const shippingAmount =
-      shipping && !freeShipping
-        ? Math.round(shipping.estimatedLabelPrice * 100)
-        : 0;
+    let shippingAmount = 0;
+    if (shipping && !freeShipping) {
+      shippingAmount = usesFlatRateShipping(account.label, shipping.toAddress)
+        ? FLAT_RATE_STANDARD_CENTS
+        : Math.round(shipping.estimatedLabelPrice * 100);
+    }
     return {
       orderId: SubscriptionService.renewalOrderId(subscription.id, roastDate),
       amount: productAmount + shippingAmount,

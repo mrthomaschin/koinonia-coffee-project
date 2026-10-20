@@ -2,12 +2,6 @@
   "indexes": [],
   "fieldOverrides": [
     {
-      "collectionGroup": "newsletter_confirmations",
-      "fieldPath": "expiresAt",
-      "ttl": true,
-      "indexes": []
-    },
-    {
       "collectionGroup": "email_verifications",
       "fieldPath": "expiresAt",
       "ttl": true,

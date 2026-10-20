@@ -31,7 +31,6 @@ import AccountDetailsPage from './pages/account/AccountDetailsPage';
 import PartnerStorePage from './pages/account/PartnerStorePage';
 import AccountLoginPage from './pages/account/AccountLoginPage';
 import VerifyEmailPage from './pages/account/VerifyEmailPage';
-import NewsletterConfirmPage from './pages/newsletter/NewsletterConfirmPage';
 import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
 import Gallery from './pages/gallery/Gallery';
@@ -181,7 +180,6 @@ const MainContent: React.FC = () => {
           </Route>
           <Route path="/account-login" element={<AccountLoginPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/newsletter/confirm" element={<NewsletterConfirmPage />} />
           <Route path="/review" element={<ReviewPage availableHeight={availableHeight} />} />
           <Route path="/review/unsubscribe" element={<ReviewUnsubscribePage availableHeight={availableHeight} />} />
           <Route path="/partner-account" element={<Navigate to="/account-login" replace />} />

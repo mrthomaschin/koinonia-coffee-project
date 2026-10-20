@@ -2459,19 +2459,16 @@ export class AccountService {
           `account ${account.id}`,
         );
       }
-      const confirmationSent = newsletterChanges.length
-        ? await AccountService.updateNewsletters(
-            account,
-            Object.fromEntries(newsletterChanges) as Partial<
-              Record<NewsletterId, boolean>
-            >,
-            req,
-          )
-        : false;
-      res.json({
-        ...(await emailPreferences(account)),
-        ...(confirmationSent ? { confirmationSent: true } : {}),
-      });
+      if (newsletterChanges.length) {
+        await AccountService.updateNewsletters(
+          account,
+          Object.fromEntries(newsletterChanges) as Partial<
+            Record<NewsletterId, boolean>
+          >,
+          req,
+        );
+      }
+      res.json(await emailPreferences(account));
     } catch (error: unknown) {
       logger.error("Unable to update email preferences", {
         error: (error as Error).message,
@@ -2483,17 +2480,14 @@ export class AccountService {
   }
 
   /**
-   * Applies newsletter toggles from the account page. Turning one on for a
-   * verified email subscribes right away and sends the welcome email, with
-   * the first-order code for someone who has never ordered. An unverified
-   * email gets a confirmation link instead, like the public signup. Returns
-   * true when a confirmation link was sent.
+   * Applies newsletter toggles from the account page. Turning one on
+   * subscribes right away, with the same welcome email as the public signup.
    */
   private static async updateNewsletters(
     account: AccountProfile,
     changes: Partial<Record<NewsletterId, boolean>>,
     req: Request,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const email = account.user.email.trim().toLowerCase();
     const context = {
       source: "account" as const,
@@ -2509,45 +2503,9 @@ export class AccountService {
       Object.entries(changes).filter(([, on]) => !on),
     );
     await NewsletterService.setSubscriptions(email, turningOff, context);
-    if (!turningOn.length) return false;
-    if (!account.emailVerified) {
-      // Orders under the account's earlier emails count too, as they do at checkout.
-      await NewsletterService.requestConfirmation(
-        email,
-        turningOn,
-        context,
-        await emailsForAccount(account),
-      );
-      return true;
+    if (turningOn.length) {
+      await NewsletterService.subscribe(email, turningOn, context);
     }
-
-    const before = await NewsletterService.getPreferences(email);
-    await NewsletterService.setSubscriptions(
-      email,
-      Object.fromEntries(turningOn.map((id) => [id, true])),
-      context,
-    );
-    const newlySubscribed = before.some(
-      (newsletter) => turningOn.includes(newsletter.id) && !newsletter.subscribed,
-    );
-    try {
-      if (newlySubscribed) {
-        await NewsletterService.sendWelcome(
-          email,
-          siteUrlFor(req.header("origin")),
-          await NewsletterService.isEligibleForWelcomeDiscount(
-            await emailsForAccount(account),
-          ),
-        );
-      }
-    } catch (error: unknown) {
-      // They're subscribed; the welcome email is a bonus, so this doesn't fail the request.
-      logger.error("Unable to send newsletter welcome email", {
-        accountId: account.id,
-        error: (error as Error).message,
-      });
-    }
-    return false;
   }
 
   static async getDetails(req: Request, res: Response): Promise<void> {
