@@ -1,0 +1,220 @@
+/* Structured Notion content. Typography and colors come from src/styles/tokens.css. */
+.notion-content {
+  color: var(--color-text-secondary);
+  font: var(--size-body)/var(--lh-body) var(--font-body);
+}
+
+.notion-content > :first-child,
+.notion-section-body > :first-child,
+.notion-column > :first-child {
+  margin-top: 0;
+}
+
+.notion-content > :last-child,
+.notion-section-body > :last-child,
+.notion-column > :last-child {
+  margin-bottom: 0;
+}
+
+/* ----- Text ----- */
+.notion-paragraph {
+  margin: 0 0 var(--space-4);
+}
+
+.notion-content strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.notion-heading {
+  margin: var(--space-6) 0 var(--space-3);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+.notion-heading--2 {
+  font-size: var(--size-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--tracking-h2);
+}
+
+.notion-heading--3 {
+  font-size: var(--size-h3);
+  line-height: var(--lh-h3);
+}
+
+.notion-heading--4 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.notion-link {
+  color: var(--color-marina);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.notion-link:hover {
+  color: var(--color-eucalyptus);
+}
+
+.notion-inline-code,
+.notion-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .9em;
+}
+
+.notion-inline-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(203, 197, 185, .45);
+}
+
+.notion-code {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  overflow-x: auto;
+  border-radius: 8px;
+  background: rgba(203, 197, 185, .35);
+}
+
+/* ----- Lists ----- */
+.notion-list {
+  margin: 0 0 var(--space-4);
+  padding-left: 1.25em;
+}
+
+.notion-list li {
+  margin-bottom: var(--space-1);
+}
+
+.notion-list li::marker {
+  color: var(--color-eucalyptus);
+}
+
+.notion-list .notion-list {
+  margin: var(--space-1) 0 0;
+}
+
+/* ----- Quote & callout ----- */
+.notion-quote {
+  margin: var(--space-5) 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-5);
+  border-left: 2px solid var(--color-eucalyptus);
+  color: var(--color-text);
+  font-family: var(--font-accent);
+  font-size: var(--size-callout);
+  font-style: italic;
+  line-height: var(--lh-callout);
+}
+
+.notion-quote p {
+  margin: 0;
+}
+
+.notion-callout {
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: 8px;
+  background: rgba(203, 197, 185, .35);
+}
+
+.notion-callout p {
+  margin: 0;
+}
+
+.notion-callout-icon {
+  flex: none;
+  line-height: var(--lh-body);
+}
+
+/* ----- Toggle ----- */
+.notion-toggle {
+  margin: 0 0 var(--space-4);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.notion-toggle summary {
+  padding: var(--space-3) 0;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.notion-toggle-body {
+  padding: 0 0 var(--space-4);
+}
+
+/* ----- Media & layout ----- */
+.notion-image {
+  margin: var(--space-5) 0;
+}
+
+.notion-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.notion-image figcaption {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--size-body-sm);
+  line-height: var(--lh-body-sm);
+}
+
+.notion-columns {
+  display: grid;
+  grid-template-columns: repeat(var(--notion-column-count, 2), minmax(0, 1fr));
+  gap: var(--space-6);
+  margin: var(--space-5) 0;
+}
+
+.notion-columns .notion-image {
+  margin: 0;
+}
+
+.notion-divider {
+  margin: var(--space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--color-hairline);
+}
+
+/* ----- Sectioned mode: each h2 is a full-width band ----- */
+.notion-section {
+  position: relative;
+  padding: 70px 0 68px;
+}
+
+/* Full-bleed tinted band without changing layout width. */
+.notion-section--tinted {
+  background: #c7c2b8;
+  box-shadow: 0 0 0 100vmax #c7c2b8;
+  clip-path: inset(0 -100vmax);
+}
+
+.notion-section-heading {
+  max-width: 760px;
+  margin: 0 0 var(--space-5);
+  color: var(--color-text);
+  font: 400 var(--size-h2)/var(--lh-h2) var(--font-heading);
+  letter-spacing: var(--tracking-h2);
+}
+
+.notion-section-body {
+  max-width: 760px;
+}
+
+@media (max-width: 700px) {
+  .notion-section {
+    padding: 52px 0 50px;
+  }
+
+  .notion-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+}

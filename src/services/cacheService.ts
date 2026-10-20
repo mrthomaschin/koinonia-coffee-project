@@ -1,46 +1,46 @@
-import { Item } from '../pages/shop/item/ItemModel';
-import { createLogger } from '../util/logger';
+import { Item } from "../pages/shop/item/ItemModel";
+import { createLogger } from "../util/logger";
 
-const logger = createLogger('CacheService');
+const logger = createLogger("CacheService");
 
-const CACHE_KEY = 'koinonia_inventory_cache';
-const CACHE_TIMESTAMP_KEY = 'koinonia_inventory_timestamp';
+const CACHE_KEY = "koinonia_inventory_cache_v5";
+const CACHE_TIMESTAMP_KEY = "koinonia_inventory_timestamp_v5";
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 export const saveInventoryCache = (items: Item[]): void => {
-    try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(items));
-        localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-    } catch (error) {
-        logger.error('Failed to save inventory to cache:', error);
-    }
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+    localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+  } catch (error) {
+    logger.error("Failed to save inventory to cache:", error);
+  }
 };
 
 export const loadInventoryCache = (): Item[] | null => {
-    try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-        if (!cached || !timestamp) return null;
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+    if (!cached || !timestamp) return null;
 
-        const cacheAge = Date.now() - parseInt(timestamp);
-        if (cacheAge > CACHE_DURATION) {
-            localStorage.removeItem(CACHE_KEY);
-            localStorage.removeItem(CACHE_TIMESTAMP_KEY);
-            return null;
-        }
-
-        return JSON.parse(cached);
-    } catch (error) {
-        logger.error('Failed to load inventory from cache:', error);
-        return null;
+    const cacheAge = Date.now() - parseInt(timestamp);
+    if (cacheAge > CACHE_DURATION) {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+      return null;
     }
+
+    return JSON.parse(cached);
+  } catch (error) {
+    logger.error("Failed to load inventory from cache:", error);
+    return null;
+  }
 };
 
 export const clearInventoryCache = (): void => {
-    try {
-        localStorage.removeItem(CACHE_KEY);
-        localStorage.removeItem(CACHE_TIMESTAMP_KEY);
-    } catch (error) {
-        logger.error('Failed to clear inventory cache:', error);
-    }
+  try {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+  } catch (error) {
+    logger.error("Failed to clear inventory cache:", error);
+  }
 };

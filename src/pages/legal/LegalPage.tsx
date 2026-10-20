@@ -65,7 +65,6 @@ const LegalPage: React.FC<{ type: LegalPageType }> = ({ type }) => {
             {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
           </section>
         ))}
-        <p className="legal-draft-note">These policies are a starting point and should be reviewed against your business practices and applicable law.</p>
       </article>
     </main>
   );

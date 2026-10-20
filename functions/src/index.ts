@@ -21,11 +21,6 @@ import { MonthlyMetricsService } from "./services/monthly_metrics_service";
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
 dotenv.config({ path: ".env.local" });
-// Reuse public EmailJS template configuration from the web app during local
-// emulator development. Production values must be Firebase secrets.
-dotenv.config({ path: "../.env" });
-process.env.EMAILJS_CUSTOMER_TEMPLATE_ID ||= process.env.REACT_APP_EMAILJS_CUSTOMER_TEMPLATE_ID;
-process.env.EMAILJS_PURCHASE_TEMPLATE_ID ||= process.env.REACT_APP_EMAILJS_PURCHASE_TEMPLATE_ID;
 
 const logger = createLogger('index');
 
@@ -43,6 +38,8 @@ const getFirestoreDb = () => {
 };
 
 const INVENTORY_CACHE_DOC = "inventory_cache/latest";
+// Bump when the shape of cached inventory items changes so older cached copies are refetched from Notion.
+const INVENTORY_SCHEMA_VERSION = 4;
 const INVENTORY_CACHE_TTL_MS = 5 * 60 * 1000; // Reduced to 5 minutes to prevent stale data
 const PROCESSED_EVENTS_COLLECTION = "processed_function_events";
 
@@ -80,7 +77,9 @@ const getInventoryCache = async (): Promise<InventoryCache | null> => {
       .doc(INVENTORY_CACHE_DOC.split("/")[1])
       .get();
     if (!doc.exists) return null;
-    return doc.data() as InventoryCache;
+    const data = doc.data() as InventoryCache & { schemaVersion?: number };
+    if (data.schemaVersion !== INVENTORY_SCHEMA_VERSION) return null;
+    return data;
   } catch (error: unknown) {
     logger.error("Error reading inventory cache", { error: (error as Error).message });
     return null;
@@ -92,7 +91,7 @@ const writeInventoryCache = async (cache: InventoryCache): Promise<void> => {
     const db = getFirestoreDb();
     await db.collection(INVENTORY_CACHE_DOC.split("/")[0])
       .doc(INVENTORY_CACHE_DOC.split("/")[1])
-      .set(cache);
+      .set({ ...cache, schemaVersion: INVENTORY_SCHEMA_VERSION });
   } catch (error: unknown) {
     logger.error("Error writing inventory cache", { error: (error as Error).message });
     throw error;
@@ -268,6 +267,21 @@ app.post("/mark-order-confirmed-email-sent", async (req: Request, res: Response)
 // Uncheck order confirmed email as sent
 app.post("/uncheck-order-confirmed-email-sent", async (req: Request, res: Response) => NotionService.handleUncheckOrderConfirmedEmailSent(req, res));
 
+// Website emails sent through Resend. The API key is a server secret, so the
+// browser posts the same order data it used to send through EmailJS.
+const handleEmail = (send: (body: any) => Promise<void>, label: string) => async (req: Request, res: Response) => {
+  try {
+    await send(req.body);
+    res.json({ success: true });
+  } catch (error: unknown) {
+    logger.error(`Error sending ${label} email`, { error: (error as Error).message });
+    res.status(500).json({ error: `Failed to send ${label} email` });
+  }
+};
+app.post("/email/contact", handleEmail(EmailService.sendContactForm, "contact form"));
+app.post("/email/purchase-notification", handleEmail(EmailService.sendPurchaseNotification, "purchase notification"));
+app.post("/email/customer-confirmation", handleEmail(EmailService.sendCustomerConfirmation, "customer confirmation"));
+
 // Validate discount code
 app.post("/validate-discount-code", async (req: Request, res: Response) => NotionService.validateDiscountCode(req, res));
 
@@ -347,7 +361,7 @@ export const linkHistoricalOrdersToAccount = onDocumentWritten(
 const subscriptionRenewalOptions = {
   region: "us-central1" as const,
   // A renewal calls Notion, Stripe, and EasyPost in sequence; fulfillment adds
-  // Pictify and EmailJS. The 60s default leaves too little headroom.
+  // Pictify and Resend. The 60s default leaves too little headroom.
   timeoutSeconds: 300,
   secrets: [
     "STRIPE_SECRET_KEY",
@@ -355,12 +369,7 @@ const subscriptionRenewalOptions = {
     "NOTION_TOKEN",
     "NOTION_ALL_EVENTS_DATABASE_ID",
     "NOTION_ONLINE_ORDERS_DATABASE_ID",
-    "EMAILJS_SERVICE_ID",
-    "EMAILJS_PUBLIC_KEY",
-    "EMAILJS_PRIVATE_KEY",
-    "EMAILJS_CUSTOMER_TEMPLATE_ID",
-    "EMAILJS_PURCHASE_TEMPLATE_ID",
-    "EMAILJS_RENEWAL_REMINDER_TEMPLATE_ID",
+    "RESEND_API_KEY",
     "PICTIFY_API_KEY",
     "PICTIFY_RECEIPT_TEMPLATE_UID",
   ],
@@ -510,15 +519,8 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_ORDER_PICKUP_DATABASE_ID",
     "NOTION_CHURCH_AND_MINISTRY_DATABASE_ID",
 
-    // EmailJS
-    "EMAILJS_SERVICE_ID",
-    "EMAILJS_PUBLIC_KEY",
-    "EMAILJS_PRIVATE_KEY",
-    "EMAILJS_SHIPPED_TEMPLATE_ID",
-    "EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID",
-    "EMAILJS_DELIVERED_TEMPLATE_ID",
-    "EMAILJS_READY_FOR_PICKUP_TEMPLATE_ID",
-    "EMAILJS_PICKED_UP_TEMPLATE_ID",
+    // Resend
+    "RESEND_API_KEY",
 
     // EasyPost
     "EASYPOST_API_KEY",
@@ -540,6 +542,8 @@ export const checkOrderStatusUpdates = onSchedule(
 const syncInventoryCacheOptions: any = {
   schedule: "every 15 minutes",
   timeZone: "America/Los_Angeles",
+  // Headroom for resizing full-resolution product photos (see image_variants.ts).
+  memory: "512MiB",
 };
 
 // Only add secrets in production (not in emulator)
@@ -586,10 +590,7 @@ export const sendReviewRequests = onSchedule(
       secrets: [
         "NOTION_TOKEN",
         "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
-        "EMAILJS_SERVICE_ID",
-        "EMAILJS_PUBLIC_KEY",
-        "EMAILJS_PRIVATE_KEY",
-        "EMAILJS_REVIEW_REQUEST_TEMPLATE_ID",
+        "RESEND_API_KEY",
       ],
     } : {}),
   },
@@ -640,7 +641,8 @@ export const syncMonthlyMetrics = onSchedule(
 );
 
 // Export the Express app as a Firebase Functions v2 HTTP function
-const apiOptions: any = {};
+// Headroom for resizing full-resolution product photos (see image_variants.ts).
+const apiOptions: any = { memory: "512MiB" };
 // Only add secrets in production (not in emulator)
 if (process.env.FUNCTIONS_EMULATOR !== "true") {
   apiOptions.secrets = [
@@ -656,13 +658,8 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
     "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
     "PICTIFY_API_KEY",
     "PICTIFY_RECEIPT_TEMPLATE_UID",
-    // Account email verification
-    "EMAILJS_SERVICE_ID",
-    "EMAILJS_PUBLIC_KEY",
-    "EMAILJS_PRIVATE_KEY",
-    "EMAILJS_VERIFY_EMAIL_TEMPLATE_ID",
-    // Reviews
-    "EMAILJS_REVIEW_REQUEST_TEMPLATE_ID",
+    // Account verification, review, contact form, and web order emails
+    "RESEND_API_KEY",
     "ADMIN_API_TOKEN",
   ];
 }

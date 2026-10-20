@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
 import { getNotionClient } from "../integrations/notion/notion_client";
+import { ContentBlock, fetchWebsiteContent, listChildBlocks } from "./notion_content";
+import { getImageVariantsList } from "./image_variants";
 
 import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
@@ -96,32 +98,6 @@ const notionBlockToMarkdown = (block: any): string => {
             return `> ${content.rich_text?.map((text: any) => text.plain_text).join("") || ""}`;
         default:
             return content.rich_text?.map((text: any) => text.plain_text).join("") || "";
-    }
-};
-
-// Fetch all blocks from a Notion page and convert to markdown
-const fetchPageContentAsMarkdown = async (pageId: string): Promise<string> => {
-    try {
-        const notion = getNotion();
-        const blocks = [];
-        let hasMore = true;
-        let nextCursor: string | null | undefined = undefined;
-
-        while (hasMore) {
-            const response = await notion.blocks.children.list({
-                block_id: pageId,
-                start_cursor: nextCursor || undefined,
-            });
-
-            blocks.push(...response.results);
-            hasMore = response.has_more;
-            nextCursor = response.next_cursor;
-        }
-
-        return blocks.map(notionBlockToMarkdown).join("\n\n\n");
-    } catch (error) {
-        logger.error(`Error fetching page content for ${pageId}:`, error);
-        return "";
     }
 };
 
@@ -365,11 +341,18 @@ export class NotionService {
 
                 // Handle ItemSummary as a relation property
                 let itemSummary = "";
+                let itemContent: ContentBlock[] = [];
                 const itemSummaryRelation = properties["Item Summary"]?.relation;
                 if (itemSummaryRelation && itemSummaryRelation.length > 0) {
                     const relatedPageId = itemSummaryRelation[0].id;
                     if (relatedPageId) {
-                        itemSummary = await fetchPageContentAsMarkdown(relatedPageId);
+                        // One fetch of the page's blocks feeds both the plain markdown summary and the structured content.
+                        const pageBlocks = await listChildBlocks(relatedPageId).catch((error) => {
+                            logger.error(`Error fetching page content for ${relatedPageId}:`, error);
+                            return [];
+                        });
+                        itemSummary = pageBlocks.map(notionBlockToMarkdown).join("\n\n\n");
+                        itemContent = await fetchWebsiteContent(relatedPageId, pageBlocks);
                     }
                 }
                 const itemType = properties["Item Type"]?.select?.name || "";
@@ -396,8 +379,20 @@ export class NotionService {
                 const weights = properties["Weights"]?.multi_select?.map((w: any) => w.name) || [];
                 const shippingWeight = properties["Shipping Weight"]?.number || 0;
                 const roastLevel = properties["Roast Level"]?.select?.name || "";
-                const origin = properties["Origin"]?.rich_text?.[0]?.plain_text || "";
-                const tastingNotes = properties["Tasting Notes"]?.multi_select?.map((n: any) => n.name) || [];
+                // Origin is a multi-select (older text values still work).
+                const originProperty = properties["Origin"];
+                const origins: string[] = originProperty?.multi_select
+                    ? originProperty.multi_select.map((o: any) => o.name)
+                    : (originProperty?.rich_text?.[0]?.plain_text ? [originProperty.rich_text[0].plain_text] : []);
+                const origin = origins.join(", ");
+                // Tasting Notes is short text with notes separated by ", " (older multi-select values still work).
+                const tastingNotesProperty = properties["Tasting Notes"];
+                const tastingNotes: string[] = tastingNotesProperty?.multi_select
+                    ? tastingNotesProperty.multi_select.map((n: any) => n.name)
+                    : (tastingNotesProperty?.rich_text?.map((t: any) => t.plain_text).join("") || "")
+                        .split(",").map((note: string) => note.trim()).filter(Boolean);
+                const process = properties["Process"]?.multi_select?.map((p: any) => p.name) || [];
+                const varietals = properties["Varietal"]?.multi_select?.map((v: any) => v.name) || [];
                 const sizes = properties["Sizes"]?.multi_select?.map((s: any) => s.name) || [];
                 const colors = properties["Colors"]?.multi_select?.map((c: any) => c.name) || [];
                 const ltoEndDate = properties["LTO End Date"]?.date?.start || null;
@@ -407,6 +402,9 @@ export class NotionService {
                 const itemSummaryData = await getItemSummaryData(properties, itemType);
                 const itemDetails = itemSummaryData.itemDetails;
                 const brewingMethods = itemSummaryData.brewingMethods;
+
+                // Serve web-sized copies; full-resolution originals are far too heavy for pages.
+                const imageVariants = await getImageVariantsList(images);
 
                 const itemVariants = variants.get(sku);
                 let variantInventory = null;
@@ -465,10 +463,13 @@ export class NotionService {
                     sku,
                     name,
                     itemSummary,
+                    itemContent,
                     itemDetails,
                     nextRoastDate,
                     price,
-                    firebaseImageUrls: images,
+                    firebaseImageUrls: imageVariants.map((variant) => variant.large),
+                    thumbnailUrls: imageVariants.map((variant) => variant.thumb),
+                    originalImageUrls: images,
                     itemType,
                     createdAt,
                     quantity,
@@ -477,7 +478,10 @@ export class NotionService {
                     shippingWeight,
                     roastLevel,
                     origin,
+                    origins,
                     tastingNotes,
+                    process,
+                    varietals,
                     sizes,
                     colors,
                     variants: variantInventory,
@@ -1064,20 +1068,14 @@ export class NotionService {
             logger.info("Starting order status check...");
 
             const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-            const emailjsServiceId = process.env.EMAILJS_SERVICE_ID;
-            const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
-            const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
-            const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
-            const outForDeliveryTemplateId = process.env.EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID;
-            const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
 
             if (!databaseId) {
                 res.status(500).json({ error: "NOTION_ONLINE_ORDERS_DATABASE_ID not configured" });
                 return;
             }
 
-            if (!emailjsServiceId || !emailjsPublicKey || !emailjsPrivateKey) {
-                res.status(500).json({ error: "EmailJS configuration missing" });
+            if (!process.env.RESEND_API_KEY) {
+                res.status(500).json({ error: "RESEND_API_KEY not configured" });
                 return;
             }
 
@@ -1170,15 +1168,11 @@ export class NotionService {
                 }
 
                 // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent && shippedTemplateId) {
+                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent) {
                     logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendShippedNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: shippedTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -1214,15 +1208,11 @@ export class NotionService {
                 }
 
                 // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent && outForDeliveryTemplateId) {
+                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent) {
                     logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendOutForDeliveryNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: outForDeliveryTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -1261,15 +1251,11 @@ export class NotionService {
                 }
 
                 // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent && deliveredTemplateId) {
+                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent) {
                     logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendDeliveredNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: deliveredTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -1326,20 +1312,14 @@ export class NotionService {
             logger.info("Starting order status check...");
 
             const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-            const emailjsServiceId = process.env.EMAILJS_SERVICE_ID;
-            const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
-            const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
-            const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
-            const outForDeliveryTemplateId = process.env.EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID;
-            const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
 
             if (!databaseId) {
                 logger.error("NOTION_ONLINE_ORDERS_DATABASE_ID not configured");
                 return;
             }
 
-            if (!emailjsServiceId || !emailjsPublicKey || !emailjsPrivateKey) {
-                logger.error("EmailJS configuration missing");
+            if (!process.env.RESEND_API_KEY) {
+                logger.error("RESEND_API_KEY not configured");
                 return;
             }
 
@@ -1423,15 +1403,11 @@ export class NotionService {
                 }
 
                 // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent && shippedTemplateId) {
+                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent) {
                     logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendShippedNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: shippedTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -1464,15 +1440,11 @@ export class NotionService {
                 }
 
                 // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent && outForDeliveryTemplateId) {
+                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent) {
                     logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendOutForDeliveryNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: outForDeliveryTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -1508,15 +1480,11 @@ export class NotionService {
                 }
 
                 // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent && deliveredTemplateId) {
+                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent) {
                     logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await sendDeliveredNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: deliveredTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -1569,10 +1537,6 @@ function parseItemsToHtml(itemsText: string): string {
 
 // Helper function to send shipped notification
 async function sendShippedNotification(params: {
-    serviceId: string;
-    templateId: string;
-    publicKey: string;
-    privateKey: string;
     toEmail: string;
     customerName: string;
     orderId: string;
@@ -1587,10 +1551,6 @@ async function sendShippedNotification(params: {
 
 // Helper function to send delivered notification
 async function sendDeliveredNotification(params: {
-    serviceId: string;
-    templateId: string;
-    publicKey: string;
-    privateKey: string;
     toEmail: string;
     customerName: string;
     orderId: string;
@@ -1601,10 +1561,6 @@ async function sendDeliveredNotification(params: {
 }
 
 async function sendOutForDeliveryNotification(params: {
-    serviceId: string;
-    templateId: string;
-    publicKey: string;
-    privateKey: string;
     toEmail: string;
     customerName: string;
     orderId: string;

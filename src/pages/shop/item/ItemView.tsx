@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { Item, ItemType } from './ItemModel';
+import { Item, ItemType, getThumbnailUrl } from './ItemModel';
 import { useItemDetailViewModel } from './ItemViewModel';
 import { CoffeeBagItem } from './coffee_bag/CoffeeBagItem';
 import { MerchItem } from './merch/MerchItem';
@@ -15,7 +15,7 @@ import { useInventory } from '../../../contexts/InventoryContext';
 import { generateSlug } from '../shopData';
 import SEO, { SITE_URL } from '../../../components/SEO';
 import NotionBody from '../../../components/NotionBody';
-import { Eyebrow } from '../../../components/ui/Typography';
+import { NotionContent } from '../../../components/notion';
 import ProductReviews, { useProductReviews } from '../../../components/reviews/ProductReviews';
 
 interface ItemViewProps {
@@ -26,7 +26,6 @@ interface ItemViewProps {
   renderExtraInfo?: (item: Item) => React.ReactNode;
   renderOptions?: (item: Item) => React.ReactNode;
   renderDetailsSection?: (item: Item) => React.ReactNode;
-  hideDetailsDropdown?: boolean;
   renderBrewingMethod?: (item: Item) => React.ReactNode;
   calculatePrice?: () => string;
   handleAddToCart?: () => void;
@@ -41,7 +40,6 @@ export const ItemView: React.FC<ItemViewProps> = ({
   renderExtraInfo,
   renderOptions,
   renderDetailsSection,
-  hideDetailsDropdown = false,
   renderBrewingMethod,
   calculatePrice,
   handleAddToCart,
@@ -54,8 +52,6 @@ export const ItemView: React.FC<ItemViewProps> = ({
     item: viewModelItem,
     isLoading,
     handleBack: viewModelHandleBack,
-    isDetailsDropdownOpen,
-    toggleDetailsDropdown,
     defaultCalculatePrice,
     defaultHandleAddToCart,
   } = useItemDetailViewModel(itemProp, cart);
@@ -335,35 +331,19 @@ export const ItemView: React.FC<ItemViewProps> = ({
         </div>
       </div>
 
-      {item.itemType === ItemType.coffee && (
-        <section className="coffee-story-section">
-          <div>
-            <Eyebrow>THE COFFEE</Eyebrow>
-            <h2>About this coffee.</h2>
-            <p className="coffee-story-subtext">{item.itemDetails}</p>
-          </div>
-          <div className="coffee-story-copy">
-            <NotionBody content={item.itemSummary || item.itemDetails} />
-          </div>
-        </section>
-      )}
+      <div className="item-content">
+        {renderDetailsSection ? renderDetailsSection(item) : item.itemContent && item.itemContent.length > 0 ? (
+          <NotionContent blocks={item.itemContent} sectioned />
+        ) : (
+          // Older cached inventory has only the markdown summary.
+          <NotionBody content={item.itemSummary} fallback="More details about this item will be displayed here." />
+        )}
+      </div>
 
-      {!hideDetailsDropdown && <div className="item-detail-dropdown">
-        <button
-          className="dropdown-toggle"
-          onClick={toggleDetailsDropdown}
-        >
-          <h2>DETAILS</h2>
-          <span className={`dropdown-arrow ${isDetailsDropdownOpen ? 'open' : ''}`}>▼</span>
-        </button>
-        <div className={`dropdown-content ${isDetailsDropdownOpen ? 'open' : ''}`}>
-          {renderDetailsSection ? renderDetailsSection(item) : <NotionBody content={item.itemSummary} fallback="More details about this item will be displayed here." />}
-        </div>
-      </div>}
+      {renderBrewingMethod && renderBrewingMethod(item)}
 
       <ProductReviews summary={reviewSummary} />
 
-      {renderBrewingMethod && renderBrewingMethod(item)}
 
       {relatedItems.length > 0 && (
         <section className="you-may-also-like">
@@ -380,7 +360,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
               >
                 <span className="related-image-wrap">
                   <img
-                    src={relatedItem.firebaseImageUrls?.[0] || ICONS.shopPlaceholder}
+                    src={getThumbnailUrl(relatedItem, ICONS.shopPlaceholder)}
                     alt={relatedItem.name}
                   />
                 </span>

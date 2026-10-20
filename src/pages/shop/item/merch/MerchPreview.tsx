@@ -37,4 +37,4 @@ const MerchPreview: React.FC<MerchPreviewProps> = ({ item, onClick }) => {
   );
 };
 
-export default MerchPreview;
+export default React.memo(MerchPreview);

@@ -66,13 +66,18 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       notionItem.nextRoastDate
     );
     item.isWholesale = isWholesale;
+    item.itemContent = notionItem.itemContent || null;
+    item.thumbnailUrls = notionItem.thumbnailUrls || [];
+    item.origins = notionItem.origins || (notionItem.origin ? [notionItem.origin] : []);
+    item.process = notionItem.process || [];
+    item.varietals = notionItem.varietals || [];
     return item;
   } else {
     const sizes = (notionItem.sizes || [])
       .map(mapMerchSize)
       .filter((s): s is MerchSize => s !== null);
 
-    return new MerchItem(
+    const merchItem = new MerchItem(
       notionItem.sku,
       notionItem.name,
       notionItem.itemSummary || '',
@@ -89,6 +94,9 @@ export const convertNotionItemToItem = (notionItem: NotionInventoryItem): Item |
       ltoUnlimitedPurchases,
       notionItem.shippingWeight
     );
+    merchItem.itemContent = notionItem.itemContent || null;
+    merchItem.thumbnailUrls = notionItem.thumbnailUrls || [];
+    return merchItem;
   }
 };
 

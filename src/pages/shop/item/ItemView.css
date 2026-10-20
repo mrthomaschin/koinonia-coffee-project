@@ -560,9 +560,9 @@
 
 .detail-back-button {
   margin-bottom: 34px;
-  color: #313d66;
-  font: 10px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1.5px;
+  color: var(--color-marina);
+  font: var(--size-link)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-link);
 }
 
 .detail-container {
@@ -589,71 +589,79 @@
 
 .detail-header {
   padding-bottom: 17px;
-  border-bottom: 1px solid rgba(47, 43, 57, .22);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
-.detail-name {
-  margin: 0 0 12px;
-  color: #2f2b39;
-  font: 400 50px 'HedvigLettersSerif_18pt', Georgia, serif;
-  line-height: .95;
-  letter-spacing: -2px;
+.item-detail-page-wrapper .detail-name {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text);
+  font: 400 var(--size-h2)/var(--lh-h2) var(--font-heading);
+  letter-spacing: var(--tracking-h2);
 }
 
-.detail-meta {
-  color: #84825e;
-  font: 12px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1px;
+.item-detail-page-wrapper .detail-meta {
+  gap: var(--space-3);
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
 
-.category-badge {
+.item-detail-page-wrapper .detail-meta .category-badge,
+.item-detail-page-wrapper .detail-meta .origin-text {
   padding: 0;
-  color: #84825e;
+  color: inherit;
   background: none;
   border-radius: 0;
-  font: 12px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1px;
+  font: inherit;
+  letter-spacing: inherit;
 }
 
-.detail-meta .origin-text {
-  font-size: 12px;
-}
-
-.detail-description {
-  color: rgba(47, 43, 57, .76);
-  font: 14px 'RethinkSans-Regular', sans-serif;
-  line-height: 1.7;
+.item-detail-page-wrapper .detail-description {
+  color: var(--color-text-secondary);
+  font: var(--size-body)/var(--lh-body) var(--font-body);
 }
 
 .detail-purchase {
   gap: 14px;
   padding-top: 18px;
-  border-top: 1px solid rgba(47, 43, 57, .22);
+  border-top: 1px solid var(--color-hairline);
 }
 
-.detail-price-label {
-  color: #84825e;
-  font: 10px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1px;
+.item-detail-page-wrapper .detail-price-label {
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
 
-.detail-price {
-  color: #2f2b39;
-  font: 400 28px 'HedvigLettersSerif_18pt', Georgia, serif;
+.item-detail-page-wrapper .detail-price {
+  color: var(--color-text);
+  font: 400 var(--size-h3)/var(--lh-h3) var(--font-heading);
 }
 
 .detail-add-to-cart {
-  border-radius: 0;
-  padding: 15px;
-  background: #84825e;
-  font: 10px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1.5px;
+  border: 1px solid var(--color-eucalyptus);
+  border-radius: 8px;
+  padding: var(--space-4) var(--space-6);
+  color: var(--color-pearl);
+  background: var(--color-eucalyptus);
+  font: var(--size-link)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-link);
+  transition: background-color .2s ease, border-color .2s ease;
 }
 
 .detail-add-to-cart:hover {
-  background: #6d6a4d;
+  background: var(--color-midnight);
+  border-color: var(--color-midnight);
+}
+
+.detail-add-to-cart.out-of-stock,
+.detail-add-to-cart.out-of-stock:hover {
+  color: var(--color-pearl);
+  background: var(--color-eucalyptus);
+  border-color: var(--color-eucalyptus);
+  opacity: .5;
 }
 
 .item-detail-dropdown {
@@ -676,71 +684,6 @@
 
 .coffee-detail-purchase .detail-price-section {
   display: none;
-}
-
-/* Coffee option controls matching the product mockup */
-.detail-info-section .flavor-notes h3,
-.detail-info-section .option-label {
-  margin: 0 0 11px;
-  color: #6f6d50;
-  font: 600 14px 'RethinkSans-Regular', sans-serif;
-  line-height: 1.2;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-}
-
-.detail-info-section .flavor-notes {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.detail-info-section .flavor-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 17px !important;
-}
-
-.detail-info-section .flavor-tag {
-  padding: 8px 13px;
-  border: 0;
-  border-radius: 4px;
-  color: #3f3d42;
-  background: #e9e5db;
-  font: 13px 'RethinkSans-Regular', sans-serif;
-  line-height: 1.2;
-}
-
-.detail-info-section .option-group {
-  gap: 0;
-}
-
-.detail-info-section .weight-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.detail-info-section .weight-button {
-  min-width: 62px;
-  padding: 11px 16px;
-  border: 1px solid #c8c2b3;
-  border-radius: 4px;
-  color: #3f3d42;
-  background: #f8f5eb;
-  font: 13px 'RethinkSans-Regular', sans-serif;
-}
-
-.detail-info-section .weight-button:hover {
-  border-color: #84825e;
-  color: #2f2b39;
-}
-
-.detail-info-section .weight-button.selected {
-  border-color: #84825e;
-  color: #f8f5eb;
-  background: #84825e;
 }
 
 .coffee-story-section {
@@ -795,67 +738,76 @@
 }
 
 .coffee-brew-guide {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8%;
-  margin: 0 -5.5vw;
-  padding: 68px 5.5vw 64px;
-  background: #f8f5eb;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 64px 0;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.coffee-brew-guide-heading {
+  margin-bottom: 36px;
+}
+
+.coffee-brew-guide-heading .coffee-detail-eyebrow {
+  margin: 0 0 var(--space-4);
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
 }
 
 .coffee-brew-guide-heading h3 {
-  margin: 0 0 22px;
-  font: 400 48px 'HedvigLettersSerif_18pt', Georgia, serif;
-  line-height: .88;
-  letter-spacing: -2px;
+  margin: 0 0 var(--space-5);
+  color: var(--color-text);
+  font: 400 var(--size-h2)/var(--lh-h2) var(--font-heading);
+  letter-spacing: var(--tracking-h2);
 }
 
-.coffee-brew-guide-heading>p:last-child {
-  max-width: 400px;
+.coffee-brew-guide-heading>p:not(.coffee-detail-eyebrow) {
+  max-width: none;
   margin: 0;
-  color: rgba(47, 43, 57, .72);
-  font: 13px 'RethinkSans-Regular', sans-serif;
-  line-height: 1.7;
+  color: var(--color-text);
+  font: 16px/var(--lh-body) var(--font-body);
 }
 
+.coffee-brew-guide-heading>p:not(.coffee-detail-eyebrow)+p {
+  margin-top: var(--space-4);
+}
+
+/* Recipes: one column per method, each a dropdown. */
 .coffee-brew-methods {
-  padding-top: 0;
-}
-
-.coffee-brew-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: center;
-  min-height: 84px;
-  padding: 18px 0;
-  border-top: 1px solid rgba(47, 43, 57, .28);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-5);
+  align-items: start;
 }
 
-.coffee-brew-row:last-child {
-  border-bottom: 1px solid rgba(47, 43, 57, .28);
+.coffee-brew-method {
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
-.coffee-brew-row strong {
-  font: 27px 'HedvigLettersSerif_18pt', Georgia, serif;
-  font-weight: 400;
-}
-
-.coffee-brew-method-column {
-  align-self: start;
-}
-
-.coffee-brew-method-heading {
+.coffee-brew-method-toggle {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4) 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.coffee-brew-method-toggle strong {
+  flex: 1;
+  font: 400 var(--size-h3)/var(--lh-h3) var(--font-heading);
 }
 
 .coffee-brew-method-icon {
-  flex: 0 0 100px;
-  width: 100px;
-  height: 100px;
+  flex: none;
+  width: 56px;
+  height: 56px;
 }
 
 .coffee-brew-method-icon .brewing-icon {
@@ -865,33 +817,68 @@
   object-fit: contain;
 }
 
-.coffee-brew-row span,
-.coffee-brew-row p {
-  color: rgba(47, 43, 57, .68);
-  font: 14px 'RethinkSans-Regular', sans-serif;
-  line-height: 1.5;
+.coffee-brew-chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 4px 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform .35s cubic-bezier(.4, 0, .2, 1);
+}
+
+.coffee-brew-method--open .coffee-brew-chevron {
+  margin-bottom: -2px;
+  transform: rotate(-135deg);
+}
+
+.coffee-brew-method-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows .35s cubic-bezier(.4, 0, .2, 1), opacity .25s ease;
+}
+
+.coffee-brew-method--open .coffee-brew-method-collapse {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.coffee-brew-method-body {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .coffee-brew-parameters {
+  margin: 0 0 var(--space-4);
+}
+
+.coffee-brew-parameters > div {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 0;
-  margin-left: 68px;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-hairline);
 }
 
-.coffee-brew-parameters b {
-  display: inline-block;
-  min-width: 112px;
-  margin-right: 8px;
-  color: #6f6d50;
-  font: 600 11px 'RethinkSans-Regular', sans-serif;
-  letter-spacing: 1.2px;
+.coffee-brew-parameters dt {
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow)/1.6 var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
 }
 
-.coffee-brew-row p {
-  margin: 6px 0 0;
-  color: rgba(47, 43, 57, .76);
+.coffee-brew-parameters dd {
+  margin: 0;
+  color: var(--color-text);
+  font: var(--size-body-sm)/1.6 var(--font-body);
+  text-align: right;
+}
+
+.coffee-brew-description {
+  margin: 0 0 var(--space-5);
+  color: var(--color-text-secondary);
+  font: var(--size-body-sm)/var(--lh-body-sm) var(--font-body);
   white-space: pre-wrap;
 }
 
@@ -917,8 +904,7 @@
     margin-top: 35px;
   }
 
-  .coffee-story-section,
-  .coffee-brew-guide {
+  .coffee-story-section {
     grid-template-columns: 1fr;
     gap: 35px;
     margin-left: -24px;
@@ -926,27 +912,25 @@
     padding: 55px 24px;
   }
 
+  .coffee-brew-guide {
+    padding: 48px 0;
+  }
+
   .coffee-story-section {
     margin-top: 55px;
   }
 
-  .coffee-story-section h2,
-  .coffee-brew-guide-heading h3 {
+  .coffee-story-section h2 {
     font-size: 43px;
   }
 
-  .coffee-brew-row {
+  .coffee-brew-methods {
     grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 22px 0;
+    gap: 0;
   }
 
-  .coffee-brew-parameters b {
-    min-width: 104px;
-  }
-
-  .coffee-brew-parameters {
-    margin-left: 68px;
+  .coffee-brew-method + .coffee-brew-method {
+    border-top: 0;
   }
 }
 
@@ -1053,4 +1037,225 @@
   .related-card-copy {
     align-self: center;
   }
+}
+
+/* =====================================================================
+ * Product info section controls. Uses the shared design tokens so labels
+ * match <Eyebrow>, choices match body copy, and controls match <Button>.
+ * Scoped under the page wrapper so it wins over the older per-component
+ * rules in CoffeeBagDetail.css / MerchDetail.css.
+ * ===================================================================== */
+.item-detail-page-wrapper .detail-info-section {
+  font-family: var(--font-body);
+}
+
+.item-detail-page-wrapper .detail-info-section button,
+.item-detail-page-wrapper .detail-info-section input {
+  font-family: inherit;
+}
+
+.item-detail-page-wrapper .detail-options {
+  gap: var(--space-6);
+}
+
+.item-detail-page-wrapper .option-group {
+  gap: 0;
+}
+
+/* Section labels: same treatment as <Eyebrow>. */
+.item-detail-page-wrapper .flavor-notes h3,
+.item-detail-page-wrapper .option-group > label,
+.item-detail-page-wrapper .option-label,
+.item-detail-page-wrapper .subscription-options legend {
+  display: block;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  color: var(--color-eucalyptus);
+  font: var(--size-eyebrow)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+/* Next roast date: small body copy. */
+.item-detail-page-wrapper .next-roast-date {
+  color: var(--color-text-secondary);
+  font: var(--size-body-sm)/var(--lh-body-sm) var(--font-body);
+}
+
+.item-detail-page-wrapper .next-roast-date a {
+  color: var(--color-marina);
+}
+
+/* Roast level and tasting note tags. */
+.item-detail-page-wrapper .flavor-notes {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-detail-page-wrapper .flavor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5) !important;
+}
+
+.item-detail-page-wrapper .flavor-tags:last-child {
+  margin-bottom: 0 !important;
+}
+
+.item-detail-page-wrapper .flavor-tag {
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text);
+  background: rgba(203, 197, 185, .45);
+  font: var(--size-body-sm)/1.2 var(--font-body);
+}
+
+/* Weight / size / color choices: same label style and radius as <Button>. */
+.item-detail-page-wrapper .weight-options,
+.item-detail-page-wrapper .size-options,
+.item-detail-page-wrapper .color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.item-detail-page-wrapper .weight-button,
+.item-detail-page-wrapper .size-button,
+.item-detail-page-wrapper .color-button {
+  min-width: 72px;
+  padding: 14px 22px;
+  border: 1px solid var(--color-linen);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: transparent;
+  font: var(--size-link)/1.2 var(--font-body);
+  letter-spacing: var(--tracking-link);
+  text-transform: uppercase;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.item-detail-page-wrapper .weight-button:hover,
+.item-detail-page-wrapper .size-button:hover,
+.item-detail-page-wrapper .color-button:hover {
+  border-color: var(--color-eucalyptus);
+}
+
+.item-detail-page-wrapper .weight-button.selected,
+.item-detail-page-wrapper .size-button.selected,
+.item-detail-page-wrapper .color-button.selected {
+  border-color: var(--color-eucalyptus);
+  color: var(--color-pearl);
+  background: var(--color-eucalyptus);
+}
+
+/* Purchase option (one-time vs subscription). The legend is floated so it sits
+   below the fieldset's top border instead of breaking it. */
+.item-detail-page-wrapper .subscription-options {
+  border: 0;
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
+  padding: var(--space-5) 0 var(--space-4);
+}
+
+.item-detail-page-wrapper .subscription-options legend {
+  float: left;
+  width: 100%;
+}
+
+.item-detail-page-wrapper .subscription-plan-options {
+  clear: both;
+  gap: 0;
+}
+
+.item-detail-page-wrapper .subscription-plan-options label {
+  min-height: 36px;
+  color: var(--color-text-secondary);
+  font: var(--size-body)/1.4 var(--font-body);
+}
+
+.item-detail-page-wrapper .subscription-plan-options label.selected {
+  color: var(--color-text);
+  font-weight: 400;
+}
+
+.item-detail-page-wrapper .subscription-plan-options label strong {
+  color: var(--color-text-secondary);
+  font: inherit;
+}
+
+.item-detail-page-wrapper .subscription-plan-options label input {
+  accent-color: var(--color-eucalyptus);
+}
+
+.item-detail-page-wrapper .subscription-frequency {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-hairline);
+}
+
+.item-detail-page-wrapper .subscription-frequency p {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font: var(--size-body-sm)/var(--lh-body-sm) var(--font-body);
+}
+
+.item-detail-page-wrapper .subscription-frequency .subscription-plan-options label {
+  font-size: var(--size-body-sm);
+}
+
+.item-detail-page-wrapper .subscription-frequency > p:last-child {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+/* Quantity stepper. */
+.item-detail-page-wrapper .quantity-selector {
+  gap: var(--space-4);
+}
+
+.item-detail-page-wrapper .quantity-button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-linen);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: transparent;
+  font: 400 18px/1 var(--font-body);
+}
+
+.item-detail-page-wrapper .quantity-button:hover {
+  border-color: var(--color-eucalyptus);
+  color: var(--color-text);
+}
+
+.item-detail-page-wrapper .quantity-display {
+  min-width: 24px;
+  color: var(--color-text);
+  font: 400 var(--size-body)/1 var(--font-body);
+}
+
+/* Notion "Website Description" content below the purchase area. */
+.item-content {
+  max-width: 1180px;
+  margin: 64px auto 0;
+  border-top: 1px solid var(--color-hairline);
+}
+
+/* Description text spans the full content width on item pages. */
+.item-content .notion-section-heading,
+.item-content .notion-section-body {
+  max-width: none;
+}
+
+@media (max-width: 700px) {
+  .item-content {
+    margin-top: 48px;
+  }
+}
+
+/* Reviews share the content width so they line up with the description sections. */
+.item-detail-page-wrapper .product-reviews {
+  max-width: 1180px;
 }

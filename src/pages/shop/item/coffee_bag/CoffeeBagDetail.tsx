@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { CoffeeBagItem } from './CoffeeBagItem';
-import { ItemView } from '../ItemView';
-import { useCart } from '../../../../contexts/CartContext';
-import { ICONS } from '../../../../util/constants';
-import './CoffeeBagDetail.css';
-import { ItemType } from '../ItemModel';
-import { allowsUnlimitedPurchases } from '../../../../util/limitedTimeOffer';
-import { SubscriptionPlan } from '../../../../models/AccountModel';
-import { useAccount } from '../../../../contexts/AccountContext';
+import React, { useState } from "react";
+import { CoffeeBagItem } from "./CoffeeBagItem";
+import { ItemView } from "../ItemView";
+import { useCart } from "../../../../contexts/CartContext";
+import { ICONS } from "../../../../util/constants";
+import "./CoffeeBagDetail.css";
+import { ItemType } from "../ItemModel";
+import { allowsUnlimitedPurchases } from "../../../../util/limitedTimeOffer";
+import { SubscriptionPlan } from "../../../../models/AccountModel";
+import { useAccount } from "../../../../contexts/AccountContext";
 
 interface CoffeeBagDetailProps {
   item: CoffeeBagItem;
@@ -17,28 +17,54 @@ interface CoffeeBagDetailProps {
 const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
   const { account } = useAccount();
-  const isPartnerAccount = account?.label === 'wholesale' || account?.label === 'church-ministry';
-  const isPartnerVariant = (variant: NonNullable<CoffeeBagItem['variants']>[number]): boolean => isPartnerAccount
-    ? (variant.isWholesale === true || variant.sku.toUpperCase().endsWith('-WS')
-      || (account?.label === 'wholesale' && ['200g', '1lb', '3lb', '5lb'].includes((variant.weight || '').replace(/\s/g, '').toLowerCase())))
-    : (!variant.isWholesale && !variant.sku.endsWith('-WS'));
+  const isPartnerAccount =
+    account?.label === "wholesale" || account?.label === "church-ministry";
+  const isPartnerVariant = (
+    variant: NonNullable<CoffeeBagItem["variants"]>[number],
+  ): boolean =>
+    isPartnerAccount
+      ? variant.isWholesale === true ||
+        variant.sku.toUpperCase().endsWith("-WS") ||
+        (account?.label === "wholesale" &&
+          ["200g", "1lb", "3lb", "5lb"].includes(
+            (variant.weight || "").replace(/\s/g, "").toLowerCase(),
+          ))
+      : !variant.isWholesale && !variant.sku.endsWith("-WS");
   // Derive available weights from variants if they exist, otherwise use parent's weights
-  const availableWeights = item.variants && item.variants.length > 0
-    ? item.variants
-      .filter(isPartnerVariant)
-      .map(v => v.weight)
-      .filter((w): w is string => w !== '')
-      .filter((weight, index, self) => self.indexOf(weight) === index)
-      .reverse()
-    : (item.weights || []);
-  const [selectedWeight, setSelectedWeight] = useState<string>(availableWeights[0] || '200g');
+  const availableWeights =
+    item.variants && item.variants.length > 0
+      ? item.variants
+          .filter(isPartnerVariant)
+          .map((v) => v.weight)
+          .filter((w): w is string => w !== "")
+          .filter((weight, index, self) => self.indexOf(weight) === index)
+          .reverse()
+      : item.weights || [];
+  const [selectedWeight, setSelectedWeight] = useState<string>(
+    availableWeights[0] || "200g",
+  );
   const [quantity, setQuantity] = useState<number>(1);
-  const [purchaseMode, setPurchaseMode] = useState<'one-time' | 'subscription'>('one-time');
-  const [subscriptionFrequency, setSubscriptionFrequency] = useState<'every-session' | 'every-other-session'>('every-session');
-  const selectedVariant = item.variants?.filter(v => v.weight === selectedWeight && isPartnerVariant(v))
-    .sort((first, second) => Number(!!(second.isWholesale || second.sku.toUpperCase().endsWith('-WS'))) - Number(!!(first.isWholesale || first.sku.toUpperCase().endsWith('-WS'))))[0];
+  const [openBrewMethods, setOpenBrewMethods] = useState<string[]>([]);
+  const [purchaseMode, setPurchaseMode] = useState<"one-time" | "subscription">(
+    "one-time",
+  );
+  const [subscriptionFrequency, setSubscriptionFrequency] = useState<
+    "every-session" | "every-other-session"
+  >("every-session");
+  const selectedVariant = item.variants
+    ?.filter((v) => v.weight === selectedWeight && isPartnerVariant(v))
+    .sort(
+      (first, second) =>
+        Number(
+          !!(second.isWholesale || second.sku.toUpperCase().endsWith("-WS")),
+        ) -
+        Number(
+          !!(first.isWholesale || first.sku.toUpperCase().endsWith("-WS")),
+        ),
+    )[0];
 
-  const subscriptionPlan: SubscriptionPlan = `${quantity === 2 ? 'two-bags' : 'one-bag'}-${subscriptionFrequency}` as SubscriptionPlan;
+  const subscriptionPlan: SubscriptionPlan =
+    `${quantity === 2 ? "two-bags" : "one-bag"}-${subscriptionFrequency}` as SubscriptionPlan;
 
   const handleAddToCart = () => {
     // Find the matching variant for the selected weight
@@ -55,21 +81,22 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       }
     }
 
-    const unitPrice = purchaseMode === 'subscription' ? variantPrice * 0.95 : variantPrice;
+    const unitPrice =
+      purchaseMode === "subscription" ? variantPrice * 0.95 : variantPrice;
     const result = cart.addItem(item, quantity, {
       weight: selectedWeight,
       variantSku,
       variantPrice: unitPrice,
       variantShippingWeight,
       ...(isPartnerAccount ? { isPartnerOrder: true } : {}),
-      ...(purchaseMode === 'subscription' ? { subscriptionPlan } : {}),
+      ...(purchaseMode === "subscription" ? { subscriptionPlan } : {}),
     });
     forceUpdate();
 
     if (result.success) {
-      showToast(result.message, 'success');
+      showToast(result.message, "success");
     } else {
-      showToast(result.message, 'error');
+      showToast(result.message, "error");
     }
   };
 
@@ -78,16 +105,26 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     if (item.variants && item.variants.length > 0 && selectedWeight) {
       const variant = selectedVariant;
       if (variant && variant.price > 0) {
-        return (variant.price * quantity * (purchaseMode === 'subscription' ? 0.95 : 1)).toFixed(2);
+        return (
+          variant.price *
+          quantity *
+          (purchaseMode === "subscription" ? 0.95 : 1)
+        ).toFixed(2);
       }
     }
 
     // Use base price from Notion
-    return (item.price * quantity * (purchaseMode === 'subscription' ? 0.95 : 1)).toFixed(2);
+    return (
+      item.price *
+      quantity *
+      (purchaseMode === "subscription" ? 0.95 : 1)
+    ).toFixed(2);
   };
 
   const getSelectedUnitPrice = (): number => {
-    return selectedVariant && selectedVariant.price > 0 ? selectedVariant.price : item.price;
+    return selectedVariant && selectedVariant.price > 0
+      ? selectedVariant.price
+      : item.price;
   };
 
   const isSoldOut = () => {
@@ -106,28 +143,43 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
   const renderMetadata = (coffeeItem: CoffeeBagItem) => (
     <>
       <span className="category-badge">{ItemType[coffeeItem.itemType]}</span>
-      <span className="origin-text">{coffeeItem.origin}</span>
     </>
   );
 
-  const renderExtraInfo = (coffeeItem: CoffeeBagItem) => (
-    <>
-      {coffeeItem.tastingNotes && coffeeItem.tastingNotes.length > 0 && (
-        <div className="flavor-notes">
-          <h3>Roast Level</h3>
-          <div className="flavor-tags" style={{ marginBottom: '1rem' }}>
-            <span key={coffeeItem.roastLevel} className="flavor-tag">{coffeeItem.roastLevel}</span>
-          </div>
-          <h3>Tasting Notes</h3>
-          <div className="flavor-tags">
-            {coffeeItem.tastingNotes.map((note, index) => (
-              <span key={index} className="flavor-tag">{note}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
-  );
+  const renderExtraInfo = (coffeeItem: CoffeeBagItem) => {
+    const origins = coffeeItem.origins?.length
+      ? coffeeItem.origins
+      : coffeeItem.origin
+        ? [coffeeItem.origin]
+        : [];
+    const sections = [
+      {
+        title: "Roast Level",
+        values: coffeeItem.roastLevel ? [coffeeItem.roastLevel] : [],
+      },
+      { title: origins.length > 1 ? "Regions" : "Region", values: origins },
+      { title: "Tasting Notes", values: coffeeItem.tastingNotes || [] },
+    ].filter((section) => section.values.length > 0);
+
+    if (sections.length === 0) return null;
+
+    return (
+      <div className="flavor-notes">
+        {sections.map((section) => (
+          <React.Fragment key={section.title}>
+            <h3>{section.title}</h3>
+            <div className="flavor-tags">
+              {section.values.map((value, index) => (
+                <span key={index} className="flavor-tag">
+                  {value}
+                </span>
+              ))}
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
 
   const renderOptions = () => (
     <>
@@ -135,7 +187,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         <label className="option-label">Weight</label>
         <div className="weight-options">
           {availableWeights.map((weight) => {
-            const variant = item.variants?.find(v => v.weight === weight);
+            const variant = item.variants?.find((v) => v.weight === weight);
             // Only show weight if it has an active variant
             if (!variant || variant.active === false) {
               return null;
@@ -143,7 +195,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
             return (
               <button
                 key={weight}
-                className={`weight-button ${selectedWeight === weight ? 'selected' : ''}`}
+                className={`weight-button ${selectedWeight === weight ? "selected" : ""}`}
                 onClick={() => setSelectedWeight(weight)}
               >
                 {weight}
@@ -153,17 +205,78 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         </div>
       </div>
 
-      {!isPartnerAccount && <fieldset className="subscription-options">
-        <legend>Purchase option</legend>
-        <div className="subscription-plan-options">
-          <label className={purchaseMode === 'one-time' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'one-time'} onChange={() => setPurchaseMode('one-time')} /><span>One-time purchase</span><strong>${getSelectedUnitPrice().toFixed(2)}</strong></label>
-          <label className={purchaseMode === 'subscription' ? 'selected' : ''}><input type="radio" name="purchase-mode" checked={purchaseMode === 'subscription'} onChange={() => { setPurchaseMode('subscription'); setQuantity((current) => Math.min(2, current)); }} /><span>Subscribe &amp; save 5%</span><strong>From ${(getSelectedUnitPrice() * 0.95).toFixed(2)}</strong></label>
-        </div>
-        {purchaseMode === 'subscription' && <div className="subscription-frequency"><p>Select delivery frequency</p><div className="subscription-plan-options">
-          <label className={subscriptionFrequency === 'every-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-session'} onChange={() => setSubscriptionFrequency('every-session')} /><span>Every roast session</span></label>
-          <label className={subscriptionFrequency === 'every-other-session' ? 'selected' : ''}><input type="radio" name="subscription-frequency" checked={subscriptionFrequency === 'every-other-session'} onChange={() => setSubscriptionFrequency('every-other-session')} /><span>Every other roast session</span></label>
-        </div><p>You can skip or cancel anytime from your account.</p></div>}
-      </fieldset>}
+      {!isPartnerAccount && (
+        <fieldset className="subscription-options">
+          <legend>Purchase option</legend>
+          <div className="subscription-plan-options">
+            <label className={purchaseMode === "one-time" ? "selected" : ""}>
+              <input
+                type="radio"
+                name="purchase-mode"
+                checked={purchaseMode === "one-time"}
+                onChange={() => setPurchaseMode("one-time")}
+              />
+              <span>One-time purchase</span>
+              <strong>${getSelectedUnitPrice().toFixed(2)}</strong>
+            </label>
+            <label
+              className={purchaseMode === "subscription" ? "selected" : ""}
+            >
+              <input
+                type="radio"
+                name="purchase-mode"
+                checked={purchaseMode === "subscription"}
+                onChange={() => {
+                  setPurchaseMode("subscription");
+                  setQuantity((current) => Math.min(2, current));
+                }}
+              />
+              <span>Subscribe &amp; save 5%</span>
+              <strong>
+                From ${(getSelectedUnitPrice() * 0.95).toFixed(2)}
+              </strong>
+            </label>
+          </div>
+          {purchaseMode === "subscription" && (
+            <div className="subscription-frequency">
+              <p>Select delivery frequency</p>
+              <div className="subscription-plan-options">
+                <label
+                  className={
+                    subscriptionFrequency === "every-session" ? "selected" : ""
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="subscription-frequency"
+                    checked={subscriptionFrequency === "every-session"}
+                    onChange={() => setSubscriptionFrequency("every-session")}
+                  />
+                  <span>Every roast session</span>
+                </label>
+                <label
+                  className={
+                    subscriptionFrequency === "every-other-session"
+                      ? "selected"
+                      : ""
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="subscription-frequency"
+                    checked={subscriptionFrequency === "every-other-session"}
+                    onChange={() =>
+                      setSubscriptionFrequency("every-other-session")
+                    }
+                  />
+                  <span>Every other roast session</span>
+                </label>
+              </div>
+              <p>You can skip or cancel anytime from your account.</p>
+            </div>
+          )}
+        </fieldset>
+      )}
 
       <div className="option-group">
         <label className="option-label">Quantity</label>
@@ -177,7 +290,14 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
           <span className="quantity-display">{quantity}</span>
           <button
             className="quantity-button"
-            onClick={() => setQuantity(Math.min(!isPartnerAccount && purchaseMode === 'subscription' ? 2 : 99, quantity + 1))}
+            onClick={() =>
+              setQuantity(
+                Math.min(
+                  !isPartnerAccount && purchaseMode === "subscription" ? 2 : 99,
+                  quantity + 1,
+                ),
+              )
+            }
           >
             +
           </button>
@@ -185,6 +305,11 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       </div>
     </>
   );
+
+  const toggleBrewMethod = (name: string) =>
+    setOpenBrewMethods((open) =>
+      open.includes(name) ? open.filter((n) => n !== name) : [...open, name],
+    );
 
   const renderBrewingMethod = () => {
     if (!item.brewingMethods) {
@@ -194,38 +319,52 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
     const brewingMethods = [
       {
         name: "Single Dripper",
-        icon: <img src={ICONS.v60} alt="Single Dripper" className="brewing-icon" />,
+        icon: (
+          <img src={ICONS.v60} alt="Single Dripper" className="brewing-icon" />
+        ),
         coffee: item.brewingMethods.singleDripper?.dose || "",
         water: item.brewingMethods.singleDripper?.yield || "",
-        waterTemperature: item.brewingMethods.singleDripper?.waterTemperature || "",
+        waterTemperature:
+          item.brewingMethods.singleDripper?.waterTemperature || "",
         ratio: item.brewingMethods.singleDripper?.ratio || "",
         time: item.brewingMethods.singleDripper?.time || "",
-        description: item.brewingMethods.singleDripper?.description || ""
+        description: item.brewingMethods.singleDripper?.description || "",
       },
       {
         name: "Batch Dripper",
-        icon: <img src={ICONS.chemex} alt="Batch Dripper" className="brewing-icon" />,
+        icon: (
+          <img
+            src={ICONS.chemex}
+            alt="Batch Dripper"
+            className="brewing-icon"
+          />
+        ),
         coffee: item.brewingMethods.batchDripper?.dose || "",
         water: item.brewingMethods.batchDripper?.yield || "",
-        waterTemperature: item.brewingMethods.batchDripper?.waterTemperature || "",
+        waterTemperature:
+          item.brewingMethods.batchDripper?.waterTemperature || "",
         ratio: item.brewingMethods.batchDripper?.ratio || "",
         time: item.brewingMethods.batchDripper?.time || "",
-        description: item.brewingMethods.batchDripper?.description || ""
+        description: item.brewingMethods.batchDripper?.description || "",
       },
       {
         name: "Espresso",
-        icon: <img src={ICONS.espresso} alt="Espresso" className="brewing-icon" />,
+        icon: (
+          <img src={ICONS.espresso} alt="Espresso" className="brewing-icon" />
+        ),
         coffee: item.brewingMethods.espresso?.dose || "",
         water: item.brewingMethods.espresso?.yield || "",
         waterTemperature: item.brewingMethods.espresso?.waterTemperature || "",
         ratio: item.brewingMethods.espresso?.ratio || "",
         maxPressure: item.brewingMethods.espresso?.maxPressure || "",
         time: item.brewingMethods.espresso?.time || "",
-        description: item.brewingMethods.espresso?.description || ""
+        description: item.brewingMethods.espresso?.description || "",
       },
       {
         name: "Milk Drink",
-        icon: <img src={ICONS.espresso} alt="Milk Drink" className="brewing-icon" />,
+        icon: (
+          <img src={ICONS.espresso} alt="Milk Drink" className="brewing-icon" />
+        ),
         coffee: item.brewingMethods.milkDrink?.dose || "",
         water: item.brewingMethods.milkDrink?.yield || "",
         waterTemperature: item.brewingMethods.milkDrink?.waterTemperature || "",
@@ -233,9 +372,18 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
         milkRatio: item.brewingMethods.milkDrink?.milkRatio || "",
         maxPressure: item.brewingMethods.milkDrink?.maxPressure || "",
         time: item.brewingMethods.milkDrink?.time || "",
-        description: item.brewingMethods.milkDrink?.description || ""
-      }
-    ].filter(method => method.coffee || method.water || method.ratio || method.milkRatio || method.maxPressure || method.time || method.description);
+        description: item.brewingMethods.milkDrink?.description || "",
+      },
+    ].filter(
+      (method) =>
+        method.coffee ||
+        method.water ||
+        method.ratio ||
+        method.milkRatio ||
+        method.maxPressure ||
+        method.time ||
+        method.description,
+    );
 
     if (brewingMethods.length === 0) {
       return null;
@@ -245,30 +393,81 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       <div className="coffee-brew-guide">
         <div className="coffee-brew-guide-heading">
           <p className="coffee-detail-eyebrow">BREW GUIDE</p>
-          <h3>Make a good cup at<br />home.</h3>
-          <p>We&apos;ve included a few starting points so you can find the version of {item.name} that feels most like yours.</p>
+          <h3>Make a good cup at home.</h3>
+          <p>
+            Don't know where to start? We got you! We&apos;ve included our
+            personal brew guides and tasting experiences so you can find the
+            version of {item.name} that feels most like yours.
+          </p>
+          <p>
+            Everyone's taste and preference is different. These brew guides
+            should be used as a starting point, not a strict rule. Play around
+            with what tastes best to you, that's what we care about the most!
+          </p>
         </div>
         <div className="coffee-brew-methods">
-          {brewingMethods.map((method, index) => (
-            <div key={index} className="coffee-brew-row">
-              <div className="coffee-brew-method-column">
-                <div className="coffee-brew-method-heading">
-                  <div className="coffee-brew-method-icon">{method.icon}</div>
-                  <strong>{method.name === 'Single Dripper' ? 'Pour-over' : method.name === 'Batch Dripper' ? 'Batch brew' : method.name === 'Milk Drink' ? 'Milk drink' : method.name}</strong>
-                </div>
-                <div className="coffee-brew-parameters">
-                  {method.coffee && <span><b>COFFEE</b>{method.coffee}</span>}
-                  {method.water && <span><b>WATER</b>{method.water}</span>}
-                  {method.waterTemperature && <span><b>TEMPERATURE</b>{method.waterTemperature}</span>}
-                  {method.ratio && <span><b>RATIO</b>{method.ratio}</span>}
-                  {method.time && <span><b>TIME</b>{method.time}</span>}
-                  {method.milkRatio && <span><b>MILK RATIO</b>{method.milkRatio}</span>}
-                  {method.maxPressure && <span><b>MAX PRESSURE</b>{method.maxPressure}</span>}
+          {brewingMethods.map((method, index) => {
+            const isOpen = openBrewMethods.includes(method.name);
+            const parameters = [
+              ["COFFEE", method.coffee],
+              ["WATER", method.water],
+              ["TEMPERATURE", method.waterTemperature],
+              ["RATIO", method.ratio],
+              ["TIME", method.time],
+              ["MILK RATIO", method.milkRatio],
+              ["MAX PRESSURE", method.maxPressure],
+            ].filter(([, value]) => value);
+            return (
+              <div
+                key={index}
+                className={`coffee-brew-method${isOpen ? " coffee-brew-method--open" : ""}`}
+              >
+                <button
+                  type="button"
+                  className="coffee-brew-method-toggle"
+                  aria-expanded={isOpen}
+                  onClick={() => toggleBrewMethod(method.name)}
+                >
+                  <span className="coffee-brew-method-icon">{method.icon}</span>
+                  <strong>
+                    {method.name === "Single Dripper"
+                      ? "Pour-over"
+                      : method.name === "Batch Dripper"
+                        ? "Batch brew"
+                        : method.name === "Milk Drink"
+                          ? "Milk drink"
+                          : method.name}
+                  </strong>
+                  <span className="coffee-brew-chevron" aria-hidden="true" />
+                </button>
+                <div
+                  className="coffee-brew-method-collapse"
+                  aria-hidden={!isOpen}
+                >
+                  <div
+                    className="coffee-brew-method-body"
+                    {...(!isOpen ? { inert: "" } : {})}
+                  >
+                    {parameters.length > 0 && (
+                      <dl className="coffee-brew-parameters">
+                        {parameters.map(([label, value]) => (
+                          <div key={label}>
+                            <dt>{label}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    {method.description && (
+                      <p className="coffee-brew-description">
+                        {method.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-              {method.description && <p className="coffee-brew-description">{method.description}</p>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -281,7 +480,6 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       renderMetadata={() => renderMetadata(item)}
       renderExtraInfo={() => renderExtraInfo(item)}
       renderOptions={renderOptions}
-      hideDetailsDropdown
       renderBrewingMethod={renderBrewingMethod}
       calculatePrice={calculatePrice}
       handleAddToCart={handleAddToCart}

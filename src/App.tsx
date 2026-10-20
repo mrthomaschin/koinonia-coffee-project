@@ -6,6 +6,7 @@ import { InventoryProvider } from './contexts/InventoryContext';
 import { ToastContainer } from './components/Toast';
 import AppBar from './components/AppBar';
 import NotificationBar from './components/NotificationBar';
+import { useAnnouncements } from './hooks/useAnnouncements';
 import BottomBar from './components/BottomBar';
 import ComingSoon from './components/ComingSoon';
 import Homepage from './pages/homepage/Homepage';
@@ -41,6 +42,7 @@ import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
   const location = useLocation();
+  const announcements = useAnnouncements();
 
   useEffect(() => {
     const calculateHeight = (): void => {
@@ -67,7 +69,7 @@ const MainContent: React.FC = () => {
   return (
     <div className="app">
       <ToastContainer toasts={toasts} onClose={removeToast} />
-      <NotificationBar enabled={true} message="Free shipping on orders over $40" />
+      <NotificationBar enabled={true} announcements={announcements} />
       <AppBar />
       <div className="main-content">
         {(/^(\/account(?:\/|$)|\/account-login$|\/create-account$|\/create-partner-account$|\/verify-email$|\/review(?:\/unsubscribe)?$|\/cart$|\/order-confirmation$)/).test(location.pathname) && (

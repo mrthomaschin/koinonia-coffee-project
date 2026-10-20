@@ -1,3 +1,4 @@
+import { ContentBlock } from "../../../../components/notion/types";
 import { Item, ItemType, InventoryVariant } from "../ItemModel";
 
 export class CoffeeBagItem implements Item {
@@ -27,9 +28,11 @@ export class CoffeeBagItem implements Item {
     name: string;
     itemSummary: string;
     itemDetails: string;
+    itemContent?: ContentBlock[] | null;
     nextRoastDate?: string | null;
     price: number;
     firebaseImageUrls: string[];
+    thumbnailUrls?: string[];
     itemType: ItemType;
     createdAt: Date;
 
@@ -38,6 +41,9 @@ export class CoffeeBagItem implements Item {
     roastLevel: string;
     origin: string;
     tastingNotes: string[];
+    origins: string[] = [];
+    process: string[] = [];
+    varietals: string[] = [];
     quantity: number;
     variants?: InventoryVariant[] | null;
     ltoEndDate?: Date | null;

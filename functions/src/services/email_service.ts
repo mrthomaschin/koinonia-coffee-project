@@ -1,7 +1,9 @@
 import { createLogger } from "../logger";
 import { getShipmentStatus } from "./easypost_service";
 import { getNotionClient } from "../integrations/notion/notion_client";
-import { sendEmailJs } from "../integrations/email/emailjs_client";
+import { RESEND_TEMPLATES, sendResendTemplate } from "../integrations/email/resend_client";
+import { discountRowHtml, itemRowHtml } from "../integrations/email/email_html";
+import { STORE_NOTIFICATION_EMAIL } from "../config/site";
 import { orderPurchaseDate, ReviewService } from "./review_service";
 
 const logger = createLogger("email");
@@ -10,82 +12,226 @@ const getNotion = () => {
     return getNotionClient();
 };
 
+const STORE_NAME = "Koinonia Coffee Project";
+
+export interface ContactFormData {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    subject: string;
+    message: string;
+}
+
+export interface PurchaseItem {
+    name: string;
+    sku: string;
+    quantity: number;
+    price: number;
+    variations?: string;
+    image?: string;
+}
+
+export interface PurchaseNotificationData {
+    customerEmail: string;
+    customerName?: string;
+    customerPhone?: string;
+    items: PurchaseItem[];
+    subtotal?: number;
+    discountCode?: string;
+    discountPercent?: number;
+    discountAmount?: number;
+    totalAmount: number;
+    orderDate: string;
+    sessionId: string;
+    shippingAddress?: string;
+    billingAddress?: string;
+    shippingMethod?: string;
+    isLocalPickup?: boolean;
+}
+
+export interface CustomerConfirmationData {
+    customerEmail: string;
+    customerName: string;
+    customerPhone?: string;
+    items: PurchaseItem[];
+    subtotal: number;
+    discountCode?: string;
+    discountPercent?: number;
+    discountAmount?: number;
+    shipping: number;
+    tax: number;
+    totalAmount: number;
+    orderDate: string;
+    orderId: string;
+}
+
+const money = (amount: number): string => `$${amount.toFixed(2)}`;
+
 export class EmailService {
+    /** Forwards a website contact form message to the store inbox; replies go to the sender. */
+    static async sendContactForm(formData: ContactFormData): Promise<void> {
+        await sendResendTemplate({
+            to: STORE_NOTIFICATION_EMAIL,
+            template: RESEND_TEMPLATES.contactForm,
+            replyTo: formData.email,
+            subject: `New Contact Form Message: ${formData.subject}`,
+            variables: {
+                from_name: `${formData.firstName} ${formData.lastName}`,
+                from_email: formData.email,
+                subject: formData.subject,
+                phone: formData.phone,
+                message: formData.message,
+                to_name: STORE_NAME,
+            },
+        }, "Resend contact form failed");
+    }
+
+    /** Alerts the store inbox about a new web checkout order. */
+    static async sendPurchaseNotification(purchaseData: PurchaseNotificationData): Promise<void> {
+        const itemsList = purchaseData.items
+            .map((item, index) => {
+                const itemName = item.variations ? `${item.name} (${item.variations})` : item.name;
+                return [
+                    `${index + 1}. ${itemName}`,
+                    `   SKU: ${item.sku}`,
+                    `   Quantity: ${item.quantity}`,
+                    `   Unit Price: ${money(item.price)}`,
+                    `   Line Total: ${money(item.price * item.quantity)}`,
+                    "",
+                ].join("\n");
+            })
+            .join("\n");
+
+        const subtotal = purchaseData.subtotal || purchaseData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        await sendResendTemplate({
+            to: STORE_NOTIFICATION_EMAIL,
+            template: RESEND_TEMPLATES.newOrderNotification,
+            variables: {
+                customer_email: purchaseData.customerEmail,
+                customer_name: purchaseData.customerName || "Customer",
+                order_items: itemsList.trim(),
+                subtotal: money(subtotal),
+                discount_row_html: discountRowHtml(purchaseData.discountCode, purchaseData.discountPercent, purchaseData.discountAmount),
+                total_amount: money(purchaseData.totalAmount),
+                order_date: purchaseData.orderDate,
+                // Shorter order ID from the session ID (last 8 characters)
+                order_id: purchaseData.sessionId.slice(-8).toUpperCase(),
+                session_id: purchaseData.sessionId,
+                shipping_address: purchaseData.isLocalPickup
+                    ? "Not applicable - Local pickup"
+                    : purchaseData.shippingAddress || "N/A",
+                billing_address: purchaseData.billingAddress || "N/A",
+                delivery_method: purchaseData.isLocalPickup
+                    ? "Local Pickup"
+                    : purchaseData.shippingMethod || "Shipping",
+                to_name: STORE_NAME,
+            },
+        }, "Resend purchase notification failed");
+    }
+
+    /** Sends the customer their web checkout order confirmation. */
+    static async sendCustomerConfirmation(confirmationData: CustomerConfirmationData): Promise<void> {
+        const itemsHtml = confirmationData.items
+            .map((item) => {
+                // Convert relative URLs to absolute URLs
+                let imageUrl = item.image || "";
+                if (imageUrl && !imageUrl.startsWith("http")) {
+                    imageUrl = `https://koinoniacoffeeproject.com${imageUrl}`;
+                }
+                return itemRowHtml({
+                    name: item.variations ? `${item.name} (${item.variations})` : item.name,
+                    details: [`SKU: ${item.sku}`, `Qty: ${item.quantity}`],
+                    price: money(item.price * item.quantity),
+                    imageUrl: imageUrl || "https://koinoniacoffeeproject.com/assets/logos/logo_circle.png",
+                });
+            })
+            .join("");
+
+        await sendResendTemplate({
+            to: confirmationData.customerEmail,
+            template: RESEND_TEMPLATES.orderConfirmation,
+            variables: {
+                customer_first_name: EmailService.getFirstName(confirmationData.customerName),
+                order_id: confirmationData.orderId,
+                order_date: confirmationData.orderDate,
+                items_html: itemsHtml,
+                subtotal: money(confirmationData.subtotal),
+                discount_row_html: discountRowHtml(confirmationData.discountCode, confirmationData.discountPercent, confirmationData.discountAmount),
+                shipping: money(confirmationData.shipping),
+                tax: money(confirmationData.tax),
+                total: money(confirmationData.totalAmount),
+            },
+        }, "Resend customer confirmation failed");
+    }
+
     /** Sends a single-use link that confirms the recipient owns this email address. */
     static async sendEmailVerification(params: { toEmail: string; customerName: string; verificationUrl: string; purpose: "signup" | "change" }): Promise<void> {
-        const serviceId = process.env.EMAILJS_SERVICE_ID;
-        const templateId = process.env.EMAILJS_VERIFY_EMAIL_TEMPLATE_ID;
-        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
-        if (!serviceId || !templateId || !publicKey || !privateKey) throw new Error("EmailJS email verification template is not configured");
-        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
-            to_email: params.toEmail,
-            customer_name: params.customerName,
-            verification_url: params.verificationUrl,
-            email_purpose: params.purpose === "signup"
-                ? "please confirm your email address to finish setting up your Koinonia Coffee Project account."
-                : "please confirm your new email address. Your account keeps using your current email until you do.",
-            expires_in: "24 hours",
-        }, "EmailJS email verification failed");
+        await sendResendTemplate({
+            to: params.toEmail,
+            template: RESEND_TEMPLATES.verifyEmail,
+            variables: {
+                customer_name: params.customerName,
+                verification_url: params.verificationUrl,
+                email_purpose: params.purpose === "signup"
+                    ? "please confirm your email address to finish setting up your Koinonia Coffee Project account."
+                    : "please confirm your new email address. Your account keeps using your current email until you do.",
+                expires_in: "24 hours",
+            },
+        }, "Resend email verification failed");
     }
 
     static async sendSubscriptionRenewalReminder(params: { toEmail: string; customerName: string; renewalDate: string; deliveryMethod: string; totalAmount: number; itemsHtml: string; manageSubscriptionUrl: string }): Promise<void> {
-        const serviceId = process.env.EMAILJS_SERVICE_ID;
-        const templateId = process.env.EMAILJS_RENEWAL_REMINDER_TEMPLATE_ID;
-        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
-        if (!serviceId || !templateId || !publicKey || !privateKey) throw new Error("EmailJS renewal reminder template is not configured");
-        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
-            to_email: params.toEmail, customer_name: params.customerName, renewal_date: params.renewalDate,
-            delivery_method: params.deliveryMethod, total_amount: `$${params.totalAmount.toFixed(2)}`,
-            items_html: params.itemsHtml, manage_subscription_url: params.manageSubscriptionUrl,
-        }, "EmailJS subscription reminder failed");
+        await sendResendTemplate({
+            to: params.toEmail,
+            template: RESEND_TEMPLATES.subscriptionRenewalReminder,
+            variables: {
+                customer_name: params.customerName, renewal_date: params.renewalDate,
+                delivery_method: params.deliveryMethod, total_amount: money(params.totalAmount),
+                items_html: params.itemsHtml, manage_subscription_url: params.manageSubscriptionUrl,
+            },
+        }, "Resend subscription reminder failed");
     }
 
     static async sendSubscriptionPurchaseNotification(params: { customerEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; unitAmount: number; totalAmount: number; shippingAddress: string; billingAddress: string; deliveryMethod: string }): Promise<void> {
-        const serviceId = process.env.EMAILJS_SERVICE_ID;
-        const templateId = process.env.EMAILJS_PURCHASE_TEMPLATE_ID;
-        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
-        if (!serviceId || !templateId || !publicKey || !privateKey) {
-            throw new Error("EmailJS service, purchase template, public key, and private key are required for purchase notifications");
-        }
-        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
-                    customer_email: params.customerEmail,
-                    customer_name: params.customerName,
-                    order_id: params.orderId,
-                    session_id: params.orderId,
-                    order_date: new Date().toISOString(),
-                    order_items: `1. ${params.itemName}\n   Quantity: ${params.quantity}\n   Unit Price: $${params.unitAmount.toFixed(2)}`,
-                    subtotal: `$${params.totalAmount.toFixed(2)}`,
-                    total_amount: `$${params.totalAmount.toFixed(2)}`,
-                    shipping_address: params.shippingAddress || "N/A",
-                    billing_address: params.billingAddress || "N/A",
-                    delivery_method: params.deliveryMethod || "Shipping",
-                    to_name: "Koinonia Coffee Project",
-        }, "EmailJS purchase notification failed");
+        await sendResendTemplate({
+            to: STORE_NOTIFICATION_EMAIL,
+            template: RESEND_TEMPLATES.newOrderNotification,
+            variables: {
+                customer_email: params.customerEmail,
+                customer_name: params.customerName,
+                order_id: params.orderId,
+                session_id: params.orderId,
+                order_date: new Date().toISOString(),
+                order_items: `1. ${params.itemName}\n   Quantity: ${params.quantity}\n   Unit Price: ${money(params.unitAmount)}`,
+                subtotal: money(params.totalAmount),
+                discount_row_html: "",
+                total_amount: money(params.totalAmount),
+                shipping_address: params.shippingAddress || "N/A",
+                billing_address: params.billingAddress || "N/A",
+                delivery_method: params.deliveryMethod || "Shipping",
+                to_name: STORE_NAME,
+            },
+        }, "Resend purchase notification failed");
     }
 
     static async sendSubscriptionOrderConfirmation(params: { toEmail: string; customerName: string; orderId: string; itemName: string; quantity: number; totalAmount: number; shippingAmount: number }): Promise<void> {
-        const serviceId = process.env.EMAILJS_SERVICE_ID;
-        const templateId = process.env.EMAILJS_CUSTOMER_TEMPLATE_ID;
-        const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-        const privateKey = process.env.EMAILJS_PRIVATE_KEY;
-        if (!serviceId || !templateId || !publicKey || !privateKey) {
-            throw new Error("EmailJS service, customer template, public key, and private key are required for subscription confirmations");
-        }
-        await sendEmailJs({ serviceId, publicKey, privateKey }, templateId, {
-                    to_email: params.toEmail,
-                    customer_name: params.customerName,
-                    customer_first_name: EmailService.getFirstName(params.customerName),
-                    order_id: params.orderId,
-                    order_date: new Date().toISOString(),
-                    items_html: `<p>${params.quantity}x ${params.itemName}</p>`,
-                    subtotal: `$${(params.totalAmount - params.shippingAmount).toFixed(2)}`,
-                    shipping: `$${params.shippingAmount.toFixed(2)}`,
-                    tax: "$0.00",
-                    total: `$${params.totalAmount.toFixed(2)}`,
-        }, "EmailJS subscription confirmation failed");
+        await sendResendTemplate({
+            to: params.toEmail,
+            template: RESEND_TEMPLATES.orderConfirmation,
+            variables: {
+                customer_first_name: EmailService.getFirstName(params.customerName),
+                order_id: params.orderId,
+                order_date: new Date().toISOString(),
+                items_html: itemRowHtml({ name: `${params.quantity}x ${params.itemName}` }),
+                subtotal: money(params.totalAmount - params.shippingAmount),
+                discount_row_html: "",
+                shipping: money(params.shippingAmount),
+                tax: "$0.00",
+                total: money(params.totalAmount),
+            },
+        }, "Resend subscription confirmation failed");
     }
 
     static getFirstName(fullName: string): string {
@@ -100,23 +246,20 @@ export class EmailService {
 
         const lines = itemsText.split("\n").filter((line) => line.trim());
 
-        return lines.map((line) => {
-            const trimmed = line.trim();
-            return `
-      <div style="display: table; width: 100%; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;">
-        <div style="display: table-cell; vertical-align: top; padding-left: 16px;">
-          <div style="font-size: 14px; font-weight: 500; color: #000000; margin-bottom: 4px;">${trimmed}</div>
-        </div>
-      </div>
-    `;
-        }).join("");
+        return lines.map((line) => itemRowHtml({ name: line.trim() })).join("");
+    }
+
+    static trackingUrlFor(trackingCarrier: string, trackingInfo: string): string {
+        if (trackingCarrier === "UPS") {
+            return `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
+        } else if (trackingCarrier === "Fedex") {
+            return `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
+        }
+        // USPS tracking URL format
+        return `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
     }
 
     static async sendShippedNotification(params: {
-        serviceId: string;
-        templateId: string;
-        publicKey: string;
-        privateKey: string;
         toEmail: string;
         customerName: string;
         orderId: string;
@@ -126,72 +269,35 @@ export class EmailService {
         trackingInfo: string;
         estimatedDelivery?: string;
     }): Promise<void> {
-        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo, estimatedDelivery } = params;
-
-        // Generate tracking URL based on carrier
-        let trackingUrl = "https://tools.usps.com/tracking";
-        if (trackingCarrier === "UPS") {
-            trackingUrl = `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
-        } else if (trackingCarrier === "Fedex") {
-            trackingUrl = `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
-        } else {
-            // USPS tracking URL format
-            trackingUrl = `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
-        }
-
-        const emailData = {
-            service_id: serviceId,
-            template_id: templateId,
-            user_id: publicKey,
-            accessToken: privateKey,
-            template_params: {
-                to_email: toEmail,
+        const { toEmail, customerName, orderId, itemsHtml, shippingAddress, trackingCarrier, trackingInfo, estimatedDelivery } = params;
+        await sendResendTemplate({
+            to: toEmail,
+            template: RESEND_TEMPLATES.orderShipped,
+            variables: {
                 customer_name: customerName,
                 order_id: orderId,
                 items_html: itemsHtml,
                 shipping_address: shippingAddress,
                 carrier: trackingCarrier || "USPS",
-                tracking_info: trackingInfo || "Tracking information will be updated soon",
                 tracking_number: trackingInfo || "Available soon",
                 estimated_delivery: estimatedDelivery || "3-5 business days",
-                tracking_url: trackingUrl,
+                tracking_url: EmailService.trackingUrlFor(trackingCarrier, trackingInfo),
             },
-        };
-
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(emailData),
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-        }
     }
 
     static async sendDeliveredNotification(params: {
-        serviceId: string;
-        templateId: string;
-        publicKey: string;
-        privateKey: string;
         toEmail: string;
         customerName: string;
         orderId: string;
         itemsHtml: string;
         deliveryDate: string;
     }): Promise<void> {
-        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, deliveryDate } = params;
-
-        const emailData = {
-            service_id: serviceId,
-            template_id: templateId,
-            user_id: publicKey,
-            accessToken: privateKey,
-            template_params: {
-                to_email: toEmail,
+        const { toEmail, customerName, orderId, itemsHtml, deliveryDate } = params;
+        await sendResendTemplate({
+            to: toEmail,
+            template: RESEND_TEMPLATES.orderDelivered,
+            variables: {
                 customer_name: customerName,
                 order_id: orderId,
                 items_html: itemsHtml,
@@ -199,109 +305,50 @@ export class EmailService {
                 delivery_location: "Front door",
                 review_url: "https://koinoniacoffeeproject.com/reviews",
             },
-        };
-
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(emailData),
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-        }
     }
 
     static async sendPickedUpNotification(params: {
-        serviceId: string;
-        templateId: string;
-        publicKey: string;
-        privateKey: string;
         toEmail: string;
         customerName: string;
         orderId: string;
         itemsHtml: string;
         pickupDate: string;
     }): Promise<void> {
-        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, pickupDate } = params;
-
-        const emailData = {
-            service_id: serviceId,
-            template_id: templateId,
-            user_id: publicKey,
-            accessToken: privateKey,
-            template_params: {
-                to_email: toEmail,
+        const { toEmail, customerName, orderId, itemsHtml, pickupDate } = params;
+        await sendResendTemplate({
+            to: toEmail,
+            template: RESEND_TEMPLATES.orderPickedUp,
+            variables: {
                 customer_name: customerName,
                 order_id: orderId,
                 items_html: itemsHtml,
                 pickup_date: pickupDate,
             },
-        };
-
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(emailData),
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-        }
     }
 
     static async sendReadyForPickupNotification(params: {
-        serviceId: string;
-        templateId: string;
-        publicKey: string;
-        privateKey: string;
         toEmail: string;
         customerName: string;
         orderId: string;
         itemsHtml: string;
         readyDate: string;
     }): Promise<void> {
-        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, readyDate } = params;
-
-        const emailData = {
-            service_id: serviceId,
-            template_id: templateId,
-            user_id: publicKey,
-            accessToken: privateKey,
-            template_params: {
-                to_email: toEmail,
+        const { toEmail, customerName, orderId, itemsHtml, readyDate } = params;
+        await sendResendTemplate({
+            to: toEmail,
+            template: RESEND_TEMPLATES.orderReadyForPickup,
+            variables: {
                 customer_name: customerName,
                 order_id: orderId,
                 items_html: itemsHtml,
                 ready_date: readyDate,
             },
-        };
-
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(emailData),
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-        }
     }
 
     static async sendOutForDeliveryNotification(params: {
-        serviceId: string;
-        templateId: string;
-        publicKey: string;
-        privateKey: string;
         toEmail: string;
         customerName: string;
         orderId: string;
@@ -310,48 +357,20 @@ export class EmailService {
         trackingInfo: string;
         deliveryDate: string;
     }): Promise<void> {
-        const { serviceId, templateId, publicKey, privateKey, toEmail, customerName, orderId, itemsHtml, trackingCarrier, trackingInfo, deliveryDate } = params;
-
-        // Generate tracking URL based on carrier
-        let trackingUrl = "https://tools.usps.com/tracking";
-        if (trackingCarrier === "UPS") {
-            trackingUrl = `https://www.ups.com/track?loc=en_US&requester=ST/trackdetails&tracknums=${trackingInfo}`;
-        } else if (trackingCarrier === "Fedex") {
-            trackingUrl = `https://www.fedex.com/wtrk/track/?trknbr=${trackingInfo}`;
-        } else {
-            // USPS tracking URL format
-            trackingUrl = `https://tools.usps.com/tracking?tLabels=${trackingInfo}`;
-        }
-
-        const emailData = {
-            service_id: serviceId,
-            template_id: templateId,
-            user_id: publicKey,
-            accessToken: privateKey,
-            template_params: {
-                to_email: toEmail,
+        const { toEmail, customerName, orderId, itemsHtml, trackingCarrier, trackingInfo, deliveryDate } = params;
+        await sendResendTemplate({
+            to: toEmail,
+            template: RESEND_TEMPLATES.orderOutForDelivery,
+            variables: {
                 customer_name: customerName,
                 order_id: orderId,
                 items_html: itemsHtml,
                 carrier: trackingCarrier || "USPS",
                 tracking_number: trackingInfo || "Available soon",
                 delivery_date: deliveryDate,
-                tracking_url: trackingUrl,
+                tracking_url: EmailService.trackingUrlFor(trackingCarrier, trackingInfo),
             },
-        };
-
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(emailData),
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`EmailJS API error: ${response.status} - ${errorText}`);
-        }
     }
 
     static async handleOrderStatusUpdates(event?: any): Promise<void> {
@@ -359,22 +378,14 @@ export class EmailService {
             logger.info("Starting order status check...");
 
             const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-            const emailjsServiceId = process.env.EMAILJS_SERVICE_ID;
-            const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY;
-            const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY;
-            const shippedTemplateId = process.env.EMAILJS_SHIPPED_TEMPLATE_ID;
-            const outForDeliveryTemplateId = process.env.EMAILJS_OUT_FOR_DELIVERY_TEMPLATE_ID;
-            const deliveredTemplateId = process.env.EMAILJS_DELIVERED_TEMPLATE_ID;
-            const pickedUpTemplateId = process.env.EMAILJS_PICKED_UP_TEMPLATE_ID;
-            const readyForPickupTemplateId = process.env.EMAILJS_READY_FOR_PICKUP_TEMPLATE_ID;
 
             if (!databaseId) {
                 logger.error("NOTION_ONLINE_ORDERS_DATABASE_ID not configured");
                 return;
             }
 
-            if (!emailjsServiceId || !emailjsPublicKey || !emailjsPrivateKey) {
-                logger.error("EmailJS configuration missing");
+            if (!process.env.RESEND_API_KEY) {
+                logger.error("RESEND_API_KEY not configured");
                 return;
             }
 
@@ -488,15 +499,11 @@ export class EmailService {
                 }
 
                 // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent && shippedTemplateId) {
+                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent) {
                     logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await EmailService.sendShippedNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: shippedTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -529,15 +536,11 @@ export class EmailService {
                 }
 
                 // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent && outForDeliveryTemplateId) {
+                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent) {
                     logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await EmailService.sendOutForDeliveryNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: outForDeliveryTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -573,15 +576,11 @@ export class EmailService {
                 }
 
                 // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent && deliveredTemplateId) {
+                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent) {
                     logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
 
                     try {
                         await EmailService.sendDeliveredNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: deliveredTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -616,15 +615,11 @@ export class EmailService {
                 }
 
                 // Check if we need to send "Picked up" notification based on the Notion fulfillment status
-                if (fulfillmentStatus === "Picked up" && pickedUpEmailSentProp?.type === "checkbox" && !pickedUpEmailSent && pickedUpTemplateId) {
+                if (fulfillmentStatus === "Picked up" && pickedUpEmailSentProp?.type === "checkbox" && !pickedUpEmailSent) {
                     logger.info(`Sending picked up notification for order ${orderId}`);
 
                     try {
                         await EmailService.sendPickedUpNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: pickedUpTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,
@@ -658,15 +653,11 @@ export class EmailService {
                 }
 
                 // Check if we need to send "Ready for pickup" notification based on the Notion fulfillment status
-                if (fulfillmentStatus === "Ready for pickup" && readyForPickupEmailSentProp?.type === "checkbox" && !readyForPickupEmailSent && readyForPickupTemplateId) {
+                if (fulfillmentStatus === "Ready for pickup" && readyForPickupEmailSentProp?.type === "checkbox" && !readyForPickupEmailSent) {
                     logger.info(`Sending ready for pickup notification for order ${orderId}`);
 
                     try {
                         await EmailService.sendReadyForPickupNotification({
-                            serviceId: emailjsServiceId,
-                            templateId: readyForPickupTemplateId,
-                            publicKey: emailjsPublicKey,
-                            privateKey: emailjsPrivateKey,
                             toEmail: customerEmail,
                             customerName,
                             orderId,

@@ -15,11 +15,11 @@
 .catering-introduction h2 { margin:0 0 27px; font-size:var(--size-h2); line-height:var(--lh-h2); letter-spacing:var(--tracking-h2); }
 .catering-introduction-copy>p { max-width:560px; margin:0; color:var(--color-text-secondary); font-size:var(--size-body); line-height:var(--lh-body); }
 .catering-introduction-copy>.ui-button { margin-top:28px; }
-.catering-pillars { display:grid; grid-template-columns:repeat(3,1fr); padding:0 6%; border-top:1px solid rgba(47,43,57,.15); border-bottom:1px solid rgba(47,43,57,.15); }
-.catering-pillars article { min-height:168px; padding:35px 28px; border-right:1px solid rgba(47,43,57,.15); }
-.catering-pillars article:last-child { border:0; }
+.catering-pillars { display:grid; grid-template-columns:1fr; margin-top:36px; border-top:1px solid rgba(47,43,57,.15); }
+.catering-pillars article { padding:24px 0; border-bottom:1px solid rgba(47,43,57,.15); }
+.catering-pillars article:last-child { border-bottom:0; padding-bottom:0; }
 .catering-pillars h3 { margin:0 0 10px; font-size:var(--size-h3); line-height:var(--lh-h3); }
-.catering-pillars article>p:last-child { max-width:285px; margin:0; color:var(--color-text-secondary); font-size:var(--size-body); line-height:var(--lh-body); }
+.catering-pillars article>p:last-child { max-width:560px; margin:0; color:var(--color-text-secondary); font-size:var(--size-body); line-height:var(--lh-body); }
 .catering-experience { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:7%; padding:70px 6% 65px; background:#eeece4; }
 .experience-copy h2 { margin:0 0 24px; font-size:var(--size-h2); line-height:var(--lh-h2); letter-spacing:var(--tracking-h2); }
 .experience-copy>p { max-width:475px; margin:0; color:var(--color-text-secondary); font-size:var(--size-body); line-height:var(--lh-body); }
@@ -47,7 +47,8 @@
 .catering-bottom-image img { display:block; width:100%; height:auto; }
 .catering-inquiry { display:grid; grid-template-columns:1fr 1fr; gap:8%; padding:72px 6% 74px; }
 .inquiry-copy h2 { margin:0 0 24px; font-size:var(--size-h2); line-height:var(--lh-h2); letter-spacing:var(--tracking-h2); }
-.inquiry-copy>p:last-child { max-width:390px; color:var(--color-text-secondary); font-size:var(--size-body); line-height:1.7; }
+.inquiry-copy>p { max-width:520px; margin:0 0 16px; color:var(--color-text-secondary); font-size:var(--size-body); line-height:1.7; }
+.inquiry-copy>p:last-child { margin-bottom:0; }
 .catering-form-embed { min-width:0; }
 .catering-form-embed iframe { display:block; height:560px !important; border-radius:0 !important; }
 @media (max-width:700px) {
@@ -61,8 +62,6 @@
   .catering-introduction-image { min-height:420px; }
   .catering-introduction-image img { min-height:420px; }
   .catering-introduction h2,.experience-copy h2,.catering-faq-intro h2,.inquiry-copy h2 { font-size:42px; }
-  .catering-pillars { grid-template-columns:1fr; padding:0 24px; }
-  .catering-pillars article { min-height:0; border-right:0; border-bottom:1px solid rgba(47,43,57,.15); }
   .catering-experience { gap:40px; padding:60px 24px 70px; }
   .experience-details { padding-top:25px; }
   .experience-image { height:370px; }

@@ -1,3 +1,5 @@
+import { ContentBlock } from '../../../components/notion/types';
+
 export enum ItemType {
     accessories,
     apparel,
@@ -27,9 +29,14 @@ export interface Item {
     name: string;
     itemSummary: string;
     itemDetails: string;
+    /** Structured "Website Description" content from the item's Notion page. */
+    itemContent?: ContentBlock[] | null;
     nextRoastDate?: string | null;
     price: number;
+    /** Web-sized (1600px) product images. */
     firebaseImageUrls: string[];
+    /** 600px versions of firebaseImageUrls for cards and lists. */
+    thumbnailUrls?: string[];
     itemType: ItemType;
     createdAt: Date;
     quantity: number;
@@ -40,3 +47,16 @@ export interface Item {
     ltoEndDate?: Date | null;
     ltoUnlimitedPurchases?: boolean;
 }
+
+const PLACEHOLDER_IMAGE = '/assets/images/shop_placeholder.png';
+
+/** Small image for cards and lists, falling back to the full-size image. */
+export const getThumbnailUrl = (item: Item, fallback: string = PLACEHOLDER_IMAGE): string =>
+    item.thumbnailUrls?.[0] || item.firebaseImageUrls?.[0] || fallback;
+
+/** True when regular (non-wholesale) customers can buy the item. */
+export const isConsumerVisible = (item: Item): boolean => {
+    if (item.isWholesale) return false;
+    if (!item.variants?.length) return true;
+    return item.variants.some((variant) => !variant.isWholesale && !variant.sku.endsWith('-WS'));
+};

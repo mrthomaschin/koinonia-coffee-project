@@ -9,7 +9,7 @@ export const isDevelopment = (): boolean => {
 export const DEV_FLAGS = {
   ENABLE_SHOP: true,
   ENABLE_CATERING: true,
-  ENABLE_MENU: true,
+  ENABLE_MENU: false,
   ENABLE_ABOUT: true,
   ENABLE_GALLERY: false,
   ENABLE_CONTACT: true,

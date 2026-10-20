@@ -25,15 +25,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const preloadImages = (items: Item[]) => {
-    items.forEach(item => {
-      if (item.firebaseImageUrls && item.firebaseImageUrls.length > 0) {
-        const img = new Image();
-        img.src = item.firebaseImageUrls[0];
-      }
-    });
-  };
-
   const loadInventory = async () => {
     try {
       // Try cache first for instant display
@@ -42,8 +33,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setItems(cachedItems);
         setIsLoading(false);
         logger.log(`✅ Loaded ${cachedItems.length} items from cache (instant)`);
-        // Preload images in background without blocking
-        setTimeout(() => preloadImages(cachedItems), 0);
       }
 
       // Fetch fresh data in background
@@ -54,8 +43,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setItems(convertedItems);
         setGlobalItems(convertedItems);
         logger.log(`🔄 Refreshed with ${convertedItems.length} items from backend`);
-        // Preload images in background
-        setTimeout(() => preloadImages(convertedItems), 0);
       }
       setError(null);
     } catch (err) {
@@ -66,7 +53,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const cachedItems = getGlobalItems();
       if (cachedItems && cachedItems.length > 0) {
         setItems(cachedItems);
-        setTimeout(() => preloadImages(cachedItems), 0);
       }
     } finally {
       setIsLoading(false);

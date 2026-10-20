@@ -25,4 +25,4 @@ const CoffeeBagPreview: React.FC<CoffeeBagPreviewProps> = ({ item, onClick }) =>
   );
 };
 
-export default CoffeeBagPreview;
+export default React.memo(CoffeeBagPreview);

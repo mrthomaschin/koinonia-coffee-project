@@ -4,7 +4,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useInventory } from '../../contexts/InventoryContext';
 import { accountService } from '../../services/accountService';
 import { AccountLabel } from '../../models/AccountModel';
-import { Item, ItemType } from '../shop/item/ItemModel';
+import { Item, ItemType, getThumbnailUrl } from '../shop/item/ItemModel';
 import './PartnerSubscriptionBuilder.css';
 
 interface Props { accountLabel: Extract<AccountLabel, 'wholesale' | 'church-ministry'> }
@@ -78,7 +78,7 @@ const PartnerSubscriptionBuilder: React.FC<Props> = ({ accountLabel }) => {
         const outOfStock = stock <= 0;
         const variation = [row.variant.weight, row.variant.size, row.variant.color].filter(Boolean).join(' · ');
         return <tr key={row.key}>
-          <td className="partner-order-product"><img src={row.item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png'} alt="" /><span><strong>{row.item.name}</strong>{variation && <small>{variation}</small>}{outOfStock && <small>Out of stock</small>}</span></td>
+          <td className="partner-order-product"><img src={getThumbnailUrl(row.item)} alt="" /><span><strong>{row.item.name}</strong>{variation && <small>{variation}</small>}{outOfStock && <small>Out of stock</small>}</span></td>
           <td className="partner-order-price"><strong>{money(price)}</strong><small>Retail price</small><s>{money(row.retailPrice)}</s></td>
           <td><input aria-label={`Quantity for ${row.item.name}${variation ? ` ${variation}` : ''}`} type="number" min="0" step="1" max={stock > 0 ? stock : undefined} disabled={outOfStock} value={quantity} onChange={(event) => setQuantities((current) => ({ ...current, [row.key]: Math.max(0, Number(event.target.value) || 0) }))} /></td>
           <td className="partner-order-total">{money(price * quantity)}</td>

@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartItem } from './CartViewModel';
-import { ItemType } from '../shop/item/ItemModel';
+import { ItemType, getThumbnailUrl } from '../shop/item/ItemModel';
 import { useCart } from '../../contexts/CartContext';
 import { useAccount } from '../../contexts/AccountContext';
 import { stripeService } from '../../services/stripeService';
@@ -346,7 +346,7 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         const itemPrice = viewModel.getItemPrice(cartItem);
         const itemTotal = itemPrice * cartItem.quantity;
         const pendingQty = getPendingQuantity(index);
-        const imageUrl = cartItem.item.firebaseImageUrls?.[0] || '/assets/images/shop_placeholder.png';
+        const imageUrl = getThumbnailUrl(cartItem.item);
 
         return (
             <div key={index} className="cart-item">

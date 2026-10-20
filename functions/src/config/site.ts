@@ -10,6 +10,9 @@ export const ALLOWED_ORIGINS = [
 
 const PRODUCTION_SITE_URL = "https://koinoniacoffeeproject.com";
 
+/** Inbox that receives new-order alerts and contact form messages. */
+export const STORE_NOTIFICATION_EMAIL = "thomas@koinoniacoffeeproject.com";
+
 /**
  * Base URL for links in emails. Uses the requesting site only when it is one
  * of ours, so a forged Origin header cannot send a token to another domain.

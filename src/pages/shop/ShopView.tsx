@@ -1,13 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Item, ItemType } from './item/ItemModel';
+import { Item, ItemType, isConsumerVisible } from './item/ItemModel';
 import { CoffeeBagItem } from './item/coffee_bag/CoffeeBagItem';
 import { MerchItem } from './item/merch/MerchItem';
 import CoffeeBagPreview from './item/coffee_bag/CoffeeBagPreview';
 import MerchPreview from './item/merch/MerchPreview';
 import './Shop.css';
 import { generateSlug } from './shopData';
-import { SortBy, FilterBy } from './ShopViewModel';
+import { SortBy } from './ShopViewModel';
+import ShopFilterPanel from './ShopFilterPanel';
+import { EMPTY_FILTERS, ShopFilters, buildFilterOptions, matchesFilters } from './shopFilters';
 import { useInventory } from '../../contexts/InventoryContext';
 import SEO from '../../components/SEO';
 
@@ -15,37 +17,17 @@ interface ShopProps {
   availableHeight: number;
 }
 
-const isConsumerVisible = (item: Item): boolean => {
-  if (item.isWholesale) return false;
-  if (!item.variants?.length) return true;
-  return item.variants.some((variant) => !variant.isWholesale && !variant.sku.endsWith('-WS'));
-};
-
 const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
   const navigate = useNavigate();
   const { items, isLoading, error } = useInventory();
   const [sortBy, setSortBy] = useState<SortBy>(SortBy.DEFAULT);
-  const [filterBy, setFilterBy] = useState<FilterBy>(FilterBy.ALL);
+  const [filters, setFilters] = useState<ShopFilters>(EMPTY_FILTERS);
+
+  const visibleItems = useMemo(() => items.filter(isConsumerVisible), [items]);
+  const filterOptions = useMemo(() => buildFilterOptions(visibleItems), [visibleItems]);
 
   const sortedItems = useMemo(() => {
-    // Filter items
-    let filteredItems = items.filter(isConsumerVisible);
-    switch (filterBy) {
-      case FilterBy.BEANS:
-        filteredItems = filteredItems.filter(item => item.itemType === ItemType.coffee);
-        break;
-      case FilterBy.MERCH:
-        filteredItems = items.filter(item =>
-          item.itemType === ItemType.accessories ||
-          item.itemType === ItemType.apparel ||
-          item.itemType === ItemType.brewTools ||
-          item.itemType === ItemType.drinkware ||
-          item.itemType === ItemType.stickers
-        );
-        break;
-      default:
-        filteredItems = items;
-    }
+    const filteredItems = visibleItems.filter(item => matchesFilters(item, filters));
 
     // Sort items
     const sortedItems = [...filteredItems];
@@ -63,20 +45,14 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
       default:
         return sortedItems;
     }
-  }, [items, sortBy, filterBy]);
+  }, [visibleItems, sortBy, filters]);
 
-  const handleItemClick = (item: Item) => {
+  const handleClear = useCallback(() => setFilters(EMPTY_FILTERS), []);
+
+  const handleItemClick = useCallback((item: Item) => {
     const slug = generateSlug(item.name);
     navigate(`/shop/${slug}`);
-  };
-
-  const handleSortChange = (newSortBy: SortBy) => {
-    setSortBy(newSortBy);
-  };
-
-  const handleFilterChange = (newFilterBy: FilterBy) => {
-    setFilterBy(newFilterBy);
-  };
+  }, [navigate]);
 
   if (isLoading) {
     return (
@@ -107,74 +83,53 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
         </div>
       </header>
 
-      <div className="shop-controls">
-        <div className="control-group">
-          <label htmlFor="filter-select" className="control-label">ALL PRODUCTS</label>
-          <select
-            id="filter-select"
-            className="control-dropdown"
-            value={filterBy}
-            onChange={(e) => handleFilterChange(e.target.value as FilterBy)}
-          >
-            <option value={FilterBy.ALL}>ALL PRODUCTS</option>
-            <option value={FilterBy.BEANS}>COFFEE BEANS</option>
-            <option value={FilterBy.MERCH}>MERCH</option>
-          </select>
+      <div className="shop-layout">
+        <ShopFilterPanel
+          filters={filters}
+          options={filterOptions}
+          sortBy={sortBy}
+          productCount={sortedItems.length}
+          onFiltersChange={setFilters}
+          onSortChange={setSortBy}
+          onClear={handleClear}
+        />
+        <div className="shop-results">
+          {error && (
+            <div style={{
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffc107',
+              borderRadius: '4px',
+              padding: '12px 20px',
+              margin: '0 0 20px',
+              color: '#856404',
+              fontSize: '14px'
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          <div className="shop-grid">
+            {sortedItems.map((item) => {
+              if (item.itemType === ItemType.coffee) {
+                return (
+                  <CoffeeBagPreview
+                    key={item.sku}
+                    item={item as CoffeeBagItem}
+                    onClick={handleItemClick}
+                  />
+                );
+              }
+              return (
+                <MerchPreview
+                  key={item.sku}
+                  item={item as MerchItem}
+                  onClick={handleItemClick}
+                />
+              );
+            })}
+          </div>
+          {sortedItems.length === 0 && <p className="shop-empty">No products match these filters.</p>}
         </div>
-
-        <div className="control-group">
-          <label htmlFor="sort-select" className="control-label">SORT BY</label>
-          <select
-            id="sort-select"
-            className="control-dropdown"
-            value={sortBy}
-            onChange={(e) => handleSortChange(e.target.value as SortBy)}
-          >
-            <option value={SortBy.DEFAULT}>DEFAULT</option>
-            <option value={SortBy.NAME_A_TO_Z}>NAME (A-Z)</option>
-            <option value={SortBy.NEWEST}>NEWEST</option>
-            <option value={SortBy.NAME_Z_TO_A}>NAME (Z-A)</option>
-            <option value={SortBy.PRICE_LOW_TO_HIGH}>PRICE (LOW TO HIGH)</option>
-            <option value={SortBy.PRICE_HIGH_TO_LOW}>PRICE (HIGH TO LOW)</option>
-          </select>
-        </div>
-
-        <div className="products-total"><span className="products-count">{sortedItems.length} PRODUCTS</span></div>
-      </div>
-
-      {error && (
-        <div style={{
-          backgroundColor: '#fff3cd',
-          border: '1px solid #ffc107',
-          borderRadius: '4px',
-          padding: '12px 20px',
-          margin: '0 20px 20px 20px',
-          color: '#856404',
-          fontSize: '14px'
-        }}>
-          ⚠️ {error}
-        </div>
-      )}
-
-      <div className="shop-grid">
-        {sortedItems.map((item) => {
-          if (item.itemType === ItemType.coffee) {
-            return (
-              <CoffeeBagPreview
-                key={item.sku}
-                item={item as CoffeeBagItem}
-                onClick={handleItemClick}
-              />
-            );
-          }
-          return (
-            <MerchPreview
-              key={item.sku}
-              item={item as MerchItem}
-              onClick={handleItemClick}
-            />
-          );
-        })}
       </div>
     </div>
   );

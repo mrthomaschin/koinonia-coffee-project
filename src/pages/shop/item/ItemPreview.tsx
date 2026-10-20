@@ -1,8 +1,8 @@
-import React from 'react';
-import { Item } from './ItemModel';
-import './ItemPreview.css';
-import { Link } from 'react-router-dom';
-import { generateSlug } from '../shopData';
+import React from "react";
+import { Item, getThumbnailUrl } from "./ItemModel";
+import "./ItemPreview.css";
+import { Link } from "react-router-dom";
+import { generateSlug } from "../shopData";
 
 interface ItemPreviewProps {
   item: Item;
@@ -15,14 +15,16 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
   item,
   onClick,
   renderExtraDetails,
-  renderTags
+  renderTags,
 }) => {
-  const imageUrl = item.firebaseImageUrls && item.firebaseImageUrls.length > 0
-    ? item.firebaseImageUrls[0]
-    : "/assets/images/shop_placeholder.png";
+  const imageUrl = getThumbnailUrl(item);
 
   return (
-    <Link to={`/shop/${generateSlug(item.name)}`} className="item-preview" onClick={() => onClick(item)}>
+    <Link
+      to={`/shop/${generateSlug(item.name)}`}
+      className="item-preview"
+      onClick={() => onClick(item)}
+    >
       <div className="preview-image-container">
         <img
           src={imageUrl}
@@ -42,18 +44,12 @@ const ItemPreview: React.FC<ItemPreviewProps> = ({
         </div>
 
         {renderExtraDetails && (
-          <div className="preview-details">
-            {renderExtraDetails(item)}
-          </div>
+          <div className="preview-details">{renderExtraDetails(item)}</div>
         )}
 
         <p className="preview-description">{item.summary}</p>
 
-        {renderTags && (
-          <div className="preview-tags">
-            {renderTags(item)}
-          </div>
-        )}
+        {renderTags && <div className="preview-tags">{renderTags(item)}</div>}
       </div>
     </Link>
   );

@@ -6,7 +6,6 @@ import { ICONS, PAGES, PageType } from '../util/constants';
 import './AppBar.css';
 
 const navItems: { label: string; page: PageType }[] = [
-  { label: 'MENU', page: PAGES.MENU },
   { label: 'SHOP', page: PAGES.SHOP },
   { label: 'CATERING', page: PAGES.CATERING },
   { label: 'GALLERY', page: PAGES.GALLERY },

@@ -1,4 +1,5 @@
-import { createLogger } from '../util/logger';
+import { createLogger } from "../util/logger";
+import { ContentBlock } from "../components/notion/types";
 
 interface OrderItem {
   name: string;
@@ -54,6 +55,7 @@ export interface WebsiteEvent {
   end: string | null;
   location: string | null;
   body: string;
+  content?: ContentBlock[];
 }
 
 export interface InventoryVariant {
@@ -74,10 +76,12 @@ export interface NotionInventoryItem {
   sku: string;
   name: string;
   itemSummary: string;
+  itemContent?: ContentBlock[];
   itemDetails: string;
   nextRoastDate?: string | null;
   price: number;
   firebaseImageUrls: string[];
+  thumbnailUrls?: string[];
   itemType: string;
   createdAt: string;
   quantity: number;
@@ -87,7 +91,10 @@ export interface NotionInventoryItem {
   weights?: string[];
   roastLevel?: string;
   origin?: string;
+  origins?: string[];
   tastingNotes?: string[];
+  process?: string[];
+  varietals?: string[];
   // Merch-specific
   sizes?: string[];
   colors?: string[];
@@ -127,16 +134,17 @@ interface CachedInventory {
   lastSyncedAt: number;
 }
 
-const INVENTORY_CACHE_KEY = 'koinonia_inventory_cache_v2';
+const INVENTORY_CACHE_KEY = "koinonia_inventory_cache_v6";
 const INVENTORY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes to match backend scheduled sync
 
-const logger = createLogger('NotionService');
+const logger = createLogger("NotionService");
 
 class NotionService {
   private backendUrl: string;
 
   constructor() {
-    this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+    this.backendUrl =
+      process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
   }
 
   private getCachedInventory(): CachedInventory | null {
@@ -167,45 +175,54 @@ class NotionService {
 
   async createOrder(orderData: NotionOrderData): Promise<void> {
     try {
-      logger.log('📝 Creating Notion database entry for order:', orderData.orderId);
+      logger.log(
+        "📝 Creating Notion database entry for order:",
+        orderData.orderId,
+      );
 
       const response = await fetch(`${this.backendUrl}/create-notion-order`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(orderData),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
       const result = await response.json();
-      logger.log('✅ Notion order created successfully:', result.pageId);
+      logger.log("✅ Notion order created successfully:", result.pageId);
     } catch (error) {
-      logger.error('❌ Failed to create Notion order:', error);
+      logger.error("❌ Failed to create Notion order:", error);
       throw error;
     }
   }
 
-  async getOrderPickupOptions(containsCoffee: boolean): Promise<OrderPickupOption[]> {
+  async getOrderPickupOptions(
+    containsCoffee: boolean,
+  ): Promise<OrderPickupOption[]> {
     try {
       const response = await fetch(
-        `${this.backendUrl}/get-order-pickup-options?containsCoffee=${containsCoffee ? 'true' : 'false'}`,
-        { headers: { 'Content-Type': 'application/json' } }
+        `${this.backendUrl}/get-order-pickup-options?containsCoffee=${containsCoffee ? "true" : "false"}`,
+        { headers: { "Content-Type": "application/json" } },
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
       const result = await response.json();
       return result.options || [];
     } catch (error) {
-      logger.error('❌ Failed to fetch order pickup options:', error);
+      logger.error("❌ Failed to fetch order pickup options:", error);
       throw error;
     }
   }
@@ -213,115 +230,168 @@ class NotionService {
   async getEvents(): Promise<WebsiteEvent[]> {
     // Bump this when the event response shape changes so stale empty bodies
     // from an earlier calendar response cannot hide Notion page content.
-    const cacheKey = 'koinonia_events_calendar_v4';
+    const cacheKey = "koinonia_events_calendar_v5";
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        const parsed = JSON.parse(cached) as { fetchedAt: number; events: WebsiteEvent[] };
-        if (Date.now() - parsed.fetchedAt < 24 * 60 * 60 * 1000) return parsed.events;
+        const parsed = JSON.parse(cached) as {
+          fetchedAt: number;
+          events: WebsiteEvent[];
+        };
+        if (Date.now() - parsed.fetchedAt < 24 * 60 * 60 * 1000)
+          return parsed.events;
       }
     } catch {
       // Fetch fresh data when local storage is unavailable or invalid.
     }
 
-    const response = await fetch(`${this.backendUrl}/events`, { headers: { 'Content-Type': 'application/json' } });
-    if (!response.ok) throw new Error('Unable to load events');
-    const result = await response.json() as { events?: WebsiteEvent[] };
+    const response = await fetch(`${this.backendUrl}/events`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!response.ok) throw new Error("Unable to load events");
+    const result = (await response.json()) as { events?: WebsiteEvent[] };
     const events = result.events || [];
     try {
-      localStorage.setItem(cacheKey, JSON.stringify({ fetchedAt: Date.now(), events }));
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({ fetchedAt: Date.now(), events }),
+      );
     } catch {
       // Ignore storage errors; the page can still render the response.
     }
     return events;
   }
 
-  async checkOrderConfirmedEmailSent(orderId: string): Promise<{ emailSent: boolean; orderExists: boolean }> {
+  async checkOrderConfirmedEmailSent(
+    orderId: string,
+  ): Promise<{ emailSent: boolean; orderExists: boolean }> {
     try {
-      logger.log('🔍 Checking if order confirmed email was sent for order:', orderId);
+      logger.log(
+        "🔍 Checking if order confirmed email was sent for order:",
+        orderId,
+      );
 
-      const response = await fetch(`${this.backendUrl}/check-order-confirmed-email-sent?orderId=${orderId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${this.backendUrl}/check-order-confirmed-email-sent?orderId=${orderId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
       const result = await response.json();
-      logger.log('✅ Order confirmed email status:', result.emailSent, 'Order exists:', result.orderExists);
-      return { emailSent: result.emailSent || false, orderExists: result.orderExists || false };
+      logger.log(
+        "✅ Order confirmed email status:",
+        result.emailSent,
+        "Order exists:",
+        result.orderExists,
+      );
+      return {
+        emailSent: result.emailSent || false,
+        orderExists: result.orderExists || false,
+      };
     } catch (error) {
-      logger.error('❌ Failed to check order confirmed email status:', error);
+      logger.error("❌ Failed to check order confirmed email status:", error);
       return { emailSent: false, orderExists: false };
     }
   }
 
   async markOrderConfirmedEmailSent(orderId: string): Promise<void> {
     try {
-      logger.log('✅ Marking order confirmed email as sent for order:', orderId);
+      logger.log(
+        "✅ Marking order confirmed email as sent for order:",
+        orderId,
+      );
 
-      const response = await fetch(`${this.backendUrl}/mark-order-confirmed-email-sent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${this.backendUrl}/mark-order-confirmed-email-sent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ orderId }),
         },
-        body: JSON.stringify({ orderId }),
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
-      logger.log('✅ Order confirmed email marked as sent successfully');
+      logger.log("✅ Order confirmed email marked as sent successfully");
     } catch (error) {
-      logger.error('❌ Failed to mark order confirmed email as sent:', error);
+      logger.error("❌ Failed to mark order confirmed email as sent:", error);
       throw error;
     }
   }
 
   async uncheckOrderConfirmedEmailSent(orderId: string): Promise<void> {
     try {
-      logger.log('✅ Unchecking order confirmed email for order:', orderId);
+      logger.log("✅ Unchecking order confirmed email for order:", orderId);
 
-      const response = await fetch(`${this.backendUrl}/uncheck-order-confirmed-email-sent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${this.backendUrl}/uncheck-order-confirmed-email-sent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ orderId }),
         },
-        body: JSON.stringify({ orderId }),
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
-      logger.log('✅ Order confirmed email unchecked successfully');
+      logger.log("✅ Order confirmed email unchecked successfully");
     } catch (error) {
-      logger.error('❌ Failed to uncheck order confirmed email:', error);
+      logger.error("❌ Failed to uncheck order confirmed email:", error);
       throw error;
     }
   }
 
   async updateOrderStatus(orderId: string, status: string): Promise<void> {
-    logger.warn('updateOrderStatus not yet implemented on backend');
+    logger.warn("updateOrderStatus not yet implemented on backend");
   }
 
-  async updateFulfillmentStatus(orderId: string, fulfillment: string): Promise<void> {
-    logger.warn('updateFulfillmentStatus not yet implemented on backend');
+  async updateFulfillmentStatus(
+    orderId: string,
+    fulfillment: string,
+  ): Promise<void> {
+    logger.warn("updateFulfillmentStatus not yet implemented on backend");
   }
 
-  async getInventory(bypassCache: boolean = false, forceRefresh: boolean = false): Promise<NotionInventoryItem[]> {
+  async getInventory(
+    bypassCache: boolean = false,
+    forceRefresh: boolean = false,
+  ): Promise<NotionInventoryItem[]> {
     try {
       const cached = this.getCachedInventory();
-      if (cached && Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS && !bypassCache && !forceRefresh) {
-        logger.log(`✅ Returning ${cached.items.length} inventory items from local cache`);
+      if (
+        cached &&
+        Date.now() - cached.lastSyncedAt < INVENTORY_CACHE_TTL_MS &&
+        !bypassCache &&
+        !forceRefresh
+      ) {
+        logger.log(
+          `✅ Returning ${cached.items.length} inventory items from local cache`,
+        );
         return cached.items;
       }
 
@@ -330,32 +400,39 @@ class NotionService {
         this.clearCachedInventory();
       }
 
-      logger.log('📦 Fetching inventory from backend');
+      logger.log("📦 Fetching inventory from backend");
 
-      const response = await fetch(`${this.backendUrl}/get-inventory?bypass=${bypassCache ? 'true' : 'false'}&force=${forceRefresh ? 'true' : 'false'}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${this.backendUrl}/get-inventory?bypass=${bypassCache ? "true" : "false"}&force=${forceRefresh ? "true" : "false"}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
       const result = await response.json();
       const lastSyncedAt: number = result.lastSyncedAt || Date.now();
-      logger.log(`✅ Successfully fetched ${result.items.length} inventory items from backend`);
+      logger.log(
+        `✅ Successfully fetched ${result.items.length} inventory items from backend`,
+      );
 
       this.setCachedInventory({ items: result.items, lastSyncedAt });
       return result.items;
     } catch (error) {
-      logger.error('❌ Failed to fetch inventory:', error);
+      logger.error("❌ Failed to fetch inventory:", error);
 
       const cached = this.getCachedInventory();
       if (cached) {
-        logger.warn('⚠️ Returning stale inventory from local cache');
+        logger.warn("⚠️ Returning stale inventory from local cache");
         return cached.items;
       }
 

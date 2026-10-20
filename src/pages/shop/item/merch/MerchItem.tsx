@@ -1,3 +1,4 @@
+import { ContentBlock } from "../../../../components/notion/types";
 import { Item, ItemType, InventoryVariant } from "../ItemModel";
 
 export enum MerchSize {
@@ -30,8 +31,10 @@ export class MerchItem implements Item {
     name: string;
     itemSummary: string;
     itemDetails: string;
+    itemContent?: ContentBlock[] | null;
     price: number;
     firebaseImageUrls: string[];
+    thumbnailUrls?: string[];
     itemType: ItemType;
     createdAt: Date;
     availableSizes: MerchSize[];
