@@ -42,9 +42,11 @@ const NewsletterConfirmPage: React.FC = () => {
       {state.status === 'confirming' && <><h1>Confirming…</h1><p className="account-intro">One moment while we confirm your subscription.</p></>}
       {state.status === 'confirmed' && <>
         <h1>You're subscribed!</h1>
-        <p className="account-intro">Thanks for joining us. Here's {state.percentOff}% off your first order. We've also emailed it to {state.email}.</p>
-        <p className="newsletter-confirm-code">{state.discountCode}</p>
-        <p className="account-hint">Enter the code in your cart. First orders only; can't be combined with other discounts, subscriptions, or partner pricing.</p>
+        {state.discount ? <>
+          <p className="account-intro">Thanks for joining us. Here's {state.discount.percentOff}% off your first order. We've also emailed it to {state.email}.</p>
+          <p className="newsletter-confirm-code">{state.discount.code}</p>
+          <p className="account-hint">Enter the code in your cart. First orders only; can't be combined with other discounts, subscriptions, or partner pricing.</p>
+        </> : <p className="account-intro">Thanks for joining us. Look for the newsletter at {state.email} once a month.</p>}
       </>}
       {state.status === 'failed' && <><h1>We couldn’t confirm that link.</h1><p className="account-error" role="alert">{state.message}</p></>}
       {state.status !== 'confirming' && <button className="account-submit account-verify-continue" onClick={() => navigate('/shop')}>

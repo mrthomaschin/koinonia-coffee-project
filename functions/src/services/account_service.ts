@@ -42,7 +42,6 @@ import {
 } from "./newsletter_service";
 import { isNewsletterId, NewsletterId } from "../config/newsletters";
 import { priceCartLines } from "./checkout_pricing";
-import { hasPreviousOrders } from "../repositories/notion_discount_repository";
 import { findReviewedOrderIds } from "../repositories/notion_review_repository";
 import { itemRowHtml } from "../integrations/email/email_html";
 import { ContentBlock, fetchWebsiteContent } from "./notion_content";
@@ -2485,8 +2484,8 @@ export class AccountService {
 
   /**
    * Applies newsletter toggles from the account page. Turning one on for a
-   * verified email subscribes right away and, for someone who has never
-   * ordered, sends the welcome email with the first-order code. An unverified
+   * verified email subscribes right away and sends the welcome email, with
+   * the first-order code for someone who has never ordered. An unverified
    * email gets a confirmation link instead, like the public signup. Returns
    * true when a confirmation link was sent.
    */
@@ -2512,7 +2511,13 @@ export class AccountService {
     await NewsletterService.setSubscriptions(email, turningOff, context);
     if (!turningOn.length) return false;
     if (!account.emailVerified) {
-      await NewsletterService.requestConfirmation(email, turningOn, context);
+      // Orders under the account's earlier emails count too, as they do at checkout.
+      await NewsletterService.requestConfirmation(
+        email,
+        turningOn,
+        context,
+        await emailsForAccount(account),
+      );
       return true;
     }
 
@@ -2526,13 +2531,13 @@ export class AccountService {
       (newsletter) => turningOn.includes(newsletter.id) && !newsletter.subscribed,
     );
     try {
-      if (
-        newlySubscribed &&
-        !(await hasPreviousOrders(await emailsForAccount(account)))
-      ) {
+      if (newlySubscribed) {
         await NewsletterService.sendWelcome(
           email,
           siteUrlFor(req.header("origin")),
+          await NewsletterService.isEligibleForWelcomeDiscount(
+            await emailsForAccount(account),
+          ),
         );
       }
     } catch (error: unknown) {

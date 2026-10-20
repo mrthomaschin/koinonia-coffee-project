@@ -1215,8 +1215,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 onChange={(e) => setNewsletterOptIn(e.target.checked)}
               />
               <span>
-                Subscribe to Koinonia's newletter with the latest new coffees,
-                events, and stories. Unsubscribe anytime.
+                Join our monthly newsletter for new roasts, pop-ups, and
+                events. Unsubscribe anytime.
               </span>
             </label>
           </div>

@@ -60,8 +60,8 @@ export const discountRowHtml = (
   code
     ? `
 <tr>
-  <td style="padding-top:8px;padding-bottom:8px;${textStyle(14, EUCALYPTUS)}">Discount (${escapeHtml(code)} - ${percent || 0}% off)</td>
-  <td align="right" style="padding-top:8px;padding-bottom:8px;${textStyle(14, EUCALYPTUS, "600")}">-$${(amount || 0).toFixed(2)}</td>
+  <td style="padding-top:12px;padding-bottom:12px;border-top:1px solid ${HAIRLINE};${textStyle(11, EUCALYPTUS, "500")}letter-spacing:1.5px;text-transform:uppercase;">Discount (${escapeHtml(code)} &middot; ${percent || 0}% off)</td>
+  <td align="right" style="padding-top:12px;padding-bottom:12px;border-top:1px solid ${HAIRLINE};${textStyle(14, EUCALYPTUS, "500")}">-$${(amount || 0).toFixed(2)}</td>
 </tr>`
     : "";
 
@@ -70,7 +70,7 @@ export const buttonHtml = (url: string, label: string): string => `
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 8px auto;">
   <tr>
     <td align="center" bgcolor="${EUCALYPTUS}" style="background-color:${EUCALYPTUS};border-radius:8px;">
-      <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:16px 32px;${textStyle(12, PEARL, "500")}letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;border-radius:8px;">${escapeHtml(label)}</a>
+      <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:16px 40px;${textStyle(12, PEARL, "500")}letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;border-radius:8px;">${escapeHtml(label)}</a>
     </td>
   </tr>
 </table>`;

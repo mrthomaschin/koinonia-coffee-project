@@ -11,6 +11,7 @@ import {
   WELCOME_DISCOUNT,
 } from "../config/newsletters";
 import { siteUrlFor } from "../config/site";
+import { hasPreviousOrders } from "../repositories/notion_discount_repository";
 import { RESEND_TEMPLATES, sendResendTemplate } from "../integrations/email/resend_client";
 import {
   addContactToSegment,
@@ -47,6 +48,9 @@ interface NewsletterConfirmation {
   firstName: string | null;
   lastName: string | null;
   accountId: string | null;
+  // Other emails the person has used, such as an account's earlier emails.
+  // Orders under any of them make the person a past customer.
+  otherEmails?: string[];
   createdAt: number;
   // Configure as a Firestore TTL field to delete expired links automatically.
   expiresAt: Date;
@@ -193,11 +197,14 @@ export class NewsletterService {
   /**
    * Emails a link that subscribes the address once clicked. Nothing changes in
    * Resend until then. Skips the email when one went out in the last minute.
+   * `otherEmails` are other emails the person has used; orders under them
+   * count when deciding whether to offer the first-order discount.
    */
   static async requestConfirmation(
     email: string,
     newsletters: NewsletterId[],
     context: ConsentContext,
+    otherEmails: string[] = [],
   ): Promise<void> {
     const collection = getDatabase().collection(CONFIRMATIONS_COLLECTION);
     const pending = await collection.where("email", "==", email).get();
@@ -215,31 +222,53 @@ export class NewsletterService {
       firstName: context.firstName || null,
       lastName: context.lastName || null,
       accountId: context.accountId || null,
+      otherEmails: otherEmails.filter((other) => other !== email),
       createdAt: now,
       expiresAt: new Date(now + CONFIRMATION_TTL_MS),
     };
     await confirmationRef(token).set(confirmation);
     const siteUrl = siteUrlFor(context.request?.header("origin"));
+    // Only people who have never ordered are offered the discount. Checkout
+    // signups have just ordered, though their order may not be recorded yet.
+    const offersDiscount = context.source !== "checkout" &&
+      await NewsletterService.isEligibleForWelcomeDiscount([email, ...otherEmails]);
+    const percentOff = `${WELCOME_DISCOUNT.percentOff}%`;
     await sendResendTemplate({
       to: email,
       template: RESEND_TEMPLATES.newsletterConfirm,
+      subject: offersDiscount ?
+        `Confirm your subscription for ${percentOff} off – Koinonia Coffee Project` :
+        "Confirm your subscription – Koinonia Coffee Project",
       variables: {
         confirm_url: `${siteUrl}/newsletter/confirm?token=${token}`,
-        percent_off: `${WELCOME_DISCOUNT.percentOff}%`,
+        headline: offersDiscount ? `One more step to get ${percentOff} off` : "One more step",
+        message: offersDiscount ?
+          `Thanks for signing up for our monthly newsletter! Confirm your email and we'll send you a code for ${percentOff} off your first order.` :
+          "Thanks for signing up for our monthly newsletter! Confirm your email to start receiving it.",
         expires_in: "7 days",
       },
     }, "Newsletter confirmation email error");
     logger.info("Newsletter confirmation sent", { source: context.source });
   }
 
-  /** Thanks a new subscriber and gives them the first-order discount code. */
-  static async sendWelcome(email: string, siteUrl: string): Promise<void> {
+  /** The welcome discount is only for people who have never ordered. */
+  static async isEligibleForWelcomeDiscount(emails: string[]): Promise<boolean> {
+    return !(await hasPreviousOrders(emails));
+  }
+
+  /**
+   * Thanks a new subscriber. With `withDiscount` the email carries the
+   * first-order code; past customers get the welcome without one.
+   */
+  static async sendWelcome(email: string, siteUrl: string, withDiscount: boolean): Promise<void> {
     await sendResendTemplate({
       to: email,
-      template: RESEND_TEMPLATES.newsletterWelcome,
+      template: withDiscount ? RESEND_TEMPLATES.newsletterWelcome : RESEND_TEMPLATES.newsletterWelcomeBack,
       variables: {
-        discount_code: WELCOME_DISCOUNT.code,
-        percent_off: `${WELCOME_DISCOUNT.percentOff}%`,
+        ...(withDiscount ? {
+          discount_code: WELCOME_DISCOUNT.code,
+          percent_off: `${WELCOME_DISCOUNT.percentOff}%`,
+        } : {}),
         shop_url: `${siteUrl}/shop`,
       },
     }, "Newsletter welcome email error");
@@ -280,8 +309,8 @@ export class NewsletterService {
 
   /**
    * POST /newsletter/confirm — body { token } from the emailed link. Subscribes
-   * the email, then sends the welcome email with the discount code. Each link
-   * works once.
+   * the email, then sends the welcome email, with the first-order code for
+   * people who have never ordered. Each link works once.
    */
   static async handleConfirm(req: Request, res: Response): Promise<void> {
     const token = typeof req.body?.token === "string" ? req.body.token : "";
@@ -308,13 +337,18 @@ export class NewsletterService {
         },
       );
       await ref.delete();
+      const withDiscount = confirmation.source !== "checkout" &&
+        await NewsletterService.isEligibleForWelcomeDiscount([confirmation.email, ...(confirmation.otherEmails || [])]);
       try {
-        await NewsletterService.sendWelcome(confirmation.email, siteUrlFor(req.header("origin")));
+        await NewsletterService.sendWelcome(confirmation.email, siteUrlFor(req.header("origin")), withDiscount);
       } catch (error: unknown) {
-        // They're subscribed and the page shows the code, so a failed welcome email doesn't fail the request.
+        // They're subscribed and the page shows any code, so a failed welcome email doesn't fail the request.
         logger.error("Error sending newsletter welcome email", { error: (error as Error).message });
       }
-      res.json({ email: confirmation.email, discountCode: WELCOME_DISCOUNT.code, percentOff: WELCOME_DISCOUNT.percentOff });
+      res.json({
+        email: confirmation.email,
+        discount: withDiscount ? { code: WELCOME_DISCOUNT.code, percentOff: WELCOME_DISCOUNT.percentOff } : null,
+      });
     } catch (error: unknown) {
       logger.error("Error confirming newsletter subscription", { error: (error as Error).message });
       res.status(500).json({ error: "We couldn't confirm your subscription right now. Please try again." });

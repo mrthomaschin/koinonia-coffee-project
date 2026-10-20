@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
 import { AccountProfile, emailsForAccount, sessionAccount } from "./account_service";
-import { DiscountCode, findDiscountCode, hasPreviousOrders } from "../repositories/notion_discount_repository";
+import {
+  DiscountCode,
+  findDiscountCode,
+  hasPreviousOrders,
+} from "../repositories/notion_discount_repository";
 import { normalizeNewsletterEmail } from "./newsletter_service";
 
 const logger = createLogger("discounts");

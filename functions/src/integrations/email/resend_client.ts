@@ -13,6 +13,8 @@ export const RESEND_TEMPLATES = {
   reviewRequest: "review-request",
   newsletterConfirm: "newsletter-confirm",
   newsletterWelcome: "newsletter-welcome",
+  // Welcome for past customers, who get no discount code.
+  newsletterWelcomeBack: "newsletter-welcome-back",
 } as const;
 
 export type ResendTemplate =

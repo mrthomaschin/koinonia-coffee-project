@@ -29,9 +29,10 @@ export const isNewsletterId = (value: unknown): value is NewsletterId =>
   Object.prototype.hasOwnProperty.call(NEWSLETTERS, value);
 
 /**
- * Sent in the welcome email once someone confirms. The code's rules (first
- * order only, no other discounts) live on its row in the Notion discount codes
- * database; keep the percentage here in step with that row.
+ * The code the welcome email gives subscribers who have never ordered. Past
+ * customers are welcomed without a code. The code's rules (first order only,
+ * no other discounts) live on its row in the Notion discount codes database;
+ * keep the percentage here in step with that row.
  */
 export const WELCOME_DISCOUNT = {
   code: "NEWSLETTER10",

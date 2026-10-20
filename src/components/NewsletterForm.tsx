@@ -41,8 +41,8 @@ const NewsletterForm: React.FC<NewsletterFormProps> = ({
   if (status === "done") {
     return (
       <p className={`${classes} newsletter-form-done`} role="status">
-        Almost there! Check your inbox and confirm your email to get 10% off
-        your first order.
+        Almost there! Check your inbox and confirm your email to finish
+        subscribing.
       </p>
     );
   }

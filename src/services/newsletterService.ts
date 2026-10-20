@@ -30,8 +30,8 @@ export const subscribeToNewsletter = async (
 
 export interface NewsletterConfirmation {
   email: string;
-  discountCode: string;
-  percentOff: number;
+  // The first-order code, only for people who have never ordered.
+  discount: { code: string; percentOff: number } | null;
 }
 
 /** Confirms a signup from its emailed link. Each link works once. */
