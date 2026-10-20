@@ -25,10 +25,10 @@ import {
 
 export const FREE_SHIPPING_THRESHOLD_CENTS = 4000;
 // Consumer orders to the contiguous US pay a flat rate instead of the label
-// price. Standard is USPS Ground Advantage; express is UPS 2nd Day Air at a flat
-// upgrade on top of standard, even when standard is free.
+// price. Standard is USPS Ground Advantage (free over the threshold); express is
+// UPS 2nd Day Air at one flat price, about its average label cost.
 export const FLAT_RATE_STANDARD_CENTS = 700;
-export const FLAT_RATE_EXPRESS_UPGRADE_CENTS = 500;
+export const FLAT_RATE_EXPRESS_CENTS = 1200;
 // Heavier parcels (gear like grinders and brewers) pay the express label price.
 export const FLAT_RATE_EXPRESS_MAX_OUNCES = 48;
 export const STANDARD_SERVICE = { carrier: "USPS", service: "GroundAdvantage" };
@@ -317,7 +317,7 @@ const shippingQuote = async (
     isExpress &&
     Number(shipment.parcel?.weight) <= FLAT_RATE_EXPRESS_MAX_OUNCES
   ) {
-    amount = standardCents + FLAT_RATE_EXPRESS_UPGRADE_CENTS;
+    amount = FLAT_RATE_EXPRESS_CENTS;
   } else if (freeStandard && isGroundAdvantage) amount = 0;
   else amount = Math.round(Number.parseFloat(rate.rate) * 100);
   return {

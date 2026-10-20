@@ -47,7 +47,7 @@ const FREE_SHIPPING_THRESHOLD = 40;
 // Flat rates for consumer orders to the contiguous US. The server charges
 // these (see checkout_pricing.ts); the checkout only displays them.
 const FLAT_RATE_STANDARD = 7;
-const FLAT_RATE_EXPRESS_UPGRADE = 5;
+const FLAT_RATE_EXPRESS = 12;
 const FLAT_RATE_EXPRESS_MAX_OUNCES = 48;
 const STANDARD_SERVICE = { carrier: "USPS", service: "GroundAdvantage" };
 const EXPRESS_SERVICE = { carrier: "UPSDAP", service: "2ndDayAir" };
@@ -230,8 +230,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       options.push({
         id: "express",
         label: "Express – UPS 2nd Day Air",
-        price:
-          flatRates.expressPrice ?? standardPrice + FLAT_RATE_EXPRESS_UPGRADE,
+        price: flatRates.expressPrice ?? FLAT_RATE_EXPRESS,
         description: "2 business days",
       });
     }
