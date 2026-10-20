@@ -1,0 +1,74 @@
+.newsletter-form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.newsletter-form-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.newsletter-form-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #c9c3b6;
+  border-radius: 8px;
+  background: #fff;
+  color: #2f2b39;
+  font:
+    14px "RethinkSans-Regular",
+    sans-serif;
+}
+
+.newsletter-form-row button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #2f2b39;
+  color: #f8f5eb;
+  font:
+    12px "ShipporiAntiqueB1",
+    sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 200ms;
+}
+
+.newsletter-form-row button:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.newsletter-form-row button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.newsletter-form .newsletter-form-fineprint,
+.newsletter-form .newsletter-form-error {
+  margin: 8px 0 0;
+  font:
+    12px/1.45 "RethinkSans-Regular",
+    sans-serif;
+  color: #77737a;
+}
+
+.newsletter-form-fineprint a {
+  color: inherit;
+}
+
+.newsletter-form .newsletter-form-error {
+  color: #a3392f;
+}
+
+.newsletter-form-done {
+  margin: 0;
+  font:
+    14px/1.5 "RethinkSans-Regular",
+    sans-serif;
+}

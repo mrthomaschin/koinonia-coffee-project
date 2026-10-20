@@ -1,15 +1,18 @@
-import React from 'react';
-import { CoffeeBagItem } from './CoffeeBagItem';
-import ItemPreview from '../ItemPreview';
-import './CoffeeBagPreview.css';
-import { ItemType } from '../ItemModel';
+import React from "react";
+import { CoffeeBagItem } from "./CoffeeBagItem";
+import ItemPreview from "../ItemPreview";
+import "./CoffeeBagPreview.css";
+import { ItemType } from "../ItemModel";
 
 interface CoffeeBagPreviewProps {
   item: CoffeeBagItem;
   onClick: (item: CoffeeBagItem) => void;
 }
 
-const CoffeeBagPreview: React.FC<CoffeeBagPreviewProps> = ({ item, onClick }) => {
+const CoffeeBagPreview: React.FC<CoffeeBagPreviewProps> = ({
+  item,
+  onClick,
+}) => {
   const renderExtraDetails = (coffeeItem: CoffeeBagItem) => (
     <>
       <span className="preview-category">{ItemType[coffeeItem.itemType]}</span>

@@ -2,6 +2,7 @@ import React from "react";
 import "./About.css";
 import SEO from "../../components/SEO";
 import { ICONS } from "../../util/constants";
+import NewsletterForm from "../../components/NewsletterForm";
 
 interface AboutProps {
   availableHeight: number;
@@ -198,9 +199,12 @@ const About: React.FC<AboutProps> = () => {
         </div>
       </section>
       <section className="about-cta">
-        <h2>Come say hello.</h2>
-        <p>We'd love to chat! Click the button below to send us a message.</p>
-        <a href="/contact">GET IN TOUCH</a>
+        <h2>Follow along the journey.</h2>
+        <p>
+          Subscribe to our newsletter to stay up to date with what's happening
+          next!
+        </p>
+        <NewsletterForm source="about" className="about-newsletter-form" />
         <p className="about-cta-verse">
           &quot;And let us consider how to stir up one another to love and good
           works, not neglecting to meet together, as is the habit of some, but

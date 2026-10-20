@@ -1,7 +1,7 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import { useAccount } from '../../contexts/AccountContext';
 import { SavedAddress } from '../../models/AccountModel';
-import { accountService } from '../../services/accountService';
+import { accountService, NewsletterPreference } from '../../services/accountService';
 
 const EMPTY_ADDRESS: SavedAddress = { line1: '', line2: '', city: '', state: '', postal_code: '', country: 'US' };
 
@@ -272,6 +272,7 @@ const PasswordCard: React.FC = () => {
 const EmailPreferencesCard: React.FC = () => {
   const { token } = useAccount();
   const [reviewRequests, setReviewRequests] = useState<boolean | null>(null);
+  const [newsletters, setNewsletters] = useState<NewsletterPreference[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
@@ -279,25 +280,35 @@ const EmailPreferencesCard: React.FC = () => {
   useEffect(() => {
     if (!token) return;
     accountService.getEmailPreferences(token)
-      .then((preferences) => setReviewRequests(preferences.reviewRequests))
+      .then((preferences) => {
+        setReviewRequests(preferences.reviewRequests);
+        setNewsletters(preferences.newsletters);
+      })
       .catch((requestError) => setError(errorMessage(requestError)));
   }, [token]);
 
-  const toggleReviewRequests = async (enabled: boolean): Promise<void> => {
+  const save = async (changes: Parameters<typeof accountService.updateEmailPreferences>[1], successNotice: string): Promise<void> => {
     if (!token) return;
     setSaving(true);
     setError('');
     setNotice('');
     try {
-      const preferences = await accountService.updateEmailPreferences(token, enabled);
+      const preferences = await accountService.updateEmailPreferences(token, changes);
       setReviewRequests(preferences.reviewRequests);
-      setNotice(preferences.reviewRequests ? "We'll ask you to review your orders after they arrive." : "We won't send you review requests.");
+      setNewsletters(preferences.newsletters);
+      setNotice(preferences.confirmationSent ? 'Check your inbox and confirm your email to finish subscribing.' : successNotice);
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
       setSaving(false);
     }
   };
+
+  const toggleReviewRequests = (enabled: boolean): Promise<void> =>
+    save({ reviewRequests: enabled }, enabled ? "We'll ask you to review your orders after they arrive." : "We won't send you review requests.");
+
+  const toggleNewsletter = (newsletter: NewsletterPreference, enabled: boolean): Promise<void> =>
+    save({ newsletters: { [newsletter.id]: enabled } }, enabled ? `You're subscribed to the ${newsletter.name.toLowerCase()}.` : `You've unsubscribed from the ${newsletter.name.toLowerCase()}.`);
 
   return <article className="account-detail-card">
     <h3>Email preferences</h3>
@@ -308,6 +319,10 @@ const EmailPreferencesCard: React.FC = () => {
         <input type="checkbox" checked={reviewRequests} disabled={saving} onChange={(event) => toggleReviewRequests(event.target.checked)} />
         Review requests after my orders arrive
       </label>
+      {newsletters.map((newsletter) => <label key={newsletter.id} className="account-checkbox">
+        <input type="checkbox" checked={newsletter.subscribed} disabled={saving} onChange={(event) => toggleNewsletter(newsletter, event.target.checked)} />
+        <span>{newsletter.name}<span className="account-checkbox-hint">{newsletter.description}</span></span>
+      </label>)}
     </div>}
     {notice && <p className="account-success" role="status">{notice}</p>}
     {error && <p className="account-error" role="alert">{error}</p>}

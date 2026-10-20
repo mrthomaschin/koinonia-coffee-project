@@ -1,0 +1,10 @@
+.newsletter-confirm-code {
+  margin: 8px 0 18px;
+  padding: 14px 16px;
+  border: 2px dashed #313d66;
+  border-radius: 8px;
+  color: #313d66;
+  font: 700 24px/1.2 "Courier New", Courier, monospace;
+  letter-spacing: 2px;
+  text-align: center;
+}

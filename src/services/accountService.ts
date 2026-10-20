@@ -49,6 +49,27 @@ interface UpdateAddressesInput {
   billingAddress?: SavedAddress | null;
 }
 
+export interface NewsletterPreference {
+  id: string;
+  name: string;
+  description: string;
+  subscribed: boolean;
+}
+
+interface EmailPreferences {
+  reviewRequests: boolean;
+  newsletters: NewsletterPreference[];
+  // True when turning on a newsletter emailed a confirmation link instead,
+  // because the account's email is not verified yet.
+  confirmationSent?: boolean;
+}
+
+// Omit a field to leave it unchanged. newsletters maps newsletter IDs to on/off.
+interface EmailPreferenceChanges {
+  reviewRequests?: boolean;
+  newsletters?: Record<string, boolean>;
+}
+
 class AccountService {
   private readonly backendUrl =
     process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
@@ -157,7 +178,7 @@ class AccountService {
     );
   }
 
-  getEmailPreferences(token: string): Promise<{ reviewRequests: boolean }> {
+  getEmailPreferences(token: string): Promise<EmailPreferences> {
     return this.request("/account/email-preferences", {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -165,12 +186,12 @@ class AccountService {
 
   updateEmailPreferences(
     token: string,
-    reviewRequests: boolean,
-  ): Promise<{ reviewRequests: boolean }> {
+    changes: EmailPreferenceChanges,
+  ): Promise<EmailPreferences> {
     return this.request("/account/email-preferences", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ reviewRequests }),
+      body: JSON.stringify(changes),
     });
   }
 

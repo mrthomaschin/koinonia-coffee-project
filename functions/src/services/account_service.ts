@@ -36,6 +36,13 @@ import {
 } from "../repositories/email_verification_repository";
 import { siteUrlFor } from "../config/site";
 import { ReviewService } from "./review_service";
+import {
+  NewsletterPreference,
+  NewsletterService,
+} from "./newsletter_service";
+import { isNewsletterId, NewsletterId } from "../config/newsletters";
+import { priceCartLines } from "./checkout_pricing";
+import { hasPreviousOrders } from "../repositories/notion_discount_repository";
 import { findReviewedOrderIds } from "../repositories/notion_review_repository";
 import { itemRowHtml } from "../integrations/email/email_html";
 import { ContentBlock, fetchWebsiteContent } from "./notion_content";
@@ -222,7 +229,7 @@ interface Subscription {
   addOnUnitAmount?: number;
 }
 
-const subscriptionPlans: Record<
+export const subscriptionPlans: Record<
   SubscriptionPlan,
   Pick<Subscription, "bagCount" | "cadence" | "freeShipping">
 > = {
@@ -494,7 +501,7 @@ export const nextUpcomingRoastSessionDate = async (): Promise<string> => {
   return nextDate;
 };
 
-const isPartnerLabel = (
+export const isPartnerLabel = (
   label: AccountLabel,
 ): label is "wholesale" | "church-ministry" =>
   label === "wholesale" || label === "church-ministry";
@@ -587,6 +594,30 @@ const storedAccount = async (
     accountId,
     DEFAULT_ACCOUNT_LABEL,
   )) as StoredAccount | null;
+
+/** Every email the account has used, lowercased, current email first. */
+export const emailsForAccount = async (
+  account: AccountProfile,
+): Promise<string[]> => {
+  const stored = await storedAccount(account.id);
+  return stored ? accountEmails(stored) : [account.user.email.toLowerCase()];
+};
+
+/**
+ * Review requests follow every email the account has used; newsletters go only
+ * to its current email.
+ */
+const emailPreferences = async (
+  account: AccountProfile,
+): Promise<{ reviewRequests: boolean; newsletters: NewsletterPreference[] }> => {
+  const stored = await storedAccount(account.id);
+  const emails = stored ? accountEmails(stored) : [account.user.email];
+  const [optedOut, newsletters] = await Promise.all([
+    ReviewService.isOptedOut(emails),
+    NewsletterService.getPreferences(account.user.email.trim().toLowerCase()),
+  ]);
+  return { reviewRequests: !optedOut, newsletters };
+};
 
 const text = (property: any): string => {
   if (!property) return "";
@@ -747,7 +778,7 @@ const churchMinistryPriceOverrides = async (
 };
 
 // Pricing is matched by email, so it applies only once the account has proven it owns that email.
-const partnerPriceOverridesFor = async (
+export const partnerPriceOverridesFor = async (
   account: AccountProfile,
 ): Promise<Record<string, number>> =>
   account.label === "church-ministry" && account.emailVerified
@@ -1382,7 +1413,14 @@ export class AccountService {
           .trim()
           .slice(0, 40);
         const shippingWeight = Number(item?.shippingWeight);
-        let unitAmount = Math.round(Number(item?.unitAmount) * 100);
+        // Priced like the cart line was at checkout; renewals charge this amount.
+        const [pricedLine] = await priceCartLines(
+          [{ sku: itemSku.toUpperCase(), quantity: 1, subscriptionPlan: plan }],
+          account,
+        ).catch(() => [undefined]);
+        let unitAmount = pricedLine
+          ? Math.round(pricedLine.unitPrice * 100)
+          : Number.NaN;
         const itemWeightInPounds = weightInPounds(weight);
         const resolvedShippingWeight =
           Number.isFinite(shippingWeight) && shippingWeight > 0
@@ -2360,9 +2398,7 @@ export class AccountService {
           .json({ error: "Your session has expired. Please log in again." });
         return;
       }
-      const stored = await storedAccount(account.id);
-      const emails = stored ? accountEmails(stored) : [account.user.email];
-      res.json({ reviewRequests: !(await ReviewService.isOptedOut(emails)) });
+      res.json(await emailPreferences(account));
     } catch (error: unknown) {
       logger.error("Unable to get email preferences", {
         error: (error as Error).message,
@@ -2372,8 +2408,10 @@ export class AccountService {
   }
 
   /**
-   * POST /account/email-preferences — turns review request emails on or off for
-   * every email on the account. Shares the list the unsubscribe link writes to.
+   * POST /account/email-preferences — body { reviewRequests?, newsletters? }.
+   * reviewRequests turns review request emails on or off for every email on
+   * the account, sharing the list the review unsubscribe link writes to.
+   * newsletters maps newsletter IDs to on/off for the account's current email.
    */
   static async updateEmailPreferences(
     req: Request,
@@ -2387,20 +2425,54 @@ export class AccountService {
           .json({ error: "Your session has expired. Please log in again." });
         return;
       }
-      if (typeof req.body?.reviewRequests !== "boolean") {
+      const { reviewRequests, newsletters } = req.body || {};
+      if (reviewRequests !== undefined && typeof reviewRequests !== "boolean") {
         res
           .status(400)
           .json({ error: "reviewRequests must be true or false." });
         return;
       }
-      const stored = await storedAccount(account.id);
-      const emails = stored ? accountEmails(stored) : [account.user.email];
-      await ReviewService.setOptedOut(
-        emails,
-        !req.body.reviewRequests,
-        `account ${account.id}`,
+      const newsletterChanges = Object.entries(
+        newsletters && typeof newsletters === "object" ? newsletters : {},
       );
-      res.json({ reviewRequests: req.body.reviewRequests });
+      if (
+        (newsletters !== undefined &&
+          (typeof newsletters !== "object" || newsletters === null)) ||
+        newsletterChanges.some(
+          ([id, on]) => !isNewsletterId(id) || typeof on !== "boolean",
+        )
+      ) {
+        res.status(400).json({
+          error: "newsletters must map newsletter IDs to true or false.",
+        });
+        return;
+      }
+      if (reviewRequests === undefined && !newsletterChanges.length) {
+        res.status(400).json({ error: "No email preferences to update." });
+        return;
+      }
+      if (reviewRequests !== undefined) {
+        const stored = await storedAccount(account.id);
+        const emails = stored ? accountEmails(stored) : [account.user.email];
+        await ReviewService.setOptedOut(
+          emails,
+          !reviewRequests,
+          `account ${account.id}`,
+        );
+      }
+      const confirmationSent = newsletterChanges.length
+        ? await AccountService.updateNewsletters(
+            account,
+            Object.fromEntries(newsletterChanges) as Partial<
+              Record<NewsletterId, boolean>
+            >,
+            req,
+          )
+        : false;
+      res.json({
+        ...(await emailPreferences(account)),
+        ...(confirmationSent ? { confirmationSent: true } : {}),
+      });
     } catch (error: unknown) {
       logger.error("Unable to update email preferences", {
         error: (error as Error).message,
@@ -2409,6 +2481,68 @@ export class AccountService {
         .status(500)
         .json({ error: "Unable to update your email preferences." });
     }
+  }
+
+  /**
+   * Applies newsletter toggles from the account page. Turning one on for a
+   * verified email subscribes right away and, for someone who has never
+   * ordered, sends the welcome email with the first-order code. An unverified
+   * email gets a confirmation link instead, like the public signup. Returns
+   * true when a confirmation link was sent.
+   */
+  private static async updateNewsletters(
+    account: AccountProfile,
+    changes: Partial<Record<NewsletterId, boolean>>,
+    req: Request,
+  ): Promise<boolean> {
+    const email = account.user.email.trim().toLowerCase();
+    const context = {
+      source: "account" as const,
+      accountId: account.id,
+      firstName: account.user.firstName,
+      lastName: account.user.lastName,
+      request: req,
+    };
+    const turningOn = (Object.keys(changes) as NewsletterId[]).filter(
+      (id) => changes[id],
+    );
+    const turningOff = Object.fromEntries(
+      Object.entries(changes).filter(([, on]) => !on),
+    );
+    await NewsletterService.setSubscriptions(email, turningOff, context);
+    if (!turningOn.length) return false;
+    if (!account.emailVerified) {
+      await NewsletterService.requestConfirmation(email, turningOn, context);
+      return true;
+    }
+
+    const before = await NewsletterService.getPreferences(email);
+    await NewsletterService.setSubscriptions(
+      email,
+      Object.fromEntries(turningOn.map((id) => [id, true])),
+      context,
+    );
+    const newlySubscribed = before.some(
+      (newsletter) => turningOn.includes(newsletter.id) && !newsletter.subscribed,
+    );
+    try {
+      if (
+        newlySubscribed &&
+        !(await hasPreviousOrders(await emailsForAccount(account)))
+      ) {
+        await NewsletterService.sendWelcome(
+          email,
+          siteUrlFor(req.header("origin")),
+        );
+      }
+    } catch (error: unknown) {
+      // They're subscribed; the welcome email is a bonus, so this doesn't fail the request.
+      logger.error("Unable to send newsletter welcome email", {
+        accountId: account.id,
+        error: (error as Error).message,
+      });
+    }
+    return false;
   }
 
   static async getDetails(req: Request, res: Response): Promise<void> {
@@ -2640,6 +2774,7 @@ export class AccountService {
             pendingEmail: null,
           },
           emailChanged: true,
+          previousEmail,
         };
       });
 
@@ -2661,8 +2796,14 @@ export class AccountService {
         accountId: result.account.id,
         emailChanged: !!result.emailChanged,
       });
-      if (result.emailChanged)
+      if (result.emailChanged) {
         await AccountService.syncProfileElsewhere(result.account);
+        await AccountService.moveNewsletterSubscriptions(
+          result.account,
+          result.previousEmail,
+          req,
+        );
+      }
       res.json({ account: publicProfile(result.account) });
     } catch (error: unknown) {
       logger.error("Unable to verify email", {
@@ -2813,6 +2954,34 @@ export class AccountService {
           error: (result.reason as Error).message,
         });
     });
+  }
+
+  /**
+   * Best-effort, like syncProfileElsewhere: the email change has already been
+   * saved, so a newsletter failure is logged rather than failing the request.
+   */
+  private static async moveNewsletterSubscriptions(
+    account: StoredAccount,
+    previousEmail: string,
+    req: Request,
+  ): Promise<void> {
+    try {
+      await NewsletterService.moveSubscriptions(
+        previousEmail,
+        account.user.email.trim().toLowerCase(),
+        {
+          accountId: account.id,
+          firstName: account.user.firstName,
+          lastName: account.user.lastName,
+          request: req,
+        },
+      );
+    } catch (error: unknown) {
+      logger.error("Unable to move newsletter subscriptions to new email", {
+        accountId: account.id,
+        error: (error as Error).message,
+      });
+    }
   }
 
   /**

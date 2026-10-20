@@ -1,18 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useCart } from '../../contexts/CartContext';
-import { stripeService } from '../../services/stripeService';
-import { sendPurchaseNotification } from '../../services/emailService';
-import './Checkout.css';
-import { createLogger } from '../../util/logger';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useCart } from "../../contexts/CartContext";
+import { stripeService } from "../../services/stripeService";
+import { sendPurchaseNotification } from "../../services/emailService";
+import "./Checkout.css";
+import { createLogger } from "../../util/logger";
 
-const logger = createLogger('CheckoutSuccess');
+const logger = createLogger("CheckoutSuccess");
 
 interface CheckoutSuccessProps {
   availableHeight: number;
 }
 
-const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) => {
+const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({
+  availableHeight,
+}) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { cart, forceUpdate } = useCart();
@@ -21,31 +23,33 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    logger.log('🎯 CheckoutSuccess component mounted');
-    const sessionId = searchParams.get('session_id');
-    logger.log('🔑 Session ID from URL:', sessionId);
+    logger.log("🎯 CheckoutSuccess component mounted");
+    const sessionId = searchParams.get("session_id");
+    logger.log("🔑 Session ID from URL:", sessionId);
 
     if (!sessionId) {
-      logger.error('❌ No session ID found in URL');
-      setError('No session ID found');
+      logger.error("❌ No session ID found in URL");
+      setError("No session ID found");
       setIsVerifying(false);
       return;
     }
 
     const verifySession = async () => {
       try {
-        logger.log('🔍 Verifying session:', sessionId);
+        logger.log("🔍 Verifying session:", sessionId);
         const data = await stripeService.retrieveSession(sessionId);
-        logger.log('📦 Session data received:', data);
+        logger.log("📦 Session data received:", data);
         setSessionData(data);
 
-        logger.log('💳 Payment status:', data.payment_status);
-        if (data.payment_status === 'paid') {
+        logger.log("💳 Payment status:", data.payment_status);
+        if (data.payment_status === "paid") {
           try {
-            logger.log('Payment verified, preparing to send email notification...');
-            logger.log('Cart items:', cart.cartItems);
+            logger.log(
+              "Payment verified, preparing to send email notification...",
+            );
+            logger.log("Cart items:", cart.cartItems);
 
-            const purchaseItems = cart.cartItems.map(cartItem => {
+            const purchaseItems = cart.cartItems.map((cartItem) => {
               const variations: string[] = [];
               if (cartItem.selections.weight) {
                 variations.push(`${cartItem.selections.weight}oz`);
@@ -59,37 +63,38 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
                 sku: cartItem.variantSku || cartItem.item.sku,
                 quantity: cartItem.quantity,
                 price: cartItem.variantPrice || cartItem.item.price,
-                variations: variations.length > 0 ? variations.join(', ') : undefined
+                variations:
+                  variations.length > 0 ? variations.join(", ") : undefined,
               };
             });
 
-            logger.log('Purchase items prepared:', purchaseItems);
-            logger.log('Sending email notification...');
+            logger.log("Purchase items prepared:", purchaseItems);
+            logger.log("Sending email notification...");
 
             await sendPurchaseNotification({
-              customerEmail: data.customer_email || 'N/A',
+              customerEmail: data.customer_email || "N/A",
               customerName: data.customer_details?.name,
               items: purchaseItems,
               totalAmount: data.amount_total / 100,
               orderDate: new Date().toLocaleString(),
               sessionId: sessionId,
-              shippingAddress: data.shipping_address || '',
-              billingAddress: data.billing_address || '',
-              shippingMethod: data.shipping_method || '',
+              shippingAddress: data.shipping_address || "",
+              billingAddress: data.billing_address || "",
+              shippingMethod: data.shipping_method || "",
               isLocalPickup: data.isLocalPickup === true,
             });
 
-            logger.log('✓ Email notification sent successfully!');
+            logger.log("✓ Email notification sent successfully!");
           } catch (emailError) {
-            logger.error('Failed to send purchase notification:', emailError);
+            logger.error("Failed to send purchase notification:", emailError);
           }
 
           cart.cartItems = [];
           forceUpdate();
         }
       } catch (err) {
-        logger.error('Session verification error:', err);
-        setError('Failed to verify payment');
+        logger.error("Session verification error:", err);
+        setError("Failed to verify payment");
       } finally {
         setIsVerifying(false);
       }
@@ -99,7 +104,7 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
   }, [searchParams, cart, forceUpdate]);
 
   const handleContinueShopping = () => {
-    navigate('/shop');
+    navigate("/shop");
   };
 
   if (isVerifying) {
@@ -138,19 +143,23 @@ const CheckoutSuccess: React.FC<CheckoutSuccessProps> = ({ availableHeight }) =>
           <div className="success-icon">✓</div>
           <h1>Order Confirmed!</h1>
           <p className="success-message">
-            Thank you for your purchase. Your order has been successfully processed.
+            Thank you for your purchase. Your order has been successfully
+            processed.
           </p>
 
           {sessionData?.customer_email && (
             <p className="confirmation-email">
-              A confirmation email has been sent to <strong>{sessionData.customer_email}</strong>
+              A confirmation email has been sent to{" "}
+              <strong>{sessionData.customer_email}</strong>
             </p>
           )}
 
           {sessionData?.amount_total && (
             <div className="order-total">
               <span>Total Paid:</span>
-              <span className="amount">${(sessionData.amount_total / 100).toFixed(2)}</span>
+              <span className="amount">
+                ${(sessionData.amount_total / 100).toFixed(2)}
+              </span>
             </div>
           )}
 

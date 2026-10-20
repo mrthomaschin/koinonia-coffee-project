@@ -17,6 +17,8 @@ import { ALLOWED_ORIGINS } from "./config/site";
 import { RenewalFulfillmentUseCase } from "./application/renewal_fulfillment_use_case";
 import { MAX_REVIEW_PHOTO_BYTES, ReviewService } from "./services/review_service";
 import { MonthlyMetricsService } from "./services/monthly_metrics_service";
+import { NewsletterService } from "./services/newsletter_service";
+import { DiscountService } from "./services/discount_service";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -169,8 +171,8 @@ app.post("/create-payment-intent", StripeService.createPaymentIntent);
 // Calculate tax for embedded checkout
 app.post("/calculate-tax", StripeService.calculateTax);
 
-// Keep the existing checkout session endpoint for backward compatibility
-app.post("/create-checkout-session", StripeService.createCheckoutSession);
+// Prices the order with shipping and tax and sets the payment's amount before the customer pays
+app.post("/checkout/quote", StripeService.quoteCheckout);
 
 app.get("/checkout-session/:sessionId", StripeService.getCheckoutSession);
 
@@ -282,8 +284,16 @@ app.post("/email/contact", handleEmail(EmailService.sendContactForm, "contact fo
 app.post("/email/purchase-notification", handleEmail(EmailService.sendPurchaseNotification, "purchase notification"));
 app.post("/email/customer-confirmation", handleEmail(EmailService.sendCustomerConfirmation, "customer confirmation"));
 
+// Newsletter signup from the footer, About page, and checkout sends a
+// confirmation link; /newsletter/confirm subscribes once it is clicked and
+// emails the first-order discount code. Signed-in customers manage
+// newsletters through /account/email-preferences; anyone can unsubscribe from
+// the link in each newsletter, which Resend hosts.
+app.post("/newsletter/subscribe", NewsletterService.handleSubscribe);
+app.post("/newsletter/confirm", NewsletterService.handleConfirm);
+
 // Validate discount code
-app.post("/validate-discount-code", async (req: Request, res: Response) => NotionService.validateDiscountCode(req, res));
+app.post("/validate-discount-code", DiscountService.handleValidate);
 
 // Account and subscription data live in Firestore. Notion is an operations-facing mirror.
 app.post("/account/login", AccountService.login);

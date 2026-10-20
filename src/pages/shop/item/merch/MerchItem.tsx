@@ -2,46 +2,62 @@ import { ContentBlock } from "../../../../components/notion/types";
 import { Item, ItemType, InventoryVariant } from "../ItemModel";
 
 export enum MerchSize {
-    S = "S",
-    M = "M",
-    L = "L",
-    XL = "XL",
+  S = "S",
+  M = "M",
+  L = "L",
+  XL = "XL",
 }
 
 export class MerchItem implements Item {
-    constructor(id: string, name: string, itemSummary: string, itemDetails: string, price: number, firebaseImageUrls: string[], itemType: ItemType, createdAt: Date, availableSizes: MerchSize[], colors: string[], quantity: number, variants?: InventoryVariant[] | null, ltoEndDate?: Date | null, ltoUnlimitedPurchases?: boolean, shippingWeight?: number) {
-        this.sku = id;
-        this.name = name;
-        this.itemSummary = itemSummary;
-        this.itemDetails = itemDetails;
-        this.price = price;
-        this.firebaseImageUrls = firebaseImageUrls;
-        this.itemType = itemType;
-        this.createdAt = createdAt;
-        this.availableSizes = availableSizes;
-        this.colors = colors;
-        this.quantity = quantity;
-        this.variants = variants || null;
-        this.ltoEndDate = ltoEndDate || null;
-        this.ltoUnlimitedPurchases = ltoUnlimitedPurchases || false;
-        this.shippingWeight = shippingWeight;
-    }
+  constructor(
+    id: string,
+    name: string,
+    itemSummary: string,
+    itemDetails: string,
+    price: number,
+    firebaseImageUrls: string[],
+    itemType: ItemType,
+    createdAt: Date,
+    availableSizes: MerchSize[],
+    colors: string[],
+    quantity: number,
+    variants?: InventoryVariant[] | null,
+    ltoEndDate?: Date | null,
+    ltoUnlimitedPurchases?: boolean,
+    shippingWeight?: number,
+  ) {
+    this.sku = id;
+    this.name = name;
+    this.itemSummary = itemSummary;
+    this.itemDetails = itemDetails;
+    this.price = price;
+    this.firebaseImageUrls = firebaseImageUrls;
+    this.itemType = itemType;
+    this.createdAt = createdAt;
+    this.availableSizes = availableSizes;
+    this.colors = colors;
+    this.quantity = quantity;
+    this.variants = variants || null;
+    this.ltoEndDate = ltoEndDate || null;
+    this.ltoUnlimitedPurchases = ltoUnlimitedPurchases || false;
+    this.shippingWeight = shippingWeight;
+  }
 
-    sku: string;
-    name: string;
-    itemSummary: string;
-    itemDetails: string;
-    itemContent?: ContentBlock[] | null;
-    price: number;
-    firebaseImageUrls: string[];
-    thumbnailUrls?: string[];
-    itemType: ItemType;
-    createdAt: Date;
-    availableSizes: MerchSize[];
-    colors: string[];
-    quantity: number;
-    variants?: InventoryVariant[] | null;
-    ltoEndDate?: Date | null;
-    ltoUnlimitedPurchases?: boolean;
-    shippingWeight?: number;
+  sku: string;
+  name: string;
+  itemSummary: string;
+  itemDetails: string;
+  itemContent?: ContentBlock[] | null;
+  price: number;
+  firebaseImageUrls: string[];
+  thumbnailUrls?: string[];
+  itemType: ItemType;
+  createdAt: Date;
+  availableSizes: MerchSize[];
+  colors: string[];
+  quantity: number;
+  variants?: InventoryVariant[] | null;
+  ltoEndDate?: Date | null;
+  ltoUnlimitedPurchases?: boolean;
+  shippingWeight?: number;
 }

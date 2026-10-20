@@ -1,142 +1,97 @@
-import { loadStripe, Stripe } from '@stripe/stripe-js';
-import { createLogger } from '../util/logger';
-import { CartItem } from '../pages/cart/CartViewModel';
+import { loadStripe, Stripe } from "@stripe/stripe-js";
+import { createLogger } from "../util/logger";
 
-const logger = createLogger('StripeService');
+const logger = createLogger("StripeService");
+
+/** A cart line as the server prices it. */
+export interface CheckoutLine {
+  sku: string;
+  quantity: number;
+  subscriptionPlan?: string;
+  isPartnerOrder?: boolean;
+}
+
+export type CheckoutDelivery =
+  | { method: "pickup" }
+  | { method: "shipping"; shipmentId: string; rateId: string };
+
+/** The server's price for a checkout. Amounts are in cents. */
+export interface CheckoutQuote {
+  subtotal: number;
+  discount: { code: string; percentOff: number; amount: number } | null;
+  shipping: number;
+  tax: number;
+  total: number;
+  lines: { sku: string; quantity: number; unitPrice: number; amount: number; taxCode: string }[];
+  // Each line's amount after its share of the discount; tax is charged on these.
+  taxableAmounts: number[];
+}
 
 class StripeService {
   private stripePromise: Promise<Stripe | null>;
   private backendUrl: string;
 
   constructor() {
-    const publishableKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '';
+    const publishableKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "";
     this.stripePromise = loadStripe(publishableKey);
-    this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+    this.backendUrl =
+      process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
   }
 
-  async createCheckoutSession(cartItems: CartItem[], tax: number, shipping: number): Promise<void> {
-    const stripe = await this.stripePromise;
-
-    if (!stripe) {
-      throw new Error('Stripe failed to load. Please check your publishable key.');
-    }
-
-    const lineItems = cartItems.map(cartItem => {
-      const price = this.calculateItemPrice(cartItem);
-      const name = this.getItemName(cartItem);
-
-      return {
-        name,
-        amount: Math.round(price * 100),
-        currency: 'usd',
-        quantity: cartItem.quantity,
-        images: cartItem.item.firebaseImageUrls.length > 0 ? [cartItem.item.firebaseImageUrls[0]] : undefined,
-        variantSku: cartItem.variantSku || cartItem.item.sku,
-        variantPrice: cartItem.variantPrice || cartItem.item.price,
-      };
+  private async post<T>(path: string, body: unknown, token?: string | null): Promise<T> {
+    const response = await fetch(`${this.backendUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
     });
-
-    // Add tax as a line item if greater than 0
-    if (tax > 0) {
-      lineItems.push({
-        name: 'Tax',
-        amount: Math.round(tax * 100),
-        currency: 'usd',
-        quantity: 1,
-        images: undefined,
-        variantSku: 'TAX',
-        variantPrice: tax,
-      });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `HTTP error! status: ${response.status}`);
     }
-
-    // Add shipping as a line item if greater than 0
-    if (shipping > 0) {
-      lineItems.push({
-        name: 'Shipping',
-        amount: Math.round(shipping * 100),
-        currency: 'usd',
-        quantity: 1,
-        images: undefined,
-        variantSku: 'SHIPPING',
-        variantPrice: shipping,
-      });
-    }
-
-    try {
-      // Store cart items with variant data for order confirmation
-      localStorage.setItem('checkout_cart_items', JSON.stringify(cartItems));
-
-      const response = await fetch(`${this.backendUrl}/create-checkout-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lineItems,
-          successUrl: `${window.location.origin}/order-confirmation?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${window.location.origin}/cart`,
-          automatic_tax: { enabled: true },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-
-      const { url } = await response.json();
-
-      if (url) {
-        window.location.href = url;
-      } else {
-        throw new Error('No checkout URL returned from server');
-      }
-    } catch (error) {
-      logger.error('Error creating checkout session:', error);
-      throw error;
-    }
+    return data as T;
   }
 
-  async createPaymentIntent(amount: number, metadata?: Record<string, string>, token?: string | null): Promise<{ clientSecret: string; paymentIntentId: string }> {
-    try {
-      logger.log('[stripeService] Creating payment intent', { amount, metadata, backendUrl: this.backendUrl });
+  /**
+   * Starts checkout. The server prices the items and discount itself; shipping
+   * and tax are added by quoteCheckout when the customer pays.
+   */
+  async createPaymentIntent(
+    items: CheckoutLine[],
+    discountCode: string | null,
+    token?: string | null,
+  ): Promise<{ clientSecret: string; paymentIntentId: string; quote: CheckoutQuote }> {
+    logger.log("[stripeService] Creating payment intent", { lines: items.length, discountCode });
+    return this.post("/create-payment-intent", { items, discountCode }, token);
+  }
 
-      const response = await fetch(`${this.backendUrl}/create-payment-intent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({
-          amount: Math.round(amount * 100), // Convert to cents
-          currency: 'usd',
-          metadata,
-        }),
-      });
-
-      logger.log('[stripeService] Payment intent response status', { status: response.status });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        logger.error('[stripeService] Payment intent creation failed', { status: response.status, errorData });
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      logger.log('[stripeService] Payment intent created successfully', { hasClientSecret: !!data.clientSecret });
-
-      return data;
-    } catch (error) {
-      logger.error('[stripeService] Error creating payment intent:', error);
-      throw error;
-    }
+  /** Prices the order with shipping and tax and sets the payment to that amount. */
+  async quoteCheckout(
+    input: {
+      paymentIntentId: string;
+      items: CheckoutLine[];
+      discountCode: string | null;
+      email: string;
+      delivery: CheckoutDelivery;
+    },
+    token?: string | null,
+  ): Promise<CheckoutQuote> {
+    return (await this.post<{ quote: CheckoutQuote }>("/checkout/quote", input, token)).quote;
   }
 
   async retrieveSession(sessionId: string): Promise<any> {
     try {
-      const response = await fetch(`${this.backendUrl}/checkout-session/${sessionId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${this.backendUrl}/checkout-session/${sessionId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -144,43 +99,13 @@ class StripeService {
 
       return await response.json();
     } catch (error) {
-      logger.error('Error retrieving session:', error);
+      logger.error("Error retrieving session:", error);
       throw error;
     }
   }
 
   getStripe(): Promise<Stripe | null> {
     return this.stripePromise;
-  }
-
-  private calculateItemPrice(cartItem: CartItem): number {
-    return cartItem.variantPrice ?? cartItem.item.price;
-  }
-
-  private getItemName(cartItem: CartItem): string {
-    let name = cartItem.item.name;
-
-    if (cartItem.selections.weight) {
-      const weightStr = this.formatWeight(cartItem.selections.weight);
-      name += ` - ${weightStr}`;
-    }
-
-    if (cartItem.selections.size) {
-      name += ` - ${cartItem.selections.size}`;
-    }
-
-    return name;
-  }
-
-  private formatWeight(weight: number): string {
-    const weightMap: { [key: number]: string } = {
-      12: '12oz',
-      16: '16oz',
-      24: '24oz',
-      200: '200g',
-      80: '5lb',
-    };
-    return weightMap[weight] || `${weight}oz`;
   }
 }
 

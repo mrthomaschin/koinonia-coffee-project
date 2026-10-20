@@ -178,7 +178,10 @@
 .shipping-title {
   margin: 0 0 19px;
   color: #2f2b39;
-  font: 400 25px/0.95 'HedvigLettersSerif_18pt', Georgia, serif;
+  font:
+    400 25px/0.95 "HedvigLettersSerif_18pt",
+    Georgia,
+    serif;
   letter-spacing: -0.3px;
 }
 
@@ -192,7 +195,9 @@
   border: 1px solid rgba(47, 43, 57, 0.18);
   border-radius: 0;
   background: transparent;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
   animation: none;
 }
 
@@ -210,7 +215,7 @@
   gap: 14px;
 }
 
-.shipping-radio input[type='radio'] {
+.shipping-radio input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
   width: 19px;
@@ -224,8 +229,8 @@
   transition: border-color 0.2s ease;
 }
 
-.shipping-radio input[type='radio']::before {
-  content: '';
+.shipping-radio input[type="radio"]::before {
+  content: "";
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -234,15 +239,15 @@
   transition: transform 0.15s ease-in-out;
 }
 
-.shipping-radio input[type='radio']:checked {
+.shipping-radio input[type="radio"]:checked {
   border-color: #84825e;
 }
 
-.shipping-radio input[type='radio']:checked::before {
+.shipping-radio input[type="radio"]:checked::before {
   transform: scale(1);
 }
 
-.shipping-radio input[type='radio']:focus-visible {
+.shipping-radio input[type="radio"]:focus-visible {
   outline: 2px solid rgba(49, 61, 102, 0.45);
   outline-offset: 3px;
 }
@@ -254,18 +259,24 @@
 .shipping-label {
   margin-bottom: 5px;
   color: #2f2b39;
-  font: 500 14px/1.2 'RethinkSans-Regular', sans-serif;
+  font:
+    500 14px/1.2 "RethinkSans-Regular",
+    sans-serif;
 }
 
 .shipping-description {
   color: rgba(47, 43, 57, 0.64);
-  font: 13px/1.35 'RethinkSans-Regular', sans-serif;
+  font:
+    13px/1.35 "RethinkSans-Regular",
+    sans-serif;
 }
 
 .shipping-price {
   gap: 3px;
   color: #84825e;
-  font: 500 16px/1.1 'RethinkSans-Regular', sans-serif;
+  font:
+    500 16px/1.1 "RethinkSans-Regular",
+    sans-serif;
 }
 
 .original-price {
@@ -275,13 +286,17 @@
 
 .free-price {
   color: #84825e;
-  font: 500 16px/1.1 'RethinkSans-Regular', sans-serif;
+  font:
+    500 16px/1.1 "RethinkSans-Regular",
+    sans-serif;
 }
 
 .loading-shipping {
   padding: 20px 0;
   color: rgba(47, 43, 57, 0.6);
-  font: 12px/1.5 'RethinkSans-Regular', sans-serif;
+  font:
+    12px/1.5 "RethinkSans-Regular",
+    sans-serif;
 }
 
 @media (max-width: 768px) {

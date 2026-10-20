@@ -3,7 +3,7 @@
 }
 
 .bottom-bar-content {
-  max-width: 900px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 48px 40px;
   display: flex;
@@ -94,6 +94,7 @@
 
 @media (max-width: 768px) {
   .bottom-bar-content {
+    flex-wrap: wrap;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 32px 24px;
     padding: 32px 24px;

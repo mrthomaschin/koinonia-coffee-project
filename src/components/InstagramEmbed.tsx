@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import './InstagramEmbed.css';
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import "./InstagramEmbed.css";
 
 const InstagramEmbed: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -17,8 +17,8 @@ const InstagramEmbed: React.FC = () => {
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = '//www.instagram.com/embed.js';
+    const script = document.createElement("script");
+    script.src = "//www.instagram.com/embed.js";
     script.async = true;
     script.onload = () => {
       scriptLoadedRef.current = true;
@@ -45,9 +45,9 @@ const InstagramEmbed: React.FC = () => {
         });
       },
       {
-        rootMargin: '100px',
-        threshold: 0.1
-      }
+        rootMargin: "100px",
+        threshold: 0.1,
+      },
     );
 
     if (containerRef.current) {
@@ -87,9 +87,9 @@ const InstagramEmbed: React.FC = () => {
           className="instagram-media"
           data-instgrm-permalink="https://www.instagram.com/koinoniacoffeeproject/?utm_source=ig_embed&utm_campaign=loading"
           data-instgrm-version="14"
-          style={{ display: isLoading ? 'none' : 'block' }}
+          style={{ display: isLoading ? "none" : "block" }}
         >
-          <div style={{ padding: '16px' }}>
+          <div style={{ padding: "16px" }}>
             <a
               href="https://www.instagram.com/koinoniacoffeeproject/?utm_source=ig_embed&utm_campaign=loading"
               target="_blank"
@@ -98,7 +98,22 @@ const InstagramEmbed: React.FC = () => {
               View this profile on Instagram
             </a>
             <p>
-              <a href="https://www.instagram.com/koinoniacoffeeproject/?utm_source=ig_embed&utm_campaign=loading" target="_blank" rel="noopener noreferrer">Koinonia Coffee Project</a> (@<a href="https://www.instagram.com/koinoniacoffeeproject/?utm_source=ig_embed&utm_campaign=loading" target="_blank" rel="noopener noreferrer">koinoniacoffeeproject</a>) • Instagram photos and videos
+              <a
+                href="https://www.instagram.com/koinoniacoffeeproject/?utm_source=ig_embed&utm_campaign=loading"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Koinonia Coffee Project
+              </a>{" "}
+              (@
+              <a
+                href="https://www.instagram.com/koinoniacoffeeproject/?utm_source=ig_embed&utm_campaign=loading"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                koinoniacoffeeproject
+              </a>
+              ) • Instagram photos and videos
             </p>
           </div>
         </blockquote>

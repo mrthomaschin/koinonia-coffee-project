@@ -1,9 +1,9 @@
-import { submitContactForm } from '../../services/emailService';
-import { FormData, FormErrors } from './ContactModel';
-import trackingService from '../../services/trackingService';
-import { createLogger } from '../../util/logger';
+import { submitContactForm } from "../../services/emailService";
+import { FormData, FormErrors } from "./ContactModel";
+import trackingService from "../../services/trackingService";
+import { createLogger } from "../../util/logger";
 
-const logger = createLogger('ContactViewModel');
+const logger = createLogger("ContactViewModel");
 
 export class ContactViewModel {
   private _formData: FormData;
@@ -14,12 +14,12 @@ export class ContactViewModel {
 
   constructor() {
     this._formData = {
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      subject: '',
-      message: ''
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      subject: "",
+      message: "",
     };
     this._errors = {};
     this._isSubmitting = false;
@@ -43,12 +43,14 @@ export class ContactViewModel {
   }
 
   get isFormValid(): boolean {
-    return Object.keys(this._errors).length === 0 &&
-      this._formData.firstName.trim() !== '' &&
-      this._formData.lastName.trim() !== '' &&
-      this._formData.email.trim() !== '' &&
-      this._formData.subject.trim() !== '' &&
-      this._formData.message.trim() !== '';
+    return (
+      Object.keys(this._errors).length === 0 &&
+      this._formData.firstName.trim() !== "" &&
+      this._formData.lastName.trim() !== "" &&
+      this._formData.email.trim() !== "" &&
+      this._formData.subject.trim() !== "" &&
+      this._formData.message.trim() !== ""
+    );
   }
 
   setOnStateChange(callback: () => void): void {
@@ -75,21 +77,21 @@ export class ContactViewModel {
     const newErrors: FormErrors = {};
 
     if (!this._formData.firstName.trim()) {
-      newErrors.firstName = 'Please enter your first name';
+      newErrors.firstName = "Please enter your first name";
     }
     if (!this._formData.lastName.trim()) {
-      newErrors.lastName = 'Please enter your last name';
+      newErrors.lastName = "Please enter your last name";
     }
     if (!this._formData.email.trim()) {
-      newErrors.email = 'Please enter your email';
-    } else if (!this._formData.email.includes('@')) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = "Please enter your email";
+    } else if (!this._formData.email.includes("@")) {
+      newErrors.email = "Please enter a valid email";
     }
     if (!this._formData.subject.trim()) {
-      newErrors.subject = 'Please select a topic';
+      newErrors.subject = "Please select a topic";
     }
     if (!this._formData.message.trim()) {
-      newErrors.message = 'Please enter your message';
+      newErrors.message = "Please enter your message";
     }
 
     this._errors = newErrors;
@@ -108,15 +110,15 @@ export class ContactViewModel {
     try {
       await submitContactForm(this._formData);
 
-      trackingService.trackFormSubmit('contact_form');
+      trackingService.trackFormSubmit("contact_form");
 
       this._formData = {
-        firstName: '',
-        lastName: '',
-        phone: '',
-        email: '',
-        subject: '',
-        message: ''
+        firstName: "",
+        lastName: "",
+        phone: "",
+        email: "",
+        subject: "",
+        message: "",
       };
       this._submitSuccess = true;
       this.notifyStateChange();
@@ -128,8 +130,8 @@ export class ContactViewModel {
 
       return true;
     } catch (error) {
-      logger.error('Failed to submit form:', error);
-      alert('Failed to send message. Please try again.');
+      logger.error("Failed to submit form:", error);
+      alert("Failed to send message. Please try again.");
       return false;
     } finally {
       this._isSubmitting = false;
@@ -139,12 +141,12 @@ export class ContactViewModel {
 
   resetForm(): void {
     this._formData = {
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      subject: '',
-      message: ''
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      subject: "",
+      message: "",
     };
     this._errors = {};
     this._isSubmitting = false;

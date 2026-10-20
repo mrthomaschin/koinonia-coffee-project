@@ -1,0 +1,29 @@
+.newsletter-signup {
+  flex: 0 1 400px;
+  /* Added to the row gap, setting the newsletter apart from the link columns. */
+  margin-left: clamp(32px, 8vw, 120px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #2f2b39;
+}
+
+.newsletter-signup .section-title {
+  margin: 0;
+}
+
+.newsletter-signup .newsletter-signup-copy {
+  font-family: "RethinkSans-Regular", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .newsletter-signup {
+    flex-basis: 100%;
+    max-width: 420px;
+    margin: 32px auto 0;
+    text-align: center;
+  }
+}

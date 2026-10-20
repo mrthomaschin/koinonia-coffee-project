@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { MerchItem, MerchSize } from './MerchItem';
-import { ItemView } from '../ItemView';
-import { useCart } from '../../../../contexts/CartContext';
-import './MerchDetail.css';
-import { ItemType } from '../ItemModel';
-import { allowsUnlimitedPurchases } from '../../../../util/limitedTimeOffer';
+import React, { useState } from "react";
+import { MerchItem, MerchSize } from "./MerchItem";
+import { ItemView } from "../ItemView";
+import { useCart } from "../../../../contexts/CartContext";
+import "./MerchDetail.css";
+import { ItemType } from "../ItemModel";
+import { allowsUnlimitedPurchases } from "../../../../util/limitedTimeOffer";
 
 interface MerchDetailProps {
   item: MerchItem;
@@ -14,10 +14,10 @@ interface MerchDetailProps {
 const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
   const { cart, forceUpdate, showToast } = useCart();
   const [selectedSize, setSelectedSize] = useState<MerchSize | null>(
-    item.availableSizes.length > 0 ? item.availableSizes[0] : null
+    item.availableSizes.length > 0 ? item.availableSizes[0] : null,
   );
   const [selectedColor, setSelectedColor] = useState<string>(
-    item.colors.length > 0 ? item.colors[0] : ''
+    item.colors.length > 0 ? item.colors[0] : "",
   );
   const [quantity, setQuantity] = useState<number>(1);
 
@@ -31,7 +31,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
     let variantShippingWeight: number | undefined = undefined;
 
     if (item.variants && item.variants.length > 0) {
-      const variant = item.variants.find(v => {
+      const variant = item.variants.find((v) => {
         const sizeMatch = !size || v.size === size;
         const colorMatch = !color || v.color === color;
         return sizeMatch && colorMatch;
@@ -48,14 +48,14 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
       color,
       variantSku,
       variantPrice,
-      variantShippingWeight
+      variantShippingWeight,
     });
     forceUpdate();
 
     if (result.success) {
-      showToast(result.message, 'success');
+      showToast(result.message, "success");
     } else {
-      showToast(result.message, 'error');
+      showToast(result.message, "error");
     }
   };
 
@@ -69,7 +69,7 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
       const size = selectedSize ? MerchSize[selectedSize] : undefined;
       const color = selectedColor || undefined;
 
-      const variant = item.variants.find(v => {
+      const variant = item.variants.find((v) => {
         const sizeMatch = !size || v.size === size;
         const colorMatch = !color || v.color === color;
         return sizeMatch && colorMatch;
@@ -77,12 +77,15 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
 
       if (variant) {
         // Check if variant is explicitly sold out OR has quantity of 0 (unless LTO unlimited purchases is enabled)
-        return (variant.isSoldOut === true || variant.quantity === 0) && !allowsUnlimitedPurchases(item);
+        return (
+          (variant.isSoldOut === true || variant.quantity === 0) &&
+          !allowsUnlimitedPurchases(item)
+        );
       }
 
       // If no matching variant found, check if ANY variant is available (unless LTO unlimited purchases is enabled)
-      const hasAvailableVariant = item.variants.some(v =>
-        v.isSoldOut !== true && v.quantity > 0
+      const hasAvailableVariant = item.variants.some(
+        (v) => v.isSoldOut !== true && v.quantity > 0,
       );
       return !hasAvailableVariant && !allowsUnlimitedPurchases(item);
     }
@@ -105,14 +108,14 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
           <div className="size-options">
             {item.availableSizes.map((size) => {
               const sizeStr = MerchSize[size];
-              const variant = item.variants?.find(v => v.size === sizeStr);
+              const variant = item.variants?.find((v) => v.size === sizeStr);
               if (variant?.active === false) {
                 return null;
               }
               return (
                 <button
                   key={size}
-                  className={`size-button ${selectedSize === size ? 'selected' : ''}`}
+                  className={`size-button ${selectedSize === size ? "selected" : ""}`}
                   onClick={() => setSelectedSize(size)}
                 >
                   {size}
@@ -128,14 +131,14 @@ const MerchDetail: React.FC<MerchDetailProps> = ({ item, onBack }) => {
           <label className="option-label">Color</label>
           <div className="color-options">
             {item.colors.map((color) => {
-              const variant = item.variants?.find(v => v.color === color);
+              const variant = item.variants?.find((v) => v.color === color);
               if (variant?.active === false) {
                 return null;
               }
               return (
                 <button
                   key={color}
-                  className={`color-button ${selectedColor === color ? 'selected' : ''}`}
+                  className={`color-button ${selectedColor === color ? "selected" : ""}`}
                   onClick={() => setSelectedColor(color)}
                 >
                   {color}

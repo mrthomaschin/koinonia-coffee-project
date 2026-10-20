@@ -1,146 +1,159 @@
 .about-page {
-    background: #f8f5eb;
-    color: #2f2b39;
+  background: #f8f5eb;
+  color: #2f2b39;
 }
 
 .about-eyebrow {
-    display: block;
+  display: block;
 }
 
 .about-hero {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    min-height: min(78vh, 680px);
-    overflow: hidden;
-    background: var(--color-midnight);
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: min(78vh, 680px);
+  overflow: hidden;
+  background: var(--color-midnight);
 }
 
 /* Full-bleed photo behind the copy, darkened toward the bottom-left where the text sits. */
 .about-hero-image {
-    position: absolute;
-    inset: 0;
+  position: absolute;
+  inset: 0;
 }
 
 .about-hero-image::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(28, 25, 34, .82) 0%, rgba(28, 25, 34, .45) 45%, rgba(28, 25, 34, .15) 100%);
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(28, 25, 34, 0.82) 0%,
+    rgba(28, 25, 34, 0.45) 45%,
+    rgba(28, 25, 34, 0.15) 100%
+  );
 }
 
 .about-hero-copy {
-    position: relative;
-    max-width: 820px;
-    padding: 120px 6vw 72px;
-    color: var(--color-pearl);
+  position: relative;
+  max-width: 820px;
+  padding: 120px 6vw 72px;
+  color: var(--color-pearl);
 }
 
 .about-hero .about-eyebrow {
-    color: var(--color-sage);
+  color: var(--color-sage);
 }
 
 .about-hero h1 {
-    margin: 22px 0 22px;
-    color: var(--color-pearl);
-    font: 400 clamp(51.2px, 6vw, 84px) 'HedvigLettersSerif_18pt', Georgia, serif;
-    line-height: .94;
+  margin: 22px 0 22px;
+  color: var(--color-pearl);
+  font:
+    400 clamp(51.2px, 6vw, 84px) "HedvigLettersSerif_18pt",
+    Georgia,
+    serif;
+  line-height: 0.94;
 }
 
 .about-hero-copy p {
-    max-width: 560px;
-    margin: 0;
-    color: rgba(248, 245, 235, .86);
-    font-size: 15.2px;
-    line-height: 1.65;
+  max-width: 560px;
+  margin: 0;
+  color: rgba(248, 245, 235, 0.86);
+  font-size: 15.2px;
+  line-height: 1.65;
 }
 
 .about-hero-image img,
 .about-story-image img,
 .about-project-image img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .about-hero-image img {
-    object-position: center 40%;
+  object-position: center 40%;
 }
 
 .about-image-caption {
-    position: absolute;
-    right: 28px;
-    bottom: 22px;
-    color: #f8f5eb;
-    font-size: 9.92px;
-    letter-spacing: .2em;
+  position: absolute;
+  right: 28px;
+  bottom: 22px;
+  color: #f8f5eb;
+  font-size: 9.92px;
+  letter-spacing: 0.2em;
 }
 
 .about-story {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10vw;
-    padding: 100px 6vw 96px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10vw;
+  padding: 100px 6vw 96px;
 }
 
 .about-story-intro {
-    grid-template-columns: 1.1fr .9fr;
-    gap: 0;
-    min-height: 540px;
-    padding: 0;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 0;
+  min-height: 540px;
+  padding: 0;
 }
 
 .about-story-intro .about-story-copy {
-    grid-column: 1;
-    grid-row: 1;
-    max-width: none;
-    padding: 80px 9vw 80px 7vw;
-    align-self: center;
+  grid-column: 1;
+  grid-row: 1;
+  max-width: none;
+  padding: 80px 9vw 80px 7vw;
+  align-self: center;
 }
 
 .about-story-intro .about-story-image {
-    grid-column: 2;
-    grid-row: 1;
-    height: 100%;
+  grid-column: 2;
+  grid-row: 1;
+  height: 100%;
 }
 
 .about-story-heading,
 .about-story-copy {
-    max-width: 500px;
+  max-width: 500px;
 }
 
 .about-story-image {
-    position: relative;
-    min-height: 540px;
-    margin: 0;
+  position: relative;
+  min-height: 540px;
+  margin: 0;
 }
 
 /* Bottom-left of the photo; the shadow keeps it readable over light parts of the image. */
 .about-story-image .about-image-caption {
-    right: auto;
-    left: 28px;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, .45);
+  right: auto;
+  left: 28px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
 .about-image-placeholder {
-    width: 100%;
-    height: 100%;
-    min-height: 540px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #c8c4ba;
-    color: rgba(47, 43, 57, .42);
-    font: 10px 'RethinkSans-Regular', sans-serif;
-    letter-spacing: 2px;
+  width: 100%;
+  height: 100%;
+  min-height: 540px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #c8c4ba;
+  color: rgba(47, 43, 57, 0.42);
+  font:
+    10px "RethinkSans-Regular",
+    sans-serif;
+  letter-spacing: 2px;
 }
 
 .about-index {
-    display: block;
-    margin-bottom: 20px;
-    color: #84825e;
-    font: 19.2px 'HedvigLettersSerif_18pt', Georgia, serif;
+  display: block;
+  margin-bottom: 20px;
+  color: #84825e;
+  font:
+    19.2px "HedvigLettersSerif_18pt",
+    Georgia,
+    serif;
 }
 
 .about-story h2,
@@ -149,13 +162,16 @@
 .about-future h2,
 .about-values h2,
 .about-cta h2 {
-    margin: 26px 0 0;
-    font: 400 clamp(40px, 4.2vw, 59.2px) 'HedvigLettersSerif_18pt', Georgia, serif;
-    line-height: .98;
+  margin: 26px 0 0;
+  font:
+    400 clamp(40px, 4.2vw, 59.2px) "HedvigLettersSerif_18pt",
+    Georgia,
+    serif;
+  line-height: 0.98;
 }
 
 .about-story-copy {
-    padding-top: 3px;
+  padding-top: 3px;
 }
 
 .about-story-copy p,
@@ -163,356 +179,355 @@
 .about-project-copy p,
 .about-future-copy p,
 .about-cta p {
-    margin: 0 0 22px;
-    color: #65626b;
-    font-size: 14.4px;
-    line-height: 1.8;
+  margin: 0 0 22px;
+  color: #65626b;
+  font-size: 14.4px;
+  line-height: 1.8;
 }
 
 .about-story-copy p:last-child,
 .about-pillar-copy p:last-child,
 .about-project-copy p:last-child,
 .about-future-copy p:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .about-project {
-    display: grid;
-    grid-template-columns: 1.1fr .9fr;
-    min-height: 540px;
-    background: #bfc8d4;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  min-height: 540px;
+  background: #bfc8d4;
 }
 
 .about-project-image {
-    min-height: 540px;
+  min-height: 540px;
 }
 
 .about-project-image img {
-    object-position: center;
+  object-position: center;
 }
 
 .about-project-copy {
-    padding: 80px 9vw 80px 7vw;
-    align-self: center;
+  padding: 80px 9vw 80px 7vw;
+  align-self: center;
 }
 
 .about-project-copy .about-eyebrow,
 .about-project-copy .about-index {
-    color: #56647f;
+  color: #56647f;
 }
 
 .about-project-copy h2 {
-    margin-bottom: 48px;
+  margin-bottom: 48px;
 }
 
 .about-story-copy h2 {
-    margin-bottom: 48px;
+  margin-bottom: 48px;
 }
 
 .about-project-copy p {
-    color: #525b6a;
+  color: #525b6a;
 }
 
 .about-values {
-    padding: 96px 6vw 102px;
-    color: var(--color-pearl);
-    background: var(--color-marina);
+  padding: 96px 6vw 102px;
+  color: var(--color-pearl);
+  background: var(--color-marina);
 }
 
 /* Light labels on the dark blue band (eucalyptus is too dark to read here). */
 .about-values .about-eyebrow {
-    color: var(--color-sage);
+  color: var(--color-sage);
 }
 
 .about-values-header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 40px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid rgba(248, 245, 235, .28);
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 40px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(248, 245, 235, 0.28);
 }
 
 .about-values-header h2 {
-    margin-top: 25px;
+  margin-top: 25px;
 }
 
 .about-values-header p {
-    max-width: 230px;
-    margin: 0 0 2px;
-    color: rgba(248, 245, 235, .78);
-    font-size: 12.48px;
-    line-height: 1.5;
-    text-align: right;
+  max-width: 230px;
+  margin: 0 0 2px;
+  color: rgba(248, 245, 235, 0.78);
+  font-size: 12.48px;
+  line-height: 1.5;
+  text-align: right;
 }
 
 .about-values-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .about-value-card {
-    min-height: 194px;
-    padding: 30px 22px 20px;
-    border-right: 1px solid rgba(248, 245, 235, .2);
+  min-height: 194px;
+  padding: 30px 22px 20px;
+  border-right: 1px solid rgba(248, 245, 235, 0.2);
 }
 
 .about-value-card:first-child {
-    padding-left: 22px;
+  padding-left: 22px;
 }
 
 .about-value-card:last-child {
-    border-right: 0;
+  border-right: 0;
 }
 
-.about-value-card>span {
-    color: var(--color-sage);
-    font-size: 15px;
-    letter-spacing: .15em;
+.about-value-card > span {
+  color: var(--color-sage);
+  font-size: 15px;
+  letter-spacing: 0.15em;
 }
 
 .about-value-card h3 {
-    margin: 22px 0 8px;
-    font: 400 28.8px 'HedvigLettersSerif_18pt', Georgia, serif;
-    line-height: 1;
+  margin: 22px 0 8px;
+  font:
+    400 28.8px "HedvigLettersSerif_18pt",
+    Georgia,
+    serif;
+  line-height: 1;
 }
 
 .about-value-card p {
-    max-width: 320px;
-    margin: 0;
-    color: rgba(248, 245, 235, .8);
-    /* Same body size as the story, pillar and future sections. */
-    font-size: 14.4px;
-    line-height: 1.8;
+  max-width: 320px;
+  margin: 0;
+  color: rgba(248, 245, 235, 0.8);
+  /* Same body size as the story, pillar and future sections. */
+  font-size: 14.4px;
+  line-height: 1.8;
 }
 
 .about-future {
-    background: #c8c4ba;
+  background: #c8c4ba;
 }
 
 /* Text-only band, centered. */
 .about-future-copy {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 96px 6vw 100px;
-    text-align: center;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 96px 6vw 100px;
+  text-align: center;
 }
 
 .about-future-copy h2 {
-    margin: 25px 0 24px;
+  margin: 25px 0 24px;
 }
 
 /* Small brand mark that closes the section. The source SVG is black, so it is used as a
    mask and filled with the brand blue. */
 .about-future-mark {
-    display: block;
-    width: 36px;
-    height: 36px;
-    margin: 56px auto 0;
-    background: var(--color-marina);
-    /* --about-mark is set inline (see About.tsx) so the build doesn't try to bundle the public asset. */
-    -webkit-mask: var(--about-mark) center / contain no-repeat;
-    mask: var(--about-mark) center / contain no-repeat;
+  display: block;
+  width: 36px;
+  height: 36px;
+  margin: 56px auto 0;
+  background: var(--color-marina);
+  /* --about-mark is set inline (see About.tsx) so the build doesn't try to bundle the public asset. */
+  -webkit-mask: var(--about-mark) center / contain no-repeat;
+  mask: var(--about-mark) center / contain no-repeat;
 }
 
 .about-future-copy p {
-    color: #5d5b60;
+  color: #5d5b60;
 }
 
 .about-cta {
-    padding: 102px 24px 110px;
-    text-align: center;
+  padding: 102px 24px 110px;
+  text-align: center;
 }
 
 .about-cta h2 {
-    margin-top: 25px;
+  margin-top: 25px;
 }
 
 .about-cta p {
-    max-width: 830px;
-    margin: 30px auto 28px;
+  max-width: 830px;
+  margin: 30px auto 28px;
 }
 
-.about-cta a {
-    display: inline-block;
-    padding: 16px 36px;
-    background: #84825e;
-    color: #fff;
-    border-radius: 8px;
-    font-size: 12px;
-    letter-spacing: .15em;
-    text-decoration: none;
-    box-shadow: 0 4px 8px rgba(132, 130, 94, .3);
+.about-newsletter-form {
+  max-width: 440px;
+  margin: 0 auto;
 }
 
-.about-cta a:hover {
-    background: #6d6a4d;
+/* The section's paragraph spacing is too wide for the form's fine print. */
+.about-cta .about-newsletter-form p {
+  margin: 10px 0 0;
 }
 
 .about-cta-verse {
-    max-width: 700px;
-    margin: 84px auto 0;
-    color: rgba(47, 43, 57, .42);
-    font: italic 16px 'Besley-Italic', Georgia, serif;
-    line-height: 1.6;
-    padding-top: 30px;
+  max-width: 700px;
+  margin: 84px auto 0;
+  color: rgba(47, 43, 57, 0.42);
+  font:
+    italic 16px "Besley-Italic",
+    Georgia,
+    serif;
+  line-height: 1.6;
+  padding-top: 30px;
 }
 
 /* Pillars: Why Koinonia / Why Coffee / Why Project. Image and copy alternate sides. */
 .about-pillar {
-    display: grid;
-    grid-template-columns: 1.1fr .9fr;
-    min-height: 540px;
-    background: var(--about-pillar-bg);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  min-height: 540px;
+  background: var(--about-pillar-bg);
 }
 
 .about-pillar--koinonia {
-    --about-pillar-bg: #e7e8dd;
+  --about-pillar-bg: #e7e8dd;
 }
 
 .about-pillar--coffee {
-    --about-pillar-bg: #c7c2b8;
+  --about-pillar-bg: #c7c2b8;
 }
 
 .about-pillar--project {
-    --about-pillar-bg: #bfc8d4;
+  --about-pillar-bg: #bfc8d4;
 }
 
 .about-pillar--reverse {
-    grid-template-columns: .9fr 1.1fr;
+  grid-template-columns: 0.9fr 1.1fr;
 }
 
 .about-pillar--reverse .about-pillar-image {
-    order: 2;
+  order: 2;
 }
 
 /* The photo fills the band; the copy (or min-height) sets the band's height, not the photo. */
 .about-pillar-image {
-    position: relative;
-    min-height: 540px;
-    overflow: hidden;
+  position: relative;
+  min-height: 540px;
+  overflow: hidden;
 }
 
 .about-pillar-image img {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .about-pillar-copy {
-    align-self: center;
-    padding: 80px 9vw 80px 7vw;
+  align-self: center;
+  padding: 80px 9vw 80px 7vw;
 }
 
 .about-pillar-copy h2 {
-    margin-bottom: 48px;
+  margin-bottom: 48px;
 }
 
 @media (max-width: 768px) {
+  .about-hero,
+  .about-story,
+  .about-project {
+    grid-template-columns: 1fr;
+  }
 
-    .about-hero,
-    .about-story,
-    .about-project {
-        grid-template-columns: 1fr;
-    }
+  .about-hero {
+    min-height: 560px;
+  }
 
-    .about-hero {
-        min-height: 560px;
-    }
+  .about-hero-copy {
+    padding: 140px 24px 56px;
+  }
 
-    .about-hero-copy {
-        padding: 140px 24px 56px;
-    }
+  .about-hero h1 {
+    font-size: 52px;
+  }
 
-    .about-hero h1 {
-        font-size: 52px;
-    }
+  .about-project-image {
+    min-height: 340px;
+  }
 
-    .about-project-image {
-        min-height: 340px;
-    }
+  .about-image-caption {
+    bottom: 16px;
+  }
 
-    .about-image-caption {
-        bottom: 16px;
-    }
+  .about-story {
+    gap: 42px;
+    padding: 70px 24px;
+  }
 
-    .about-story {
-        gap: 42px;
-        padding: 70px 24px;
-    }
+  .about-story-intro {
+    gap: 0;
+    padding: 0;
+  }
 
-    .about-story-intro {
-        gap: 0;
-        padding: 0;
-    }
+  .about-story-intro .about-story-copy,
+  .about-story-intro .about-story-image {
+    grid-column: auto;
+    grid-row: auto;
+  }
 
-    .about-story-intro .about-story-copy,
-    .about-story-intro .about-story-image {
-        grid-column: auto;
-        grid-row: auto;
-    }
+  .about-story-intro .about-story-copy {
+    padding: 64px 24px 72px;
+  }
 
-    .about-story-intro .about-story-copy {
-        padding: 64px 24px 72px;
-    }
+  .about-project-copy,
+  .about-pillar-copy,
+  .about-future-copy {
+    padding: 64px 24px 72px;
+  }
 
-    .about-project-copy,
-    .about-pillar-copy,
-    .about-future-copy {
-        padding: 64px 24px 72px;
-    }
+  .about-pillar,
+  .about-pillar--reverse {
+    grid-template-columns: 1fr;
+  }
 
-    .about-pillar,
-    .about-pillar--reverse {
-        grid-template-columns: 1fr;
-    }
+  .about-pillar--reverse .about-pillar-image {
+    order: 0;
+  }
 
-    .about-pillar--reverse .about-pillar-image {
-        order: 0;
-    }
+  .about-pillar-image {
+    min-height: 340px;
+  }
 
-    .about-pillar-image {
-        min-height: 340px;
-    }
+  .about-story-image,
+  .about-image-placeholder {
+    min-height: 340px;
+  }
 
-    .about-story-image,
-    .about-image-placeholder {
-        min-height: 340px;
-    }
+  .about-values {
+    padding: 70px 24px;
+  }
 
-    .about-values {
-        padding: 70px 24px;
-    }
+  .about-values-header {
+    display: block;
+  }
 
-    .about-values-header {
-        display: block;
-    }
+  .about-values-header p {
+    margin-top: 20px;
+    text-align: left;
+  }
 
-    .about-values-header p {
-        margin-top: 20px;
-        text-align: left;
-    }
+  .about-values-grid {
+    grid-template-columns: 1fr;
+  }
 
-    .about-values-grid {
-        grid-template-columns: 1fr;
-    }
+  .about-value-card,
+  .about-value-card:first-child {
+    min-height: auto;
+    padding: 28px 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(248, 245, 235, 0.2);
+  }
 
-    .about-value-card,
-    .about-value-card:first-child {
-        min-height: auto;
-        padding: 28px 0;
-        border-right: 0;
-        border-bottom: 1px solid rgba(248, 245, 235, .2);
-    }
+  .about-value-card:last-child {
+    border-bottom: 0;
+  }
 
-    .about-value-card:last-child {
-        border-bottom: 0;
-    }
-
-    .about-cta {
-        padding: 78px 24px 90px;
-    }
+  .about-cta {
+    padding: 78px 24px 90px;
+  }
 }

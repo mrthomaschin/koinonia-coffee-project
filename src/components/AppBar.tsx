@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useCart } from '../contexts/CartContext';
-import { useNavigation } from '../contexts/NavigationContext';
-import { ICONS, PAGES, PageType } from '../util/constants';
-import './AppBar.css';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { useCart } from "../contexts/CartContext";
+import { useNavigation } from "../contexts/NavigationContext";
+import { ICONS, PAGES, PageType } from "../util/constants";
+import "./AppBar.css";
 
 const navItems: { label: string; page: PageType }[] = [
-  { label: 'SHOP', page: PAGES.SHOP },
-  { label: 'CATERING', page: PAGES.CATERING },
-  { label: 'GALLERY', page: PAGES.GALLERY },
-  { label: 'CALENDAR', page: PAGES.CALENDAR },
-  { label: 'ACCOUNT', page: PAGES.ACCOUNT },
-  { label: 'CART', page: PAGES.CART }
+  { label: "SHOP", page: PAGES.SHOP },
+  { label: "CATERING", page: PAGES.CATERING },
+  { label: "GALLERY", page: PAGES.GALLERY },
+  { label: "CALENDAR", page: PAGES.CALENDAR },
+  { label: "ACCOUNT", page: PAGES.ACCOUNT },
+  { label: "CART", page: PAGES.CART },
 ];
 
 const AccountIcon: React.FC = () => (
@@ -28,7 +28,9 @@ const CartIcon: React.FC<{ count: number }> = ({ count }) => (
       <circle cx="10" cy="20" r="1.25" />
       <circle cx="18" cy="20" r="1.25" />
     </svg>
-    {count > 0 && <span className="cart-badge">{count > 99 ? '99+' : count}</span>}
+    {count > 0 && (
+      <span className="cart-badge">{count > 99 ? "99+" : count}</span>
+    )}
   </span>
 );
 
@@ -51,8 +53,9 @@ const AppBar: React.FC = () => {
   };
 
   const getAccessibleLabel = (page: PageType): string | undefined => {
-    if (page === PAGES.CART) return `Cart${cartCount ? `, ${cartCount} items` : ''}`;
-    if (page === PAGES.ACCOUNT) return 'Account';
+    if (page === PAGES.CART)
+      return `Cart${cartCount ? `, ${cartCount} items` : ""}`;
+    if (page === PAGES.ACCOUNT) return "Account";
     return undefined;
   };
 
@@ -60,7 +63,11 @@ const AppBar: React.FC = () => {
     <div className="app-bar">
       <div className="app-bar-content">
         <Link to="/" aria-label="Koinonia Coffee Project home">
-          <img src={ICONS.primary} alt="Koinonia Coffee Project" className="app-bar-logo" />
+          <img
+            src={ICONS.primary}
+            alt="Koinonia Coffee Project"
+            className="app-bar-logo"
+          />
         </Link>
 
         <div className="app-bar-spacer" />
@@ -72,19 +79,26 @@ const AppBar: React.FC = () => {
               <Link
                 key={page}
                 to={`/${page}`}
-                className={`nav-item${isIcon ? ' nav-icon-item' : ''}`}
+                className={`nav-item${isIcon ? " nav-icon-item" : ""}`}
                 onMouseEnter={() => setHoveredItem(page)}
                 onMouseLeave={() => setHoveredItem(null)}
                 onClick={() => handleNavClick(page)}
                 aria-label={getAccessibleLabel(page)}
               >
-                {isIcon ? renderIcon(page) : <span className="nav-label">{label}</span>}
+                {isIcon ? (
+                  renderIcon(page)
+                ) : (
+                  <span className="nav-label">{label}</span>
+                )}
                 <div
                   className="nav-underline"
                   style={{
-                    width: currentPage === page || hoveredItem === page
-                      ? (isIcon ? '100%' : '40px')
-                      : '0'
+                    width:
+                      currentPage === page || hoveredItem === page
+                        ? isIcon
+                          ? "100%"
+                          : "40px"
+                        : "0",
                   }}
                 />
               </Link>
@@ -95,11 +109,15 @@ const AppBar: React.FC = () => {
         <button
           className="app-bar-menu-button"
           type="button"
-          aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-label={
+            isMenuOpen ? "Close navigation menu" : "Open navigation menu"
+          }
           aria-expanded={isMenuOpen}
           onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
         >
-          <span className="menu-icon" aria-hidden="true">☰</span>
+          <span className="menu-icon" aria-hidden="true">
+            ☰
+          </span>
         </button>
       </div>
 
@@ -119,7 +137,9 @@ const AppBar: React.FC = () => {
                       onClick={() => handleNavClick(iconPage)}
                     >
                       {renderIcon(iconPage)}
-                      {currentPage === iconPage && <div className="dropdown-underline" />}
+                      {currentPage === iconPage && (
+                        <div className="dropdown-underline" />
+                      )}
                     </Link>
                   ))}
                 </div>

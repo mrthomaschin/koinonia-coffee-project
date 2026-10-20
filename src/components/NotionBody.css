@@ -1,5 +1,5 @@
 .notion-body {
-  font-family: 'RethinkSans-Regular', sans-serif;
+  font-family: "RethinkSans-Regular", sans-serif;
   line-height: 1.75;
 }
 
@@ -15,7 +15,7 @@
 .notion-body h2,
 .notion-body h3,
 .notion-body h4 {
-  font-family: 'HedvigLettersSerif_18pt', Georgia, serif;
+  font-family: "HedvigLettersSerif_18pt", Georgia, serif;
   font-weight: 400;
 }
 

@@ -1,42 +1,81 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createLogger } from '../util/logger';
-import { Elements, PaymentElement, useStripe, useElements, AddressElement } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
-import ShippingSelector, { ShippingOption, DEFAULT_SHIPPING_OPTIONS } from './ShippingSelector';
-import { mapEasyPostRates, filterAllowedServices } from '../util/EasyPostMapper';
-import { EasyPostRate } from '../models/ShippingModels';
-import { TaxCodes } from '../constants/TaxCodes';
-import { calculateParcel, formatParcelForEasyPost } from '../util/shipping';
-import { SHIPPING_RESTRICTION_MESSAGE, cartContainsCoffee } from '../services/shippingLocationsService';
-import { validateStripeAddress, type AddressValidationResult } from '../services/addressValidationService';
-import { notionService, type OrderPickupOption } from '../services/notionService';
-import { useAccount } from '../contexts/AccountContext';
-import { SavedAddress } from '../models/AccountModel';
-import './EmbeddedCheckout.css';
+import React, { useState, useEffect, useRef } from "react";
+import { createLogger } from "../util/logger";
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+  AddressElement,
+} from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import ShippingSelector, {
+  ShippingOption,
+  DEFAULT_SHIPPING_OPTIONS,
+} from "./ShippingSelector";
+import {
+  mapEasyPostRates,
+  filterAllowedServices,
+} from "../util/EasyPostMapper";
+import { EasyPostRate } from "../models/ShippingModels";
+import { calculateParcel, formatParcelForEasyPost } from "../util/shipping";
+import {
+  SHIPPING_RESTRICTION_MESSAGE,
+  cartContainsCoffee,
+} from "../services/shippingLocationsService";
+import {
+  validateStripeAddress,
+  type AddressValidationResult,
+} from "../services/addressValidationService";
+import {
+  notionService,
+  type OrderPickupOption,
+} from "../services/notionService";
+import { useAccount } from "../contexts/AccountContext";
+import { subscribeToNewsletter } from "../services/newsletterService";
+import {
+  CheckoutLine,
+  CheckoutQuote,
+  stripeService,
+} from "../services/stripeService";
+import { SavedAddress } from "../models/AccountModel";
+import "./EmbeddedCheckout.css";
 
-const logger = createLogger('EmbeddedCheckout');
+const logger = createLogger("EmbeddedCheckout");
 
 // Free shipping threshold
 const FREE_SHIPPING_THRESHOLD = 40;
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '').then(stripe => {
-  logger.log('[stripe] Stripe.js loaded', { hasStripe: !!stripe });
-  return stripe;
-}).catch(error => {
-  logger.error('[stripe] Stripe.js failed to load', error);
-  return null;
-});
-const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+const stripePromise = loadStripe(
+  process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "",
+)
+  .then((stripe) => {
+    logger.log("[stripe] Stripe.js loaded", { hasStripe: !!stripe });
+    return stripe;
+  })
+  .catch((error) => {
+    logger.error("[stripe] Stripe.js failed to load", error);
+    return null;
+  });
+const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 
 const formatPickupTimeframe = (start: string, end: string | null): string => {
   const startDate = new Date(start);
   const endDate = end ? new Date(end) : null;
-  const dateFormat: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' };
-  const timeFormat: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+  const dateFormat: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  };
+  const timeFormat: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+  };
   const date = startDate.toLocaleDateString(undefined, dateFormat);
   const startTime = startDate.toLocaleTimeString(undefined, timeFormat);
-  const endTime = endDate ? endDate.toLocaleTimeString(undefined, timeFormat) : null;
-  return `${date}, ${startTime}${endTime ? `–${endTime}` : ''}`;
+  const endTime = endDate
+    ? endDate.toLocaleTimeString(undefined, timeFormat)
+    : null;
+  return `${date}, ${startTime}${endTime ? `–${endTime}` : ""}`;
 };
 
 interface DiscountCodeProp {
@@ -45,7 +84,19 @@ interface DiscountCodeProp {
 }
 
 interface CheckoutFormProps {
-  onSuccess: (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string, billingAddress?: string) => void;
+  onSuccess: (
+    paymentIntentId?: string,
+    email?: string,
+    name?: string,
+    phone?: string,
+    shipmentData?: any,
+    shippingAddress?: string,
+    tax?: number,
+    shippingAddressData?: any,
+    orderPickupId?: string,
+    billingAddress?: string,
+    quote?: CheckoutQuote,
+  ) => void;
   onCancel: () => void;
   totalAmount: number;
   onShippingChange: (option: ShippingOption) => void;
@@ -54,6 +105,10 @@ interface CheckoutFormProps {
   discountCode?: DiscountCodeProp | null;
   originalShippingPrice?: number;
   hasSubscription: boolean;
+  paymentIntentId: string;
+  // The cart as the server prices it, and its price when checkout opened.
+  checkoutLines: CheckoutLine[];
+  initialQuote: CheckoutQuote;
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -63,79 +118,120 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   onShippingChange,
   selectedShipping,
   onAddressChange,
-  discountCode
-  , hasSubscription
+  discountCode,
+  hasSubscription,
+  paymentIntentId,
+  checkoutLines,
+  initialQuote,
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { account, savedAddresses } = useAccount();
+  const { account, savedAddresses, token } = useAccount();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(true);
   const [elementsMounted, setElementsMounted] = useState({
     shipping: false,
     billing: false,
-    payment: false
+    payment: false,
   });
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
+  // The server's final price, shown when it differs from the running total so
+  // the customer can review it before paying. Cleared when delivery changes.
+  const [confirmedQuote, setConfirmedQuote] = useState<CheckoutQuote | null>(
+    null,
+  );
+  // Unchecked by default: marketing email needs the customer's explicit opt-in.
+  const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>(DEFAULT_SHIPPING_OPTIONS);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>(
+    DEFAULT_SHIPPING_OPTIONS,
+  );
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   const [shippingAddressComplete, setShippingAddressComplete] = useState(false);
-  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'shipping'>('shipping');
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "shipping">(
+    "shipping",
+  );
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
+    null,
+  );
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [taxAmount, setTaxAmount] = useState(0);
   const [currentAddress, setCurrentAddress] = useState<any>(null);
-  const [billingAddress, setBillingAddress] = useState('');
+  const [billingAddress, setBillingAddress] = useState("");
   const [showShippingRestriction, setShowShippingRestriction] = useState(false);
-  const [addressValidation, setAddressValidation] = useState<AddressValidationResult | null>(null);
+  const [addressValidation, setAddressValidation] =
+    useState<AddressValidationResult | null>(null);
   const [pickupOptions, setPickupOptions] = useState<OrderPickupOption[]>([]);
-  const [selectedPickupId, setSelectedPickupId] = useState('');
+  const [selectedPickupId, setSelectedPickupId] = useState("");
   const [isLoadingPickupOptions, setIsLoadingPickupOptions] = useState(false);
-  const [pickupOptionsError, setPickupOptionsError] = useState<string | null>(null);
+  const [pickupOptionsError, setPickupOptionsError] = useState<string | null>(
+    null,
+  );
   const [originalShippingPrice, setOriginalShippingPrice] = useState(0);
   const shippingRequestRef = useRef<AbortController | null>(null);
   const deliveryMethodRef = useRef(deliveryMethod);
   deliveryMethodRef.current = deliveryMethod;
   // Wholesale partner orders do not receive the consumer $40+ free-shipping
   // promotion. Church & Ministry orders retain the standard behavior.
-  const qualifiesForFreeShipping = totalAmount >= FREE_SHIPPING_THRESHOLD
-    && account?.label !== 'wholesale'
-    && account?.label !== 'church-ministry';
+  const qualifiesForFreeShipping =
+    totalAmount >= FREE_SHIPPING_THRESHOLD &&
+    account?.label !== "wholesale" &&
+    account?.label !== "church-ministry";
 
   // Prefill checkout contact information for signed-in account holders without
   // overwriting values they may have already entered manually.
   useEffect(() => {
     if (!account) return;
 
-    const accountName = `${account.user.firstName} ${account.user.lastName}`.trim();
+    const accountName =
+      `${account.user.firstName} ${account.user.lastName}`.trim();
     if (accountName && !customerName) setCustomerName(accountName);
-    if (account.user.email && !customerEmail) setCustomerEmail(account.user.email);
+    if (account.user.email && !customerEmail)
+      setCustomerEmail(account.user.email);
   }, [account, customerEmail, customerName]);
 
   // Saved account addresses prefill Stripe's address forms. Stripe reads
   // defaultValues only when an element mounts, so the elements are keyed to
   // remount once the saved addresses arrive.
-  const accountFullName = account ? `${account.user.firstName} ${account.user.lastName}`.trim() : '';
-  const savedAddressesKey = savedAddresses ? 'saved' : 'blank';
-  const addressDefaults = (address?: SavedAddress | null) => address
-    ? { defaultValues: { name: accountFullName, address: { ...address, line2: address.line2 || null } } }
-    : {};
+  const accountFullName = account
+    ? `${account.user.firstName} ${account.user.lastName}`.trim()
+    : "";
+  const savedAddressesKey = savedAddresses ? "saved" : "blank";
+  const addressDefaults = (address?: SavedAddress | null) =>
+    address
+      ? {
+          defaultValues: {
+            name: accountFullName,
+            address: { ...address, line2: address.line2 || null },
+          },
+        }
+      : {};
 
-  const updateBillingAddress = (address?: { line1: string; line2: string | null; city: string; state: string; postal_code: string; country: string }) => {
+  const updateBillingAddress = (address?: {
+    line1: string;
+    line2: string | null;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  }) => {
     if (!address) return;
-    setBillingAddress([
-      address.line1,
-      address.line2,
-      address.city,
-      address.state,
-      address.postal_code,
-      address.country,
-    ].filter(Boolean).join(', '));
+    setBillingAddress(
+      [
+        address.line1,
+        address.line2,
+        address.city,
+        address.state,
+        address.postal_code,
+        address.country,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    );
   };
 
   // Cleanup debounce timer on unmount
@@ -151,10 +247,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   useEffect(() => {
     if (stripe && elements) {
       setStripeLoading(false);
-      logger.log('[stripe] Stripe and elements are ready', {
+      logger.log("[stripe] Stripe and elements are ready", {
         hasStripe: !!stripe,
         hasElements: !!elements,
-        stripeKey: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY?.substring(0, 10) + '...'
+        stripeKey:
+          process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY?.substring(0, 10) +
+          "...",
       });
     }
   }, [stripe, elements]);
@@ -162,21 +260,34 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   // Recalculate shipping rates when cart items change and address is complete
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'checkout_cart_items' && currentAddress && shippingAddressComplete && deliveryMethod === 'shipping') {
-        logger.log('[shipping] Cart items changed (storage event), recalculating shipping rates');
+      if (
+        e.key === "checkout_cart_items" &&
+        currentAddress &&
+        shippingAddressComplete &&
+        deliveryMethod === "shipping"
+      ) {
+        logger.log(
+          "[shipping] Cart items changed (storage event), recalculating shipping rates",
+        );
         fetchShippingRatesFromEasyPost(currentAddress);
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAddress, shippingAddressComplete, deliveryMethod]);
 
   // Recalculate shipping rates on mount if address is complete
   useEffect(() => {
-    if (currentAddress && shippingAddressComplete && deliveryMethod === 'shipping') {
-      logger.log('[shipping] EmbeddedCheckout mounted, recalculating shipping rates');
+    if (
+      currentAddress &&
+      shippingAddressComplete &&
+      deliveryMethod === "shipping"
+    ) {
+      logger.log(
+        "[shipping] EmbeddedCheckout mounted, recalculating shipping rates",
+      );
       fetchShippingRatesFromEasyPost(currentAddress);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -186,7 +297,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   useEffect(() => {
     if (!elements) return;
 
-    const element = elements.getElement('payment');
+    const element = elements.getElement("payment");
     if (!element) return;
 
     const handleChange = (event: any) => {
@@ -196,94 +307,79 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     };
 
     const handleReady = () => {
-      logger.log('[stripe] Payment element ready');
+      logger.log("[stripe] Payment element ready");
     };
 
-    element.on('change', handleChange);
-    element.on('ready', handleReady);
+    element.on("change", handleChange);
+    element.on("ready", handleReady);
 
     return () => {
-      element.off('change', handleChange);
-      element.off('ready', handleReady);
+      element.off("change", handleChange);
+      element.off("ready", handleReady);
     };
   }, [elements]);
 
   // Calculate tax when shipping address changes
   const calculateTaxForAddress = async (address: any) => {
-    if (!address || !address.line1 || !address.city || !address.state || !address.postal_code) {
+    if (
+      !address ||
+      !address.line1 ||
+      !address.city ||
+      !address.state ||
+      !address.postal_code
+    ) {
       setTaxAmount(0);
       return;
     }
 
     try {
-      logger.log('[tax] Calculating tax for address', { address, totalAmount });
+      logger.log("[tax] Calculating tax for address", { address, totalAmount });
 
-      // Get cart items from localStorage to send proper line items with tax codes
-      let lineItems = [];
-      try {
-        const cartItemsStr = localStorage.getItem('checkout_cart_items');
-        if (cartItemsStr) {
-          const cartItems = JSON.parse(cartItemsStr);
-          lineItems = cartItems.map((item: any) => {
-            const price = item.variantPrice || item.item.price;
-            const amount = Math.round(price * 100); // Convert to cents
-
-            // Use pre-calculated tax code from cart item, fallback to default
-            const taxCode = item.taxCode || TaxCodes.DEFAULT;
-
-            return {
-              amount: amount * item.quantity,
-              reference: item.item.sku,
-              tax_code: taxCode,
-            };
-          });
-        }
-      } catch (storageError) {
-        logger.error('[tax] localStorage access failed (possibly Safari ITP):', storageError);
-        // Continue with fallback line item
-      }
-
-      // Fallback to single line item if cart items not available
-      if (lineItems.length === 0) {
-        lineItems = [{
-          amount: Math.round(totalAmount * 100),
-          reference: 'order_total',
-          tax_code: TaxCodes.DEFAULT,
-        }];
-      }
+      // Tax the same amounts the server will charge tax on: each line after its
+      // share of the discount.
+      const lineItems = initialQuote.lines.map((line, index) => ({
+        amount: initialQuote.taxableAmounts[index] ?? line.amount,
+        reference: line.sku,
+        tax_code: line.taxCode,
+      }));
 
       const response = await fetch(`${backendUrl}/calculate-tax`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           lineItems,
-          currency: 'usd',
+          currency: "usd",
           shippingAddress: {
             line1: address.line1,
-            line2: address.line2 || '',
+            line2: address.line2 || "",
             city: address.city,
             state: address.state,
             postal_code: address.postal_code,
-            country: address.country || 'US',
+            country: address.country || "US",
           },
         }),
       });
 
-      logger.log('[tax] Tax calculation response status', { status: response.status });
+      logger.log("[tax] Tax calculation response status", {
+        status: response.status,
+      });
 
       if (response.ok) {
         const data = await response.json();
-        logger.log('[tax] Tax calculated successfully', { taxAmount: data.taxAmount, source: data.source });
+        logger.log("[tax] Tax calculated successfully", {
+          taxAmount: data.taxAmount,
+          source: data.source,
+        });
         setTaxAmount(data.taxAmount);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        logger.error('[tax] Tax calculation failed', { error: errorData });
+        logger.error("[tax] Tax calculation failed", { error: errorData });
         setTaxAmount(0);
       }
     } catch (error) {
-      logger.error('[tax] Error calculating tax:', error);
+      logger.error("[tax] Error calculating tax:", error);
       setTaxAmount(0);
     }
   };
@@ -295,25 +391,25 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   const validatePhone = (phone: string): boolean => {
     // Remove all non-digit characters for validation
-    const digitsOnly = phone.replace(/\D/g, '');
+    const digitsOnly = phone.replace(/\D/g, "");
     // Accept 10 or 11 digits (with or without country code)
     return digitsOnly.length >= 10 && digitsOnly.length <= 11;
   };
 
   const getCartItems = (): any[] => {
     try {
-      const cartItemsStr = localStorage.getItem('checkout_cart_items');
+      const cartItemsStr = localStorage.getItem("checkout_cart_items");
       if (cartItemsStr) {
         return JSON.parse(cartItemsStr);
       }
     } catch (error) {
-      logger.error('[cart] Failed to get cart items from localStorage:', error);
+      logger.error("[cart] Failed to get cart items from localStorage:", error);
     }
     return [];
   };
 
   useEffect(() => {
-    if (deliveryMethod !== 'pickup') return;
+    if (deliveryMethod !== "pickup") return;
 
     let cancelled = false;
     const loadPickupOptions = async () => {
@@ -321,19 +417,23 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       setPickupOptionsError(null);
       try {
         const options = await notionService.getOrderPickupOptions(
-          cartContainsCoffee(getCartItems())
+          cartContainsCoffee(getCartItems()),
         );
         if (!cancelled) {
           setPickupOptions(options);
-          setSelectedPickupId((current) => options.some((option) => option.pickupId === current)
-            ? current
-            : options[0]?.pickupId || '');
+          setSelectedPickupId((current) =>
+            options.some((option) => option.pickupId === current)
+              ? current
+              : options[0]?.pickupId || "",
+          );
         }
       } catch {
         if (!cancelled) {
           setPickupOptions([]);
-          setSelectedPickupId('');
-          setPickupOptionsError('Pickup times are temporarily unavailable. Please try again.');
+          setSelectedPickupId("");
+          setPickupOptionsError(
+            "Pickup times are temporarily unavailable. Please try again.",
+          );
         }
       } finally {
         if (!cancelled) setIsLoadingPickupOptions(false);
@@ -341,14 +441,22 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     };
 
     loadPickupOptions();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // Pickup options are loaded when the user chooses local pickup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryMethod]);
 
-
   const fetchShippingRatesFromEasyPost = async (address: any) => {
-    if (!address || !address.line1 || !address.city || !address.state || !address.postal_code || !address.country) {
+    if (
+      !address ||
+      !address.line1 ||
+      !address.city ||
+      !address.state ||
+      !address.postal_code ||
+      !address.country
+    ) {
       return;
     }
 
@@ -356,7 +464,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     const cartItems = getCartItems();
     const validation = validateStripeAddress(address, cartItems);
 
-    logger.log('[shipping] Validating address before EasyPost API call', {
+    logger.log("[shipping] Validating address before EasyPost API call", {
       isValid: validation.isValid,
       isAllowedForShipping: validation.isAllowedForShipping,
       errors: validation.errors,
@@ -364,7 +472,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
     // Don't call API if address is invalid or not in allowed shipping locations
     if (!validation.isValid || !validation.isAllowedForShipping) {
-      logger.log('[shipping] Skipping EasyPost API call - address validation failed');
+      logger.log(
+        "[shipping] Skipping EasyPost API call - address validation failed",
+      );
       setIsLoadingShipping(false);
       setShippingOptions([]);
       return;
@@ -377,7 +487,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     try {
       const toAddress = {
         street1: address.line1,
-        street2: address.line2 || '',
+        street2: address.line2 || "",
         city: address.city,
         state: address.state,
         zip: address.postal_code,
@@ -390,15 +500,18 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       // Get cart items to calculate parcel dimensions and weight
       let cartItems = [];
       try {
-        const cartItemsStr = localStorage.getItem('checkout_cart_items');
+        const cartItemsStr = localStorage.getItem("checkout_cart_items");
         if (cartItemsStr) {
           cartItems = JSON.parse(cartItemsStr);
         }
       } catch (storageError) {
-        logger.error('[shipping] localStorage access failed (possibly Safari ITP):', storageError);
+        logger.error(
+          "[shipping] localStorage access failed (possibly Safari ITP):",
+          storageError,
+        );
       }
 
-      logger.log('[shipping] Cart items for parcel calculation:', {
+      logger.log("[shipping] Cart items for parcel calculation:", {
         cartItemsCount: cartItems.length,
         cartItems: cartItems.map((item: any) => ({
           sku: item.item?.sku,
@@ -416,15 +529,15 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       const parcel = cartItems.length > 0 ? calculateParcel(cartItems) : null;
       const formattedParcel = parcel ? formatParcelForEasyPost(parcel) : null;
 
-      logger.log('[shipping] Fetching rates with parcel data', {
+      logger.log("[shipping] Fetching rates with parcel data", {
         hasCartItems: cartItems.length > 0,
         parcel: formattedParcel,
       });
 
       const response = await fetch(`${backendUrl}/get-shipping-rates`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         signal: requestController.signal,
         body: JSON.stringify({ toAddress, parcel: formattedParcel }),
@@ -439,8 +552,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       // A request can finish after the user changes delivery method. Only the
       // latest request may update shipping state or the selected shipping option.
-      if (shippingRequestRef.current !== requestController || deliveryMethodRef.current !== 'shipping') {
-        logger.log('[shipping] Ignoring stale shipping rates response');
+      if (
+        shippingRequestRef.current !== requestController ||
+        deliveryMethodRef.current !== "shipping"
+      ) {
+        logger.log("[shipping] Ignoring stale shipping rates response");
         return;
       }
 
@@ -458,9 +574,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       // Convert mapped rates to ShippingOption format
       // Only apply free shipping to USPS Ground Advantage
       const options: ShippingOption[] = mappedRates.map((mappedRate) => {
-        const originalPrice = parseFloat(mappedRate.price.replace('$', ''));
-        const isGroundAdvantage = mappedRate.carrier === 'USPS' && mappedRate.service === 'GroundAdvantage';
-        const discountedPrice = qualifiesForFreeShipping && isGroundAdvantage ? 0 : originalPrice;
+        const originalPrice = parseFloat(mappedRate.price.replace("$", ""));
+        const isGroundAdvantage =
+          mappedRate.carrier === "USPS" &&
+          mappedRate.service === "GroundAdvantage";
+        const discountedPrice =
+          qualifiesForFreeShipping && isGroundAdvantage ? 0 : originalPrice;
 
         return {
           id: mappedRate.id,
@@ -478,7 +597,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       // Only update shipping options if still in shipping mode
       // This prevents race condition when user switches to pickup while rates are loading
-      if (shippingRequestRef.current === requestController && deliveryMethodRef.current === 'shipping') {
+      if (
+        shippingRequestRef.current === requestController &&
+        deliveryMethodRef.current === "shipping"
+      ) {
         setShippingOptions(options);
 
         // Select the first option by default
@@ -486,19 +608,26 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           const firstOption = options[0];
           // Store original price for display purposes
           if (qualifiesForFreeShipping) {
-            const originalPrice = parseFloat(mappedRates[0].price.replace('$', ''));
+            const originalPrice = parseFloat(
+              mappedRates[0].price.replace("$", ""),
+            );
             setOriginalShippingPrice(originalPrice);
           }
           onShippingChange(firstOption);
         }
       } else {
-        logger.log('[shipping] Ignoring shipping rates - user switched to pickup');
+        logger.log(
+          "[shipping] Ignoring shipping rates - user switched to pickup",
+        );
       }
     } catch (error) {
       // On error, show no shipping options (only if still in shipping mode)
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        logger.log('[shipping] Shipping rates request cancelled');
-      } else if (shippingRequestRef.current === requestController && deliveryMethodRef.current === 'shipping') {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        logger.log("[shipping] Shipping rates request cancelled");
+      } else if (
+        shippingRequestRef.current === requestController &&
+        deliveryMethodRef.current === "shipping"
+      ) {
         setShippingOptions([]);
       }
     } finally {
@@ -526,7 +655,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       const validation = validateStripeAddress(address, cartItems);
       setAddressValidation(validation);
 
-      logger.log('[address] Validation result', {
+      logger.log("[address] Validation result", {
         isValid: validation.isValid,
         isAllowedForShipping: validation.isAllowedForShipping,
         errors: validation.errors,
@@ -536,7 +665,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       // If address structure is invalid, don't proceed
       if (!validation.isValid) {
-        logger.log('[address] Address structure is invalid', { errors: validation.errors });
+        logger.log("[address] Address structure is invalid", {
+          errors: validation.errors,
+        });
         setShippingOptions(DEFAULT_SHIPPING_OPTIONS);
         setIsLoadingShipping(false);
         setTaxAmount(0);
@@ -546,9 +677,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
 
       // Check if address is in an allowed shipping state (only for shipping mode)
-      if (deliveryMethod === 'shipping') {
+      if (deliveryMethod === "shipping") {
         if (!validation.isAllowedForShipping) {
-          logger.log('[shipping] Address not in allowed shipping states', { state: address.state });
+          logger.log("[shipping] Address not in allowed shipping states", {
+            state: address.state,
+          });
           setShowShippingRestriction(true);
           setShippingOptions([]);
           setIsLoadingShipping(false);
@@ -579,7 +712,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       // Set new debounce timer to fetch rates after 2 seconds
       const timer = setTimeout(async () => {
         // Only fetch if still in shipping mode
-        if (deliveryMethod === 'shipping') {
+        if (deliveryMethod === "shipping") {
           await fetchShippingRatesFromEasyPost(address);
         }
       }, 2000);
@@ -609,17 +742,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
     // Validate email
     if (!customerEmail || !validateEmail(customerEmail)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError("Please enter a valid email address");
       return;
     }
 
     if (!customerName.trim()) {
-      setErrorMessage('Please enter your name');
+      setErrorMessage("Please enter your name");
       return;
     }
 
     if (!customerPhone || !validatePhone(customerPhone)) {
-      setPhoneError('Please enter a valid phone number');
+      setPhoneError("Please enter a valid phone number");
       return;
     }
 
@@ -633,38 +766,112 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
     setPhoneError(null);
 
     try {
+      if (
+        deliveryMethod === "shipping" &&
+        (!shipmentId || selectedShipping.id === "local-pickup")
+      ) {
+        setErrorMessage("Please choose a shipping option.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // The server prices the order, checks the discount against this email,
+      // and sets the payment to that amount. Pay only if it matches the total
+      // the customer is looking at; otherwise show it and let them review.
+      let finalQuote: CheckoutQuote;
+      try {
+        finalQuote = await stripeService.quoteCheckout(
+          {
+            paymentIntentId,
+            items: checkoutLines,
+            discountCode: discountCode?.code || null,
+            email: customerEmail,
+            delivery:
+              deliveryMethod === "pickup"
+                ? { method: "pickup" }
+                : {
+                    method: "shipping",
+                    shipmentId: shipmentId as string,
+                    rateId: selectedShipping.id,
+                  },
+          },
+          token,
+        );
+      } catch (quoteError) {
+        setErrorMessage(
+          quoteError instanceof Error
+            ? quoteError.message
+            : "We couldn't confirm your total. Please try again.",
+        );
+        setIsProcessing(false);
+        return;
+      }
+      if (finalQuote.total !== Math.round(displayTotal * 100)) {
+        setConfirmedQuote(finalQuote);
+        setErrorMessage(
+          `Your total is $${(finalQuote.total / 100).toFixed(2)} after shipping and tax were confirmed. Please review it and press Pay again.`,
+        );
+        setIsProcessing(false);
+        return;
+      }
+      // Load the updated amount into the payment form before confirming.
+      await elements.fetchUpdates();
+
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/order-confirmation`,
           receipt_email: customerEmail,
         },
-        redirect: 'if_required',
+        redirect: "if_required",
       });
 
       if (error) {
-        setErrorMessage(error.message || 'An error occurred');
+        setErrorMessage(error.message || "An error occurred");
         setIsProcessing(false);
       } else {
+        if (newsletterOptIn) {
+          // Never blocks the order; the customer can subscribe later from the footer or their account.
+          const [firstName, ...lastNames] = customerName.trim().split(/\s+/);
+          subscribeToNewsletter({
+            email: customerEmail,
+            source: "checkout",
+            firstName,
+            lastName: lastNames.join(" "),
+          }).catch((subscribeError) =>
+            logger.error("[newsletter] Checkout signup failed", subscribeError),
+          );
+        }
+
         // Purchase shipment if shipping is selected and rate is available
-        logger.log('[shipment] Checking shipment purchase conditions', {
+        logger.log("[shipment] Checking shipment purchase conditions", {
           deliveryMethod,
           selectedShippingId: selectedShipping.id,
-          shouldPurchase: deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup'
+          shouldPurchase:
+            deliveryMethod === "shipping" &&
+            selectedShipping.id !== "local-pickup",
         });
 
-        let currentShippingAddress = '';
+        let currentShippingAddress = "";
         // Capture the pickup ID before the shipping branch narrows deliveryMethod.
-        const orderPickupId = deliveryMethod === 'pickup' ? selectedPickupId : undefined;
+        const orderPickupId =
+          deliveryMethod === "pickup" ? selectedPickupId : undefined;
 
-        if (deliveryMethod === 'shipping' && selectedShipping.id !== 'local-pickup') {
-          logger.log('[shipment] Starting shipment purchase process');
+        if (
+          deliveryMethod === "shipping" &&
+          selectedShipping.id !== "local-pickup"
+        ) {
+          logger.log("[shipment] Starting shipment purchase process");
 
           try {
-            const addressData = await elements?.getElement('address', { mode: 'shipping' })?.getValue();
+            const addressData = await elements
+              ?.getElement("address", { mode: "shipping" })
+              ?.getValue();
             const toAddress = addressData?.value?.address;
 
-            logger.log('[shipment] Address retrieved', { hasAddress: !!toAddress });
+            logger.log("[shipment] Address retrieved", {
+              hasAddress: !!toAddress,
+            });
 
             if (toAddress) {
               // Format shipping address for display
@@ -674,10 +881,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 toAddress.city,
                 toAddress.state,
                 toAddress.postal_code,
-                toAddress.country
-              ].filter(Boolean).join(', ');
+                toAddress.country,
+              ]
+                .filter(Boolean)
+                .join(", ");
 
-              logger.log('[shipment] Formatted address', { formattedAddress });
+              logger.log("[shipment] Formatted address", { formattedAddress });
 
               // Pass formatted address directly to avoid timing issues with state updates
               currentShippingAddress = formattedAddress;
@@ -685,26 +894,36 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               // Recalculate parcel for box size determination
               let formattedParcel = null;
               try {
-                const cartItemsStr = localStorage.getItem('checkout_cart_items');
+                const cartItemsStr = localStorage.getItem(
+                  "checkout_cart_items",
+                );
                 if (cartItemsStr) {
                   const cartItems = JSON.parse(cartItemsStr);
-                  const parcel = cartItems.length > 0 ? calculateParcel(cartItems) : null;
-                  formattedParcel = parcel ? formatParcelForEasyPost(parcel) : null;
-                  logger.log('[shipment] Recalculated parcel for purchase', { formattedParcel });
+                  const parcel =
+                    cartItems.length > 0 ? calculateParcel(cartItems) : null;
+                  formattedParcel = parcel
+                    ? formatParcelForEasyPost(parcel)
+                    : null;
+                  logger.log("[shipment] Recalculated parcel for purchase", {
+                    formattedParcel,
+                  });
                 }
               } catch (storageError) {
-                logger.error('[shipment] Failed to recalculate parcel:', storageError);
+                logger.error(
+                  "[shipment] Failed to recalculate parcel:",
+                  storageError,
+                );
               }
 
-              logger.log('[shipment] Calling purchase-shipment endpoint', {
+              logger.log("[shipment] Calling purchase-shipment endpoint", {
                 endpoint: `${backendUrl}/purchase-shipment`,
-                rateId: selectedShipping.id
+                rateId: selectedShipping.id,
               });
 
               const response = await fetch(`${backendUrl}/purchase-shipment`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                  'Content-Type': 'application/json',
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   toAddress: {
@@ -713,7 +932,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                     city: toAddress.city,
                     state: toAddress.state,
                     zip: toAddress.postal_code,
-                    country: toAddress.country || 'US',
+                    country: toAddress.country || "US",
                   },
                   rateId: selectedShipping.id,
                   shipmentId: shipmentId,
@@ -723,15 +942,18 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
               const shipmentData = await response.json();
 
-              logger.log('[shipment] Purchase shipment response received', {
+              logger.log("[shipment] Purchase shipment response received", {
                 status: response.status,
                 ok: response.ok,
                 hasTrackingNumber: !!shipmentData.trackingNumber,
-                hasLabelUrl: !!shipmentData.labelUrl
+                hasLabelUrl: !!shipmentData.labelUrl,
               });
 
               if (response.ok) {
-                logger.log('[shipment] Shipment purchased successfully', shipmentData);
+                logger.log(
+                  "[shipment] Shipment purchased successfully",
+                  shipmentData,
+                );
                 // Pass shipment data along with payment success
                 onSuccess(
                   paymentIntent?.id,
@@ -743,49 +965,115 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   taxAmount,
                   currentAddress,
                   orderPickupId,
-                  billingAddress
+                  billingAddress,
+                  finalQuote,
                 );
               } else {
-                logger.error('[shipment] Purchase shipment API call failed', {
+                logger.error("[shipment] Purchase shipment API call failed", {
                   status: response.status,
-                  statusText: response.statusText
+                  statusText: response.statusText,
                 });
                 // Still proceed with payment success even if shipment purchase fails
-                onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
+                onSuccess(
+                  paymentIntent?.id,
+                  customerEmail,
+                  customerName,
+                  customerPhone,
+                  null,
+                  currentShippingAddress,
+                  taxAmount,
+                  currentAddress,
+                  orderPickupId,
+                  billingAddress,
+                  finalQuote,
+                );
               }
             } else {
-              logger.log('[shipment] No address available, skipping shipment purchase');
+              logger.log(
+                "[shipment] No address available, skipping shipment purchase",
+              );
               // No address available, proceed without shipment purchase
-              onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
+              onSuccess(
+                paymentIntent?.id,
+                customerEmail,
+                customerName,
+                customerPhone,
+                null,
+                currentShippingAddress,
+                taxAmount,
+                currentAddress,
+                orderPickupId,
+                billingAddress,
+                finalQuote,
+              );
             }
           } catch (shipmentError) {
-            logger.error('[shipment] Error during shipment purchase:', shipmentError);
+            logger.error(
+              "[shipment] Error during shipment purchase:",
+              shipmentError,
+            );
             // Still proceed with payment success even if shipment purchase fails
-            onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
-
+            onSuccess(
+              paymentIntent?.id,
+              customerEmail,
+              customerName,
+              customerPhone,
+              null,
+              currentShippingAddress,
+              taxAmount,
+              currentAddress,
+              orderPickupId,
+              billingAddress,
+              finalQuote,
+            );
           }
         } else {
-          logger.log('[shipment] Shipment purchase conditions not met, skipping', {
-            deliveryMethod,
-            selectedShippingId: selectedShipping.id
-          });
+          logger.log(
+            "[shipment] Shipment purchase conditions not met, skipping",
+            {
+              deliveryMethod,
+              selectedShippingId: selectedShipping.id,
+            },
+          );
           // Local pickup or no shipping rate selected
-          onSuccess(paymentIntent?.id, customerEmail, customerName, customerPhone, null, currentShippingAddress, taxAmount, currentAddress, orderPickupId, billingAddress);
+          onSuccess(
+            paymentIntent?.id,
+            customerEmail,
+            customerName,
+            customerPhone,
+            null,
+            currentShippingAddress,
+            taxAmount,
+            currentAddress,
+            orderPickupId,
+            billingAddress,
+            finalQuote,
+          );
         }
       }
     } catch (err) {
-      setErrorMessage('Payment failed. Please try again.');
+      setErrorMessage("Payment failed. Please try again.");
       setIsProcessing(false);
     }
   };
 
-  const displayTotal = totalAmount + selectedShipping.price + taxAmount;
+  useEffect(() => {
+    setConfirmedQuote(null);
+  }, [deliveryMethod, selectedShipping.id, selectedShipping.price, taxAmount]);
+
+  const shippingDisplay = confirmedQuote
+    ? confirmedQuote.shipping / 100
+    : selectedShipping.price;
+  const taxDisplay = confirmedQuote ? confirmedQuote.tax / 100 : taxAmount;
+  const displayTotal = confirmedQuote
+    ? confirmedQuote.total / 100
+    : totalAmount + selectedShipping.price + taxAmount;
 
   // Check if form is ready for submission
   const isFormValid = () => {
     // Check required contact fields
     if (!customerName.trim() || !customerEmail || !customerPhone) {
-      logger.log('[form] Form invalid: missing contact fields', {
+      logger.log("[form] Form invalid: missing contact fields", {
         hasName: !!customerName.trim(),
         hasEmail: !!customerEmail,
         hasPhone: !!customerPhone,
@@ -795,29 +1083,33 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
     // Check email and phone validation
     if (!validateEmail(customerEmail) || !validatePhone(customerPhone)) {
-      logger.log('[form] Form invalid: email or phone format incorrect');
+      logger.log("[form] Form invalid: email or phone format incorrect");
       return false;
     }
 
-    if (deliveryMethod === 'pickup' && !selectedPickupId) {
+    if (deliveryMethod === "pickup" && !selectedPickupId) {
       return false;
     }
 
     // For shipping mode, check if address is complete and valid
-    if (deliveryMethod === 'shipping') {
+    if (deliveryMethod === "shipping") {
       // If shipping restriction is shown, form is invalid
       if (showShippingRestriction) {
-        logger.log('[form] Form invalid: shipping restriction shown');
+        logger.log("[form] Form invalid: shipping restriction shown");
         return false;
       }
       // Address must be complete
       if (!shippingAddressComplete) {
-        logger.log('[form] Form invalid: shipping address not complete');
+        logger.log("[form] Form invalid: shipping address not complete");
         return false;
       }
       // Address must pass validation (structure and shipping location)
-      if (!addressValidation || !addressValidation.isValid || !addressValidation.isAllowedForShipping) {
-        logger.log('[form] Form invalid: address validation failed', {
+      if (
+        !addressValidation ||
+        !addressValidation.isValid ||
+        !addressValidation.isAllowedForShipping
+      ) {
+        logger.log("[form] Form invalid: address validation failed", {
           hasValidation: !!addressValidation,
           isValid: addressValidation?.isValid,
           isAllowedForShipping: addressValidation?.isAllowedForShipping,
@@ -826,7 +1118,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       }
     }
 
-    logger.log('[form] Form is valid');
+    logger.log("[form] Form is valid");
     return true;
   };
 
@@ -846,21 +1138,32 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <div className="checkout-totals">
             <div className="subtotal-row">
               <span>Subtotal:</span>
-              <span>${totalAmount.toFixed(2)}</span>
+              <span>${(initialQuote.subtotal / 100).toFixed(2)}</span>
             </div>
-            {discountCode && (
+            {initialQuote.discount && (
               <div className="discount-row">
-                <span>Discount ({discountCode.code} - {discountCode.percentOff}% off):</span>
-                <span className="discount-amount">-${(totalAmount * (discountCode.percentOff / 100)).toFixed(2)}</span>
+                <span>
+                  Discount ({initialQuote.discount.code} -{" "}
+                  {initialQuote.discount.percentOff}% off):
+                </span>
+                <span className="discount-amount">
+                  -${(initialQuote.discount.amount / 100).toFixed(2)}
+                </span>
               </div>
             )}
-            <div className={`shipping-row ${deliveryMethod !== 'shipping' ? 'hidden' : ''}`}>
+            <div
+              className={`shipping-row ${deliveryMethod !== "shipping" ? "hidden" : ""}`}
+            >
               <span>Shipping:</span>
-              <span>{selectedShipping.price === 0 ? 'FREE' : `$${selectedShipping.price.toFixed(2)}`}</span>
+              <span>
+                {shippingDisplay === 0
+                  ? "FREE"
+                  : `$${shippingDisplay.toFixed(2)}`}
+              </span>
             </div>
             <div className="tax-row">
               <span>Tax:</span>
-              <span>${taxAmount.toFixed(2)}</span>
+              <span>${taxDisplay.toFixed(2)}</span>
             </div>
             <div className="total-row">
               <span>Total:</span>
@@ -899,10 +1202,23 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               }}
               placeholder="john@example.com"
               required
-              className={`form-input ${emailError ? 'error' : ''}`}
+              className={`form-input ${emailError ? "error" : ""}`}
             />
             {emailError && <div className="field-error">{emailError}</div>}
-            <p className="field-hint">Order confirmation will be sent to this email</p>
+            <p className="field-hint">
+              Order confirmation will be sent to this email
+            </p>
+            <label className="newsletter-opt-in">
+              <input
+                type="checkbox"
+                checked={newsletterOptIn}
+                onChange={(e) => setNewsletterOptIn(e.target.checked)}
+              />
+              <span>
+                Subscribe to Koinonia's newletter with the latest new coffees,
+                events, and stories. Unsubscribe anytime.
+              </span>
+            </label>
           </div>
           <div className="form-group">
             <label htmlFor="customer-phone">Phone Number *</label>
@@ -916,10 +1232,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               }}
               placeholder="(555) 123-4567"
               required
-              className={`form-input ${phoneError ? 'error' : ''}`}
+              className={`form-input ${phoneError ? "error" : ""}`}
             />
             {phoneError && <div className="field-error">{phoneError}</div>}
-            <p className="field-hint">For shipping updates and order notifications</p>
+            <p className="field-hint">
+              For shipping updates and order notifications
+            </p>
           </div>
         </div>
 
@@ -927,9 +1245,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <label>Delivery Method *</label>
           <div className="delivery-method-options">
             <div
-              className={`delivery-method-option ${deliveryMethod === 'shipping' ? 'selected' : ''}`}
+              className={`delivery-method-option ${deliveryMethod === "shipping" ? "selected" : ""}`}
               onClick={() => {
-                setDeliveryMethod('shipping');
+                setDeliveryMethod("shipping");
                 // Reset shipping options to prevent showing stale local pickup option
                 setShippingOptions([]);
                 // If we have a current address, recalculate tax and shipping rates
@@ -946,11 +1264,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               <span>Shipping</span>
             </div>
             <div
-              className={`delivery-method-option ${deliveryMethod === 'pickup' ? 'selected' : ''}`}
+              className={`delivery-method-option ${deliveryMethod === "pickup" ? "selected" : ""}`}
               onClick={() => {
                 shippingRequestRef.current?.abort();
                 shippingRequestRef.current = null;
-                setDeliveryMethod('pickup');
+                setDeliveryMethod("pickup");
                 // Cancel any pending shipping rate fetches
                 if (debounceTimer) {
                   clearTimeout(debounceTimer);
@@ -961,13 +1279,18 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 setIsLoadingShipping(false);
                 // Calculate tax for local pickup based on store location (California)
                 calculateTaxForAddress({
-                  line1: '15215 Avis Ave',
-                  city: 'Lawndale',
-                  state: 'CA',
-                  postal_code: '90260',
-                  country: 'US'
+                  line1: "15215 Avis Ave",
+                  city: "Lawndale",
+                  state: "CA",
+                  postal_code: "90260",
+                  country: "US",
                 });
-                onShippingChange({ id: 'local-pickup', label: 'Local Pickup', price: 0, description: 'Pick up at our location - Free' });
+                onShippingChange({
+                  id: "local-pickup",
+                  label: "Local Pickup",
+                  price: 0,
+                  description: "Pick up at our location - Free",
+                });
               }}
             >
               <span>Local Pickup</span>
@@ -975,13 +1298,19 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           </div>
         </div>
 
-        {deliveryMethod === 'pickup' && (
+        {deliveryMethod === "pickup" && (
           <div className="pickup-info-container expanded">
             <div className="pickup-info-text">
-              <div>Choose a pickup time and location. Local pickup is free.</div>
-              <label htmlFor="pickup-option" className="pickup-select-label">Pickup time and location *</label>
+              <div>
+                Choose a pickup time and location. Local pickup is free.
+              </div>
+              <label htmlFor="pickup-option" className="pickup-select-label">
+                Pickup time and location *
+              </label>
               {isLoadingPickupOptions ? (
-                <div className="loading-shipping">Loading pickup options...</div>
+                <div className="loading-shipping">
+                  Loading pickup options...
+                </div>
               ) : pickupOptionsError ? (
                 <div className="field-error">{pickupOptionsError}</div>
               ) : (
@@ -992,39 +1321,54 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   onChange={(event) => setSelectedPickupId(event.target.value)}
                   required
                 >
-                  <option value="" disabled>Select a pickup option</option>
+                  <option value="" disabled>
+                    Select a pickup option
+                  </option>
                   {pickupOptions.map((option) => (
                     <option key={option.id} value={option.pickupId}>
-                      {formatPickupTimeframe(option.start, option.end)} — {option.address}
+                      {formatPickupTimeframe(option.start, option.end)} —{" "}
+                      {option.address}
                     </option>
                   ))}
                 </select>
               )}
-              {!isLoadingPickupOptions && !pickupOptionsError && pickupOptions.length === 0 && (
-                <div className="field-hint">No upcoming pickup options are available.</div>
-              )}
+              {!isLoadingPickupOptions &&
+                !pickupOptionsError &&
+                pickupOptions.length === 0 && (
+                  <div className="field-hint">
+                    No upcoming pickup options are available.
+                  </div>
+                )}
             </div>
           </div>
         )}
 
-        {deliveryMethod === 'shipping' && (
+        {deliveryMethod === "shipping" && (
           <div className="shipping-sections-container expanded">
             <div className="address-section">
               <h3>Shipping Address</h3>
               <AddressElement
                 key={`shipping-${savedAddressesKey}`}
-                options={{ mode: 'shipping', ...addressDefaults(savedAddresses?.shipping) }}
+                options={{
+                  mode: "shipping",
+                  ...addressDefaults(savedAddresses?.shipping),
+                }}
                 onChange={handleAddressChange}
                 onReady={(element) => {
-                  logger.log('[stripe] Shipping address element ready');
-                  setElementsMounted(prev => ({ ...prev, shipping: true }));
+                  logger.log("[stripe] Shipping address element ready");
+                  setElementsMounted((prev) => ({ ...prev, shipping: true }));
                   // A complete saved address needs rates and tax without the customer editing it.
+                  // getValue() also shows "incomplete" errors on empty fields, so only
+                  // read the form when a saved address filled it in.
+                  if (!savedAddresses?.shipping) return;
                   void element.getValue().then(({ complete, value }) => {
                     if (complete) void handleAddressChange({ complete, value });
                   });
                 }}
               />
-              {!elementsMounted.shipping && <div className="debug-info">Shipping address loading...</div>}
+              {!elementsMounted.shipping && (
+                <div className="debug-info">Shipping address loading...</div>
+              )}
             </div>
 
             {showShippingRestriction && (
@@ -1035,11 +1379,13 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               </div>
             )}
 
-            {qualifiesForFreeShipping && shippingAddressComplete && shippingOptions.length > 0 && (
-              <div className="free-shipping-notice-checkout">
-                🎉 Free USPS Ground Advantage shipping applied!
-              </div>
-            )}
+            {qualifiesForFreeShipping &&
+              shippingAddressComplete &&
+              shippingOptions.length > 0 && (
+                <div className="free-shipping-notice-checkout">
+                  🎉 Free USPS Ground Advantage shipping applied!
+                </div>
+              )}
 
             <ShippingSelector
               onShippingChange={onShippingChange}
@@ -1054,17 +1400,26 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
         <div className="address-section">
           <h3>Billing Address</h3>
-              <AddressElement
-                key={`billing-${savedAddressesKey}`}
-                options={{ mode: 'billing', ...addressDefaults(savedAddresses?.billing) }}
-                onChange={(event) => updateBillingAddress(event.value?.address)}
-                onReady={(element) => {
-              logger.log('[stripe] Billing address element ready');
-              setElementsMounted(prev => ({ ...prev, billing: true }));
-              void element.getValue().then(({ value }) => updateBillingAddress(value?.address));
+          <AddressElement
+            key={`billing-${savedAddressesKey}`}
+            options={{
+              mode: "billing",
+              ...addressDefaults(savedAddresses?.billing),
+            }}
+            onChange={(event) => updateBillingAddress(event.value?.address)}
+            onReady={(element) => {
+              logger.log("[stripe] Billing address element ready");
+              setElementsMounted((prev) => ({ ...prev, billing: true }));
+              // Same as shipping: reading an empty form would flag every field as incomplete.
+              if (!savedAddresses?.billing) return;
+              void element
+                .getValue()
+                .then(({ value }) => updateBillingAddress(value?.address));
             }}
           />
-          {!elementsMounted.billing && <div className="debug-info">Billing address loading...</div>}
+          {!elementsMounted.billing && (
+            <div className="debug-info">Billing address loading...</div>
+          )}
         </div>
 
         <div className="payment-element-container">
@@ -1072,23 +1427,21 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             options={{
               fields: {
                 billingDetails: {
-                  address: 'never',
-                }
+                  address: "never",
+                },
               },
             }}
             onReady={() => {
-              logger.log('[stripe] Payment element ready');
-              setElementsMounted(prev => ({ ...prev, payment: true }));
+              logger.log("[stripe] Payment element ready");
+              setElementsMounted((prev) => ({ ...prev, payment: true }));
             }}
           />
-          {!elementsMounted.payment && <div className="debug-info">Payment element loading...</div>}
+          {!elementsMounted.payment && (
+            <div className="debug-info">Payment element loading...</div>
+          )}
         </div>
 
-        {errorMessage && (
-          <div className="error-message">
-            {errorMessage}
-          </div>
-        )}
+        {errorMessage && <div className="error-message">{errorMessage}</div>}
 
         <div className="checkout-actions">
           <button
@@ -1104,10 +1457,25 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             disabled={!stripe || isProcessing || !isFormValid()}
             className="pay-btn"
           >
-            {isProcessing ? 'Processing...' : `Pay $${displayTotal.toFixed(2)}`}
+            {isProcessing ? "Processing..." : `Pay $${displayTotal.toFixed(2)}`}
           </button>
         </div>
-        {hasSubscription && <p className="subscription-disclosure">Your cart contains an automatically renewing subscription. By clicking "Pay now," <strong>you expressly and affirmatively agree that you will be automatically charged the recurring amount(s) shown in your cart (plus shipping and taxes) until the subscription(s) ends or you cancel.</strong> <strong>You may cancel anytime by going to your account or contacting the store.</strong></p>}
+        {hasSubscription && (
+          <p className="subscription-disclosure">
+            Your cart contains an automatically renewing subscription. By
+            clicking "Pay now,"{" "}
+            <strong>
+              you expressly and affirmatively agree that you will be
+              automatically charged the recurring amount(s) shown in your cart
+              (plus shipping and taxes) until the subscription(s) ends or you
+              cancel.
+            </strong>{" "}
+            <strong>
+              You may cancel anytime by going to your account or contacting the
+              store.
+            </strong>
+          </p>
+        )}
       </form>
     </>
   );
@@ -1121,10 +1489,26 @@ interface DiscountCode {
 interface EmbeddedCheckoutProps {
   clientSecret: string;
   totalAmount: number;
-  onSuccess: (paymentIntentId?: string, shippingOption?: ShippingOption, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string, billingAddress?: string) => void;
+  onSuccess: (
+    paymentIntentId?: string,
+    shippingOption?: ShippingOption,
+    email?: string,
+    name?: string,
+    phone?: string,
+    shipmentData?: any,
+    shippingAddress?: string,
+    tax?: number,
+    shippingAddressData?: any,
+    orderPickupId?: string,
+    billingAddress?: string,
+    quote?: CheckoutQuote,
+  ) => void;
   onCancel: () => void;
   discountCode?: DiscountCode | null;
   hasSubscription: boolean;
+  paymentIntentId: string;
+  checkoutLines: CheckoutLine[];
+  initialQuote: CheckoutQuote;
 }
 
 const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
@@ -1134,10 +1518,13 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   onCancel,
   discountCode,
   hasSubscription,
+  paymentIntentId,
+  checkoutLines,
+  initialQuote,
 }) => {
   const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption>(
-    DEFAULT_SHIPPING_OPTIONS[0] // Default to local pickup
+    DEFAULT_SHIPPING_OPTIONS[0], // Default to local pickup
   );
 
   const handleShippingChange = (option: ShippingOption) => {
@@ -1150,48 +1537,78 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
 
   // Check if Stripe loaded successfully
   useEffect(() => {
-    stripePromise.then(stripe => {
+    stripePromise.then((stripe) => {
       if (!stripe) {
-        setStripeLoadError('Stripe.js failed to load. Please refresh the page.');
-        logger.error('[stripe] Stripe.js is null after loading');
+        setStripeLoadError(
+          "Stripe.js failed to load. Please refresh the page.",
+        );
+        logger.error("[stripe] Stripe.js is null after loading");
       } else {
-        logger.log('[stripe] Stripe.js loaded successfully', {
+        logger.log("[stripe] Stripe.js loaded successfully", {
           hasClientSecret: !!clientSecret,
           clientSecretLength: clientSecret?.length,
-          clientSecretPrefix: clientSecret?.substring(0, 10) + '...'
+          clientSecretPrefix: clientSecret?.substring(0, 10) + "...",
         });
       }
     });
   }, [clientSecret]);
 
-  const handleSuccess = (paymentIntentId?: string, email?: string, name?: string, phone?: string, shipmentData?: any, shippingAddress?: string, tax?: number, shippingAddressData?: any, orderPickupId?: string, billingAddress?: string) => {
-    logger.log('[EmbeddedCheckout] handleSuccess called with shippingAddress:', shippingAddress);
-    onSuccess(paymentIntentId, selectedShipping, email, name, phone, shipmentData, shippingAddress, tax, shippingAddressData, orderPickupId, billingAddress);
+  const handleSuccess = (
+    paidIntentId?: string,
+    email?: string,
+    name?: string,
+    phone?: string,
+    shipmentData?: any,
+    shippingAddress?: string,
+    tax?: number,
+    shippingAddressData?: any,
+    orderPickupId?: string,
+    billingAddress?: string,
+    quote?: CheckoutQuote,
+  ) => {
+    logger.log(
+      "[EmbeddedCheckout] handleSuccess called with shippingAddress:",
+      shippingAddress,
+    );
+    onSuccess(
+      paidIntentId,
+      selectedShipping,
+      email,
+      name,
+      phone,
+      shipmentData,
+      shippingAddress,
+      tax,
+      shippingAddressData,
+      orderPickupId,
+      billingAddress,
+      quote,
+    );
   };
 
   const options = {
     clientSecret,
     appearance: {
-      theme: 'stripe' as const,
+      theme: "stripe" as const,
       variables: {
-        colorPrimary: '#84825E',
-        colorBackground: '#F8F5EB',
-        colorText: '#2F2B39',
-        colorDanger: '#df1b41',
-        fontFamily: 'RethinkSans-Regular, sans-serif',
-        spacingUnit: '4px',
-        borderRadius: '0px',
-        fontSizeBase: '14px',
+        colorPrimary: "#84825E",
+        colorBackground: "#F8F5EB",
+        colorText: "#2F2B39",
+        colorDanger: "#df1b41",
+        fontFamily: "RethinkSans-Regular, sans-serif",
+        spacingUnit: "4px",
+        borderRadius: "0px",
+        fontSizeBase: "14px",
       },
       rules: {
-        '.Input': {
-          fontSize: '14px',
-          padding: '12px',
-          borderColor: '#CBC5B9',
+        ".Input": {
+          fontSize: "14px",
+          padding: "12px",
+          borderColor: "#CBC5B9",
         },
-        '.Label': {
-          fontSize: '10px',
-          letterSpacing: '1.5px',
+        ".Label": {
+          fontSize: "10px",
+          letterSpacing: "1.5px",
         },
       },
     },
@@ -1200,9 +1617,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
   return (
     <div className="embedded-checkout-container">
       {stripeLoadError && (
-        <div className="error-message">
-          {stripeLoadError}
-        </div>
+        <div className="error-message">{stripeLoadError}</div>
       )}
       <Elements stripe={stripePromise} options={options}>
         <CheckoutForm
@@ -1214,6 +1629,9 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
           onAddressChange={handleAddressChange}
           discountCode={discountCode}
           hasSubscription={hasSubscription}
+          paymentIntentId={paymentIntentId}
+          checkoutLines={checkoutLines}
+          initialQuote={initialQuote}
         />
       </Elements>
     </div>

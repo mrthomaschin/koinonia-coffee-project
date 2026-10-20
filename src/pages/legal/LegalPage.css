@@ -1,6 +1,6 @@
 .legal-page {
-  background: #F8F5EB;
-  color: #2F2B39;
+  background: #f8f5eb;
+  color: #2f2b39;
   min-height: 60vh;
   padding: 70px 24px 96px;
 }
@@ -9,26 +9,32 @@
   max-width: 900px;
   margin: 0 auto 48px;
   padding-bottom: 28px;
-  border-bottom: 1px solid rgba(47, 43, 57, .2);
+  border-bottom: 1px solid rgba(47, 43, 57, 0.2);
 }
 
 .legal-eyebrow {
-  color: #84825E;
-  font: 10px 'ShipporiAntiqueB1', sans-serif;
+  color: #84825e;
+  font:
+    10px "ShipporiAntiqueB1",
+    sans-serif;
   letter-spacing: 2px;
   text-transform: uppercase;
   margin: 0 0 18px;
 }
 
 .legal-page-header h1 {
-  font: 400 clamp(42px, 6vw, 68px)/.98 'HedvigLettersSerif_18pt', serif;
+  font:
+    400 clamp(42px, 6vw, 68px)/0.98 "HedvigLettersSerif_18pt",
+    serif;
   letter-spacing: -1.8px;
   margin: 0 0 16px;
 }
 
 .legal-updated {
-  color: #6E6A70;
-  font: 13px 'RethinkSans-Regular', sans-serif;
+  color: #6e6a70;
+  font:
+    13px "RethinkSans-Regular",
+    sans-serif;
   margin: 0;
 }
 
@@ -42,19 +48,23 @@
 }
 
 .legal-page-content h2 {
-  font: 400 23px 'GentiumBookPlus-Regular', serif;
+  font:
+    400 23px "GentiumBookPlus-Regular",
+    serif;
   margin: 0 0 12px;
 }
 
 .legal-page-content p {
-  color: #514E55;
-  font: 15px/1.7 'RethinkSans-Regular', sans-serif;
+  color: #514e55;
+  font:
+    15px/1.7 "RethinkSans-Regular",
+    sans-serif;
   margin: 0 0 14px;
 }
 
 .legal-page-content .legal-draft-note {
-  border-top: 1px solid rgba(47, 43, 57, .2);
-  color: #6E6A70;
+  border-top: 1px solid rgba(47, 43, 57, 0.2);
+  color: #6e6a70;
   font-size: 12px;
   margin-top: 48px;
   padding-top: 18px;

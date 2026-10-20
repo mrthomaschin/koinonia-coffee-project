@@ -1,6 +1,6 @@
 .notification-bar {
   height: 40px;
-  background-color: #84825E;
+  background-color: #84825e;
   position: sticky;
   top: 0;
   z-index: 1001;
@@ -21,10 +21,10 @@
 }
 
 .notification-message {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-family: "ShipporiAntiqueB1", sans-serif;
   font-size: 13px;
   font-weight: 400;
-  color: #FFFFFF;
+  color: #ffffff;
   letter-spacing: 0.5px;
   text-align: center;
   white-space: nowrap;

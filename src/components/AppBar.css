@@ -1,10 +1,10 @@
 .app-bar {
   height: 80px;
-  background-color: #F8F5EB;
+  background-color: #f8f5eb;
   position: sticky;
   top: 40px;
   z-index: 1000;
-  border-bottom: 1px solid rgba(47, 43, 57, .16);
+  border-bottom: 1px solid rgba(47, 43, 57, 0.16);
 }
 
 .app-bar-content {
@@ -17,7 +17,8 @@
 
 .app-bar-logo {
   height: 50px;
-  filter: invert(20%) sepia(15%) saturate(1000%) hue-rotate(210deg) brightness(95%);
+  filter: invert(20%) sepia(15%) saturate(1000%) hue-rotate(210deg)
+    brightness(95%);
 }
 
 .app-bar-spacer {
@@ -42,16 +43,16 @@
 }
 
 .nav-label {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-family: "ShipporiAntiqueB1", sans-serif;
   font-size: 12px;
   font-weight: 400;
-  color: #2F2B39;
+  color: #2f2b39;
   letter-spacing: 1px;
 }
 
 .nav-underline {
   height: 2px;
-  background-color: #2F2B39;
+  background-color: #2f2b39;
   position: absolute;
   top: calc(100% + 3px);
   left: 50%;
@@ -68,7 +69,7 @@
   width: 23px;
   height: 23px;
   fill: none;
-  stroke: #2F2B39;
+  stroke: #2f2b39;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -91,9 +92,9 @@
   position: absolute;
   top: 2px;
   right: 2px;
-  background-color: #313D66;
-  color: #FFFFFF;
-  font-family: 'RethinkSans-Regular', sans-serif;
+  background-color: #313d66;
+  color: #ffffff;
+  font-family: "RethinkSans-Regular", sans-serif;
   font-size: 10px;
   font-weight: 700;
   min-width: 17px;
@@ -130,14 +131,14 @@
 
 .menu-icon {
   font-size: 28px;
-  color: #2F2B39;
+  color: #2f2b39;
 }
 
 .app-bar-dropdown {
   position: absolute;
   top: 80px;
   right: 8px;
-  background-color: #F8F5EB;
+  background-color: #f8f5eb;
   border-radius: 0 0 4px 4px;
   box-shadow: 0 8px 18px rgba(47, 43, 57, 0.14);
   padding: 8px 0 14px;
@@ -184,17 +185,17 @@
 }
 
 .dropdown-label {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
+  font-family: "ShipporiAntiqueB1", sans-serif;
   font-size: 11px;
   font-weight: 400;
-  color: #2F2B39;
+  color: #2f2b39;
   letter-spacing: 1px;
 }
 
 .dropdown-underline {
   height: 2px;
   width: 40px;
-  background-color: #2F2B39;
+  background-color: #2f2b39;
   margin-top: 4px;
 }
 
@@ -215,7 +216,6 @@
   .app-bar-menu-button {
     display: block;
   }
-
 }
 
 @media (max-width: 768px) {
@@ -235,6 +235,6 @@
   cursor: pointer;
   font: inherit;
   font-size: 11px;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }

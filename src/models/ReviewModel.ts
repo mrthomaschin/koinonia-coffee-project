@@ -36,7 +36,7 @@ export interface ReviewModel {
 
 /** How a reviewer is shown on the site, e.g. "Thomas C.". */
 export const reviewerName = (review: ReviewModel): string =>
-  [review.firstName, review.lastName].filter(Boolean).join(' ');
+  [review.firstName, review.lastName].filter(Boolean).join(" ");
 
 /** Everything a product page shows about its reviews. */
 export interface ReviewSummary {
@@ -66,22 +66,26 @@ export interface ReviewDraft {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const reviewFromApi = (data: any): ReviewModel => ({
-  id: data.id || '',
-  productName: data.productName || '',
-  productId: data.productId || '',
-  parentProductId: data.parentProductId || '',
+  id: data.id || "",
+  productName: data.productName || "",
+  productId: data.productId || "",
+  parentProductId: data.parentProductId || "",
   rating: Number(data.rating) || 0,
-  firstName: data.firstName || 'Customer',
-  lastName: data.lastName || '',
-  orderId: data.orderId || '',
+  firstName: data.firstName || "Customer",
+  lastName: data.lastName || "",
+  orderId: data.orderId || "",
   purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
   reviewDate: new Date(data.reviewDate),
-  text: data.text || '',
+  text: data.text || "",
   // Older cached responses sent photo URLs as plain strings.
-  photos: (Array.isArray(data.photos) ? data.photos : []).map((photo: any): ReviewPhoto =>
-    typeof photo === 'string' ? { url: photo, hostedByNotion: false } : { url: photo.url, hostedByNotion: !!photo.hostedByNotion }),
+  photos: (Array.isArray(data.photos) ? data.photos : []).map(
+    (photo: any): ReviewPhoto =>
+      typeof photo === "string"
+        ? { url: photo, hostedByNotion: false }
+        : { url: photo.url, hostedByNotion: !!photo.hostedByNotion },
+  ),
   approved: data.approved !== false,
-  response: data.response || '',
+  response: data.response || "",
 });
 
 export const reviewSummaryFromApi = (data: any): ReviewSummary => ({
@@ -91,14 +95,16 @@ export const reviewSummaryFromApi = (data: any): ReviewSummary => ({
 });
 
 export const reviewDraftFromApi = (data: any): ReviewDraft => ({
-  firstName: data.firstName || '',
-  items: (Array.isArray(data.items) ? data.items : []).map((item: any): ReviewDraftItem => ({
-    sku: item.sku || '',
-    productName: item.productName || '',
-    imageUrl: item.imageUrl || '',
-    rating: Number(item.rating) || null,
-    text: item.text || '',
-    photos: Array.isArray(item.photos) ? item.photos : [],
-  })),
+  firstName: data.firstName || "",
+  items: (Array.isArray(data.items) ? data.items : []).map(
+    (item: any): ReviewDraftItem => ({
+      sku: item.sku || "",
+      productName: item.productName || "",
+      imageUrl: item.imageUrl || "",
+      rating: Number(item.rating) || null,
+      text: item.text || "",
+      photos: Array.isArray(item.photos) ? item.photos : [],
+    }),
+  ),
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */

@@ -126,7 +126,6 @@
 }
 
 @media (max-width: 768px) {
-
   .size-selector,
   .color-selector {
     gap: 8px;

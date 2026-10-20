@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ICONS, PAGES } from "../util/constants";
+import NewsletterSignup from "./NewsletterSignup";
 import "./BottomBar.css";
 
 const BottomBar: React.FC = () => (
@@ -53,6 +54,8 @@ const BottomBar: React.FC = () => (
           Event calendar
         </Link>
       </nav>
+
+      <NewsletterSignup />
     </div>
 
     <div className="bottom-bar-footer">

@@ -15,7 +15,7 @@
   top: 0;
   left: 0;
   overflow: hidden;
-  color: #C9A23F;
+  color: #c9a23f;
 }
 
 .product-reviews {
@@ -117,7 +117,7 @@
 }
 
 .product-reviews-pagination button:disabled {
-  opacity: .35;
+  opacity: 0.35;
   cursor: default;
 }
 
@@ -183,11 +183,13 @@
   font-size: 40px;
   line-height: 1;
   cursor: pointer;
-  transition: color .15s ease, transform .15s ease;
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .review-star-input button.filled {
-  color: #C9A23F;
+  color: #c9a23f;
 }
 
 .review-star-input button:hover {
@@ -268,7 +270,7 @@
   margin: 0 0 12px;
   color: var(--color-text);
   font: 600 var(--size-body-sm) var(--font-body);
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
 .review-photo-row {
@@ -309,7 +311,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform .2s ease;
+  transition: transform 0.2s ease;
 }
 
 .review-photo-button:hover img {
@@ -322,7 +324,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(47, 43, 57, .6);
+  background: rgba(47, 43, 57, 0.6);
   color: var(--color-pearl);
   font: 600 18px var(--font-body);
 }
@@ -359,7 +361,7 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(47, 43, 57, .75);
+  background: rgba(47, 43, 57, 0.75);
   color: var(--color-pearl);
   font-size: 15px;
   line-height: 22px;
@@ -371,7 +373,9 @@
 }
 
 @keyframes review-photo-pulse {
-  50% { opacity: .5; }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .review-photo-add {
@@ -414,7 +418,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(20, 18, 26, .72);
+  background: rgba(20, 18, 26, 0.72);
 }
 
 .review-modal {
@@ -426,7 +430,7 @@
   overflow: hidden;
   border-radius: 12px;
   background: var(--color-pearl);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, .3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
 }
 
 .review-modal-header {
@@ -511,7 +515,7 @@
   height: 40px;
   border: none;
   border-radius: 50%;
-  background: rgba(248, 245, 235, .9);
+  background: rgba(248, 245, 235, 0.9);
   color: var(--color-midnight);
   font-size: 24px;
   line-height: 1;
@@ -533,7 +537,7 @@
   left: 50%;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(20, 18, 26, .6);
+  background: rgba(20, 18, 26, 0.6);
   color: var(--color-pearl);
   font: 12px var(--font-body);
   transform: translateX(-50%);
@@ -640,7 +644,7 @@
   padding: 12px 16px;
   border-left: 3px solid var(--color-eucalyptus);
   border-radius: 0 8px 8px 0;
-  background: rgba(195, 200, 164, .25);
+  background: rgba(195, 200, 164, 0.25);
   font-family: var(--font-body);
 }
 

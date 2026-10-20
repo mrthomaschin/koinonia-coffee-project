@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import './NotificationBar.css';
-import { Announcement } from '../config/announcements';
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import "./NotificationBar.css";
+import { Announcement } from "../config/announcements";
 
 interface NotificationBarProps {
   enabled?: boolean;
@@ -12,7 +12,11 @@ interface NotificationBarProps {
 
 const ROTATE_ANIMATION_MS = 400;
 
-const NotificationBar: React.FC<NotificationBarProps> = ({ enabled = true, announcements, intervalMs = 6000 }) => {
+const NotificationBar: React.FC<NotificationBarProps> = ({
+  enabled = true,
+  announcements,
+  intervalMs = 6000,
+}) => {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const count = announcements.length;
@@ -20,17 +24,32 @@ const NotificationBar: React.FC<NotificationBarProps> = ({ enabled = true, annou
 
   useEffect(() => {
     if (count < 2 || paused) return;
-    const timer = window.setTimeout(() => setIndex(i => (i + 1) % count), intervalMs);
+    const timer = window.setTimeout(
+      () => setIndex((i) => (i + 1) % count),
+      intervalMs,
+    );
     return () => window.clearTimeout(timer);
   }, [count, paused, index, intervalMs]);
 
   if (!enabled || !current) return null;
 
-  const content = current.href && /^https?:/.test(current.href)
-    ? <a className="notification-link" href={current.href} target="_blank" rel="noopener noreferrer">{current.message}</a>
-    : current.href
-      ? <Link className="notification-link" to={current.href}>{current.message}</Link>
-      : current.message;
+  const content =
+    current.href && /^https?:/.test(current.href) ? (
+      <a
+        className="notification-link"
+        href={current.href}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {current.message}
+      </a>
+    ) : current.href ? (
+      <Link className="notification-link" to={current.href}>
+        {current.message}
+      </Link>
+    ) : (
+      current.message
+    );
 
   return (
     <div
@@ -42,8 +61,17 @@ const NotificationBar: React.FC<NotificationBarProps> = ({ enabled = true, annou
       role="region"
       aria-label="Announcements"
     >
-      <div className="notification-bar-content" aria-live={paused ? 'polite' : 'off'}>
-        <span key={current.id} className="notification-message" style={{ animationDuration: `${ROTATE_ANIMATION_MS}ms` }}>{content}</span>
+      <div
+        className="notification-bar-content"
+        aria-live={paused ? "polite" : "off"}
+      >
+        <span
+          key={current.id}
+          className="notification-message"
+          style={{ animationDuration: `${ROTATE_ANIMATION_MS}ms` }}
+        >
+          {content}
+        </span>
       </div>
     </div>
   );

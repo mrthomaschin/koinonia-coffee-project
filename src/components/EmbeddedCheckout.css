@@ -550,3 +550,6 @@
   .checkout-header h2 { font-size:32px; }
   .checkout-actions { flex-direction:column-reverse; }
 }
+
+.form-group label.newsletter-opt-in { display:flex; align-items:flex-start; gap:10px; margin:14px 0 0; color:#2F2B39; font:13px/1.45 'RethinkSans-Regular',sans-serif; letter-spacing:0; text-transform:none; cursor:pointer; }
+.form-group label.newsletter-opt-in input { width:auto; margin:2px 0 0; flex-shrink:0; accent-color:#2F2B39; }
