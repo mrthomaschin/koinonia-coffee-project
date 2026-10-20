@@ -221,8 +221,8 @@ const Catering: React.FC<CateringProps> = ({
           <h2>A coffee experience to remember.</h2>
           <p>
             Weddings, corporate events, baby showers and more, we're all for it.
-            We believe that regardless of the occasion, a great cup of coffee
-            can bring people together.
+            Regardless of the occasion, a great cup of coffee can bring people
+            together.
           </p>
           <Button as="a" href="#catering-inquiry" onClick={handleQuoteClick}>
             GET YOUR QUOTE
@@ -243,8 +243,8 @@ const Catering: React.FC<CateringProps> = ({
               <p>
                 Every drink is made from our signature speciality coffee beans,
                 roasted fresh for optimal goodness. We also source high-quality
-                ceremonial grade matcha.Your guests will get to taste the drinks
-                we make for ourselves!{" "}
+                ceremonial grade matcha. Your guests will get to taste the
+                drinks we make for ourselves!
               </p>
             </article>
             <article>

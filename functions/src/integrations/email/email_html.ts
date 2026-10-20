@@ -22,7 +22,10 @@ const textStyle = (
 ): string =>
   `font-family:${FONT};font-size:${size}px;line-height:1.5;color:${color};font-weight:${weight};`;
 
-/** One line in an item list: optional image, name, detail lines, and optional price. */
+/**
+ * One line in an item list: optional image, name with detail lines beneath it,
+ * and an optional price in its own right-aligned column so amounts scan down the list.
+ */
 export const itemRowHtml = (item: {
   name: string;
   details?: string[];
@@ -30,23 +33,24 @@ export const itemRowHtml = (item: {
   imageUrl?: string;
 }): string => {
   const image = item.imageUrl
-    ? `<td width="80" valign="top" style="width:80px;padding-right:16px;"><img src="${escapeHtml(item.imageUrl)}" width="64" height="64" border="0" alt="${escapeHtml(item.name)}" style="display:block;width:64px;height:64px;border:1px solid ${HAIRLINE};border-radius:4px;object-fit:cover;"></td>`
+    ? `<td width="88" valign="top" style="width:88px;padding-bottom:16px;padding-right:16px;"><img src="${escapeHtml(item.imageUrl)}" width="72" height="72" border="0" alt="${escapeHtml(item.name)}" style="display:block;width:72px;height:72px;border:1px solid ${HAIRLINE};border-radius:2px;object-fit:cover;"></td>`
     : "";
   const details = (item.details || [])
+    .filter(Boolean)
     .map(
       (detail) =>
-        `<p style="margin:0 0 4px 0;${textStyle(13)}">${escapeHtml(detail)}</p>`,
+        `<p style="margin:0 0 2px 0;${textStyle(13)}">${escapeHtml(detail)}</p>`,
     )
     .join("");
   const price = item.price
-    ? `<p style="margin:4px 0 0 0;${textStyle(14, TEXT, "500")}">${escapeHtml(item.price)}</p>`
+    ? `<td align="right" valign="top" style="padding-bottom:16px;padding-left:16px;white-space:nowrap;${textStyle(15, TEXT, "500")}">${escapeHtml(item.price)}</td>`
     : "";
   return `
 <table ${TABLE} style="border-bottom:1px solid ${HAIRLINE};margin-bottom:16px;">
   <tr>
     ${image}<td valign="top" style="padding-bottom:16px;">
-      <p style="margin:0 0 4px 0;${textStyle(14, TEXT, "500")}">${escapeHtml(item.name)}</p>${details}${price}
-    </td>
+      <p style="margin:0 0 4px 0;${textStyle(15, TEXT, "500")}">${escapeHtml(item.name)}</p>${details}
+    </td>${price}
   </tr>
 </table>`;
 };

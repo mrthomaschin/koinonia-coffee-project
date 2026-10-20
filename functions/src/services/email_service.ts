@@ -97,21 +97,19 @@ export class EmailService {
   static async sendPurchaseNotification(
     purchaseData: PurchaseNotificationData,
   ): Promise<void> {
-    const itemsList = purchaseData.items
-      .map((item, index) => {
-        const itemName = item.variations
-          ? `${item.name} (${item.variations})`
-          : item.name;
-        return [
-          `${index + 1}. ${itemName}`,
-          `   SKU: ${item.sku}`,
-          `   Quantity: ${item.quantity}`,
-          `   Unit Price: ${money(item.price)}`,
-          `   Line Total: ${money(item.price * item.quantity)}`,
-          "",
-        ].join("\n");
-      })
-      .join("\n");
+    const itemsHtml = purchaseData.items
+      .map((item) =>
+        itemRowHtml({
+          name: item.name,
+          details: [
+            item.variations || "",
+            `SKU ${item.sku}`,
+            `Qty ${item.quantity} × ${money(item.price)}`,
+          ],
+          price: money(item.price * item.quantity),
+        }),
+      )
+      .join("");
 
     const subtotal =
       purchaseData.subtotal ||
@@ -127,7 +125,7 @@ export class EmailService {
         variables: {
           customer_email: purchaseData.customerEmail,
           customer_name: purchaseData.customerName || "Customer",
-          order_items: itemsList.trim(),
+          items_html: itemsHtml,
           subtotal: money(subtotal),
           discount_row_html: discountRowHtml(
             purchaseData.discountCode,
@@ -165,10 +163,13 @@ export class EmailService {
           imageUrl = `https://koinoniacoffeeproject.com${imageUrl}`;
         }
         return itemRowHtml({
-          name: item.variations
-            ? `${item.name} (${item.variations})`
-            : item.name,
-          details: [`SKU: ${item.sku}`, `Qty: ${item.quantity}`],
+          name: item.name,
+          details: [
+            item.variations || "",
+            item.quantity > 1
+              ? `Qty ${item.quantity} · ${money(item.price)} each`
+              : `Qty ${item.quantity}`,
+          ],
           price: money(item.price * item.quantity),
           imageUrl:
             imageUrl ||
