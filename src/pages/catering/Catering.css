@@ -309,12 +309,105 @@
   height: 560px !important;
   border-radius: 0 !important;
 }
+.catering-highlights {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8%;
+  padding: 70px 6% 66px;
+  background: #eeece4;
+}
+.catering-highlights-intro h2 {
+  margin: 0 0 24px;
+  font-size: var(--size-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--tracking-h2);
+}
+.catering-highlights-intro > p:not(.ui-eyebrow) {
+  max-width: 460px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--size-body);
+  line-height: 1.7;
+}
+.catering-highlights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 40px;
+  align-content: start;
+}
+.catering-highlights-grid article {
+  padding: 22px 0;
+  border-top: 1px solid rgba(47, 43, 57, 0.28);
+}
+.catering-highlights-grid h3 {
+  margin: 0 0 10px;
+  font-size: var(--size-h3);
+  line-height: var(--lh-h3);
+}
+.catering-highlights-grid p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--size-body);
+  line-height: var(--lh-body);
+}
+.catering-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8%;
+  padding: 66px 6% 62px;
+  background: #f8f5eb;
+}
+.catering-links h2 {
+  margin: 0 0 22px;
+  font-size: var(--size-h3);
+  line-height: var(--lh-h3);
+}
+.catering-links ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.catering-links li {
+  border-top: 1px solid rgba(47, 43, 57, 0.28);
+}
+.catering-links a {
+  display: block;
+  padding: 14px 0;
+  color: inherit;
+  font: 19px var(--font-heading);
+  text-decoration: none;
+}
+.catering-links a:hover {
+  opacity: 0.65;
+}
+.catering-links p:not(.ui-eyebrow) {
+  margin: 18px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--size-body);
+  line-height: var(--lh-body);
+}
 @media (max-width: 700px) {
   .catering-hero,
   .catering-introduction,
   .catering-experience,
   .catering-inquiry,
+  .catering-highlights,
+  .catering-links,
   .catering-faq {
+    grid-template-columns: 1fr;
+  }
+  .catering-highlights,
+  .catering-links {
+    gap: 36px;
+    padding: 58px 24px 56px;
+  }
+  .catering-highlights-intro h2 {
+    font-size: 42px;
+  }
+  .catering-highlights-grid {
     grid-template-columns: 1fr;
   }
   .catering-hero {

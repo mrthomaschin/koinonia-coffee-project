@@ -1,138 +1,22 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import "./Catering.css";
 import { FlashquotesEmbed } from "../../components/FlashquotesEmbed";
 import SEO from "../../components/SEO";
+import trackingService from "../../services/trackingService";
 import { Eyebrow } from "../../components/ui/Typography";
 import Button from "../../components/ui/Button";
+import {
+  CateringPageConfig,
+  HERO_IMAGE,
+  buildStructuredData,
+  cityPages,
+  eventPages,
+  faqsFor,
+  hubPage,
+} from "./cateringPages";
 
-const cateringFaqs = [
-  {
-    question: "Where do you cater?",
-    answer:
-      "We cater events throughout the greater Los Angeles area, including Los Angeles County, Orange County, and the Inland Empire.",
-  },
-  {
-    question: "Is there a travel fee?",
-    answer:
-      "Travel is $1 per mile, round trip from our base in Lawndale, and is included in your custom quote. For most events in Los Angeles, that comes to about $20–$40.",
-  },
-  {
-    question: "What kinds of events do you cater?",
-    answer:
-      "Our mobile coffee cart is available for weddings, markets, corporate events, private gatherings, and more.",
-  },
-  {
-    question: "How do you price your packages?",
-    answer:
-      "Pricing is based on guest count, service length, and travel, and includes the staffing, equipment, and ingredients your event needs. We aim for competitive pricing without settling for less in our quality. Please choose your full service time when you request a quote.",
-  },
-  {
-    question: "How far in advance should I book?",
-    answer:
-      "We recommend booking as early as you can, since each date can only go to one event. We need at least 4 days’ notice to prepare your coffee bar, and events booked within 10 days of the event date include a 10% short-notice fee.",
-  },
-  {
-    question: "What add-ons are available?",
-    answer:
-      "You can add our Selah Decaf Blend, an additional barista, custom cups, custom cart branding, or a latte printer. Select them in the quote form and we’ll include them in your custom quote.",
-  },
-  {
-    question: "What is included in the coffee bar?",
-    answer:
-      "Our standard espresso bar includes hot and iced lattes, mochas, Americanos, and hot chocolate, plus whole milk, oat milk, house-made vanilla syrup, and Lactaid. Our freshly-made matcha and hojicha lattes are included as well. We provide the ingredients and materials and take care of setup, service, and tear-down.",
-  },
-  {
-    question: "Can you set up outside?",
-    answer:
-      "Yes! Our cart is fully self-contained with portable power included, so we can set up almost anywhere, no outlet needed.",
-  },
-  {
-    question: "Do you offer service for night events?",
-    answer:
-      "Yes. We serve both daytime and evening events. For later gatherings, add our Selah Decaf Blend, served alongside our Koin Blend, so guests can enjoy the same coffee bar experience without the caffeine.",
-  },
-  {
-    question: "How do I get a quote?",
-    answer:
-      "Fill out the quote form with a few details about your event, and we’ll follow up with a custom quote.",
-  },
-];
-
-interface AreaServed {
-  "@type": "AdministrativeArea" | "City" | "Place";
-  name: string;
-}
-
-export interface CateringPageConfig {
-  /** Visible h1 on the page. */
-  title: string;
-  /** <title> tag / og:title. */
-  seoTitle: string;
-  description: string;
-  path: string;
-  /** Short label used in the breadcrumb trail, e.g. "Weddings". */
-  breadcrumbName?: string;
-  serviceType?: string;
-  areaServed?: AreaServed[];
-}
-
-const SITE_URL = "https://koinoniacoffeeproject.com";
-const HERO_IMAGE = `${SITE_URL}/assets/images/koinonia-29.jpg`;
-
-const defaultAreaServed: AreaServed[] = [
-  { "@type": "AdministrativeArea", name: "Los Angeles County" },
-  { "@type": "AdministrativeArea", name: "Orange County" },
-  { "@type": "AdministrativeArea", name: "Inland Empire" },
-];
-
-const hubPage: CateringPageConfig = {
-  title: "Coffee cart catering for your next event.",
-  seoTitle: "Coffee Cart Catering Los Angeles | Koinonia Coffee Project",
-  description:
-    "Book a mobile coffee cart for weddings, corporate events, and private gatherings in Los Angeles, Orange County, and the Inland Empire.",
-  path: "/catering",
-};
-
-const buildStructuredData = (page: CateringPageConfig) => {
-  const url = `${SITE_URL}${page.path}`;
-  const breadcrumbs = [
-    { name: "Home", item: `${SITE_URL}/` },
-    { name: "Catering", item: `${SITE_URL}/catering` },
-    ...(page.breadcrumbName ? [{ name: page.breadcrumbName, item: url }] : []),
-  ];
-
-  return [
-    {
-      "@context": "https://schema.org",
-      "@type": "Caterer",
-      name: "Koinonia Coffee Project",
-      url,
-      image: HERO_IMAGE,
-      description: page.description,
-      areaServed: page.areaServed ?? defaultAreaServed,
-      serviceType: page.serviceType ?? "Mobile coffee cart catering",
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: breadcrumbs.map(({ name, item }, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        name,
-        item,
-      })),
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: cateringFaqs.map(({ question, answer }) => ({
-        "@type": "Question",
-        name: question,
-        acceptedAnswer: { "@type": "Answer", text: answer },
-      })),
-    },
-  ];
-};
+export type { CateringPageConfig } from "./cateringPages";
 
 interface CateringProps {
   availableHeight: number;
@@ -147,6 +31,10 @@ const Catering: React.FC<CateringProps> = ({
   const structuredData = React.useMemo(() => buildStructuredData(page), [page]);
   const handleQuoteClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
+    trackingService.trackButtonClick(
+      event.currentTarget.textContent ?? "quote",
+      page.path,
+    );
     const inquirySection = document.getElementById("catering-inquiry");
     if (inquirySection) {
       const targetPosition =
@@ -168,11 +56,8 @@ const Catering: React.FC<CateringProps> = ({
         <div className="catering-hero-copy">
           <Eyebrow>BRING KOINONIA COFFEE PROJECT TO YOU</Eyebrow>
           <h1>{page.title}</h1>
-          <h2>Serving Los Angeles, Orange County, and the Inland Empire.</h2>
-          <p>
-            Bring freshly prepared beverages and warm, professional service to
-            your wedding, corporate event, or private gathering.
-          </p>
+          <h2>{page.heroSubtitle}</h2>
+          <p>{page.intro[0]}</p>
           <Button as="a" href="#catering-inquiry" onClick={handleQuoteClick}>
             GET YOUR CUSTOM QUOTE
           </Button>
@@ -209,6 +94,26 @@ const Catering: React.FC<CateringProps> = ({
           <FlashquotesEmbed />
         </div>
       </section>
+
+      {page.highlights && (
+        <section className="catering-highlights">
+          <div className="catering-highlights-intro">
+            <Eyebrow>{page.highlights.eyebrow}</Eyebrow>
+            <h2>{page.highlights.heading}</h2>
+            {page.intro.slice(1).map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+          <div className="catering-highlights-grid">
+            {page.highlights.items.map(({ title, body }) => (
+              <article key={title}>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="catering-introduction">
         <div className="catering-introduction-image">
@@ -317,6 +222,36 @@ const Catering: React.FC<CateringProps> = ({
         </div>
       </section>
 
+      <nav className="catering-links" aria-label="Catering service areas and events">
+        <div>
+          <Eyebrow>WHERE WE SERVE</Eyebrow>
+          <h2>{page.kind === "city" ? "Other areas we serve." : "Cities we serve."}</h2>
+          <ul>
+            {cityPages
+              .filter(({ path }) => path !== page.path)
+              .map(({ path, navLabel }) => (
+                <li key={path}>
+                  <Link to={path}>{navLabel}</Link>
+                </li>
+              ))}
+          </ul>
+          <p>Have an event somewhere else in Southern California? Ask us, we’re happy to travel.</p>
+        </div>
+        <div>
+          <Eyebrow>WHAT WE CATER</Eyebrow>
+          <h2>{page.kind === "event" ? "Other events we cater." : "Events we cater."}</h2>
+          <ul>
+            {eventPages
+              .filter(({ path }) => path !== page.path)
+              .map(({ path, navLabel }) => (
+                <li key={path}>
+                  <Link to={path}>{navLabel}</Link>
+                </li>
+              ))}
+          </ul>
+        </div>
+      </nav>
+
       <section className="catering-faq" aria-labelledby="catering-faq-title">
         <div className="catering-faq-intro">
           <Eyebrow>GOOD TO KNOW</Eyebrow>
@@ -332,7 +267,7 @@ const Catering: React.FC<CateringProps> = ({
           />
         </div>
         <div className="catering-faq-list">
-          {cateringFaqs.map(({ question, answer }, index) => (
+          {faqsFor(page).map(({ question, answer }, index) => (
             <div
               className={`catering-faq-item${openFaq === index ? " is-open" : ""}`}
               key={question}

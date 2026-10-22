@@ -61,8 +61,8 @@ const Homepage: React.FC<HomepageProps> = ({
   return (
     <main className="homepage">
       <SEO
-        title="Koinonia Coffee Project"
-        description="Specialty coffee, community, and mobile coffee cart experiences from Koinonia Coffee Project."
+        title="Koinonia Coffee Project | Specialty Coffee & Coffee Cart Catering in LA"
+        description="Specialty coffee roasted for community, plus mobile coffee cart catering for weddings and events across Los Angeles, Orange County, and the Inland Empire."
         path="/"
         structuredData={{
           "@context": "https://schema.org",

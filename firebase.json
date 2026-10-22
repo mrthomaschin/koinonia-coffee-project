@@ -5,10 +5,23 @@
   },
   "hosting": {
     "public": "build",
+    "cleanUrls": true,
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "redirects": [
+      {
+        "source": "/events",
+        "destination": "/calendar",
+        "type": 301
+      },
+      {
+        "source": "/events/:eventId",
+        "destination": "/calendar/:eventId",
+        "type": 301
+      }
     ],
     "rewrites": [
       {

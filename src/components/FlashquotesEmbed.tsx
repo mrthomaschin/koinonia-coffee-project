@@ -1,4 +1,5 @@
 import React from "react";
+import trackingService from "../services/trackingService";
 
 export class FlashquotesEmbed extends React.Component {
   private readonly iframeContent = `
@@ -21,9 +22,38 @@ export class FlashquotesEmbed extends React.Component {
     </html>
   `;
 
+  private readonly iframeRef = React.createRef<HTMLIFrameElement>();
+  private formStarted = false;
+
+  // Submissions happen inside Flashquotes' cross-origin frame, so the closest
+  // signal we can see is the visitor clicking into the form, which moves
+  // focus from this window to the iframe.
+  private handleWindowBlur = () => {
+    if (this.formStarted) {
+      return;
+    }
+    window.setTimeout(() => {
+      if (document.activeElement === this.iframeRef.current) {
+        this.formStarted = true;
+        trackingService.trackEvent("quote_form_start", {
+          page_path: window.location.pathname,
+        });
+      }
+    });
+  };
+
+  componentDidMount() {
+    window.addEventListener("blur", this.handleWindowBlur);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("blur", this.handleWindowBlur);
+  }
+
   render() {
     return (
       <iframe
+        ref={this.iframeRef}
         srcDoc={this.iframeContent}
         style={{
           width: "100%",

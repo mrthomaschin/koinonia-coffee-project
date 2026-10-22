@@ -38,6 +38,7 @@ import ChurchPartnership from './pages/church-partnership/ChurchPartnership';
 import ReviewPage from './pages/review/ReviewPage';
 import ReviewUnsubscribePage from './pages/review/ReviewUnsubscribePage';
 import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages/legal/LegalPage';
+import NotFound from './pages/not-found/NotFound';
 
 const MainContent: React.FC = () => {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
@@ -185,7 +186,7 @@ const MainContent: React.FC = () => {
           <Route path="/partner-account" element={<Navigate to="/account-login" replace />} />
           <Route path="/create-account" element={<AccountPage initialMode="create" />} />
           <Route path="/create-partner-account" element={<AccountPage initialMode="create" partnerMode />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound availableHeight={availableHeight} />} />
         </Routes>
         <BottomBar />
       </div>
@@ -194,10 +195,6 @@ const MainContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  useEffect(() => {
-    trackingService.initialize();
-  }, []);
-
   return (
     <BrowserRouter>
       <InventoryProvider>

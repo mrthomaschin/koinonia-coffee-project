@@ -1,0 +1,18 @@
+.not-found-text {
+  margin: 12px 0 24px;
+  color: #2f2b39;
+  font-family: var(--font-body);
+  text-align: center;
+}
+
+.not-found-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 24px;
+}
+
+.not-found-links a {
+  color: #2f2b39;
+  font-family: var(--font-body);
+}

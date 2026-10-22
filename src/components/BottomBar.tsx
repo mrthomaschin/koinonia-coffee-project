@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { ICONS, PAGES } from "../util/constants";
 import NewsletterSignup from "./NewsletterSignup";
+import { cityPages } from "../pages/catering/cateringPages";
 import "./BottomBar.css";
 
 const BottomBar: React.FC = () => (
@@ -53,6 +54,15 @@ const BottomBar: React.FC = () => (
         <Link className="section-link" to={`/${PAGES.CALENDAR}`}>
           Event calendar
         </Link>
+      </nav>
+
+      <nav className="bottom-bar-section" aria-label="Catering service areas">
+        <h2 className="section-title">SERVICE AREAS</h2>
+        {cityPages.map(({ path, navLabel }) => (
+          <Link className="section-link" to={path} key={path}>
+            {navLabel}
+          </Link>
+        ))}
       </nav>
 
       <NewsletterSignup />
