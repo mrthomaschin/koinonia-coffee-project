@@ -83,6 +83,11 @@ const Homepage: React.FC<HomepageProps> = ({
           preload="metadata"
           aria-hidden="true"
         >
+          <source
+            src="/assets/images/Banner-720.mp4"
+            type="video/mp4"
+            media="(max-width: 900px)"
+          />
           <source src="/assets/images/Banner.mp4" type="video/mp4" />
         </video>
         <div className="homepage-hero-overlay" />

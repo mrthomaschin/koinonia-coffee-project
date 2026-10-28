@@ -1,4 +1,4 @@
-import { loadStripe, Stripe } from "@stripe/stripe-js";
+import { loadStripe, Stripe } from "@stripe/stripe-js/pure";
 import { createLogger } from "../util/logger";
 
 const logger = createLogger("StripeService");
@@ -45,12 +45,10 @@ export interface CheckoutQuote {
 }
 
 class StripeService {
-  private stripePromise: Promise<Stripe | null>;
+  private stripePromise: Promise<Stripe | null> | null = null;
   private backendUrl: string;
 
   constructor() {
-    const publishableKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "";
-    this.stripePromise = loadStripe(publishableKey);
     this.backendUrl =
       process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
   }
@@ -138,6 +136,9 @@ class StripeService {
   }
 
   getStripe(): Promise<Stripe | null> {
+    this.stripePromise ??= loadStripe(
+      process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "",
+    );
     return this.stripePromise;
   }
 }

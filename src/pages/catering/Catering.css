@@ -355,7 +355,12 @@
   grid-template-columns: 1fr 1fr;
   gap: 8%;
   padding: 66px 6% 62px;
-  background: #f8f5eb;
+  color: var(--color-pearl);
+  background: var(--color-marina);
+}
+/* Light labels on the dark blue band (eucalyptus is too dark to read here). */
+.catering-links .ui-eyebrow {
+  color: var(--color-sage);
 }
 .catering-links h2 {
   margin: 0 0 22px;
@@ -371,7 +376,7 @@
   list-style: none;
 }
 .catering-links li {
-  border-top: 1px solid rgba(47, 43, 57, 0.28);
+  border-top: 1px solid rgba(248, 245, 235, 0.28);
 }
 .catering-links a {
   display: block;
@@ -381,11 +386,11 @@
   text-decoration: none;
 }
 .catering-links a:hover {
-  opacity: 0.65;
+  color: var(--color-sage);
 }
 .catering-links p:not(.ui-eyebrow) {
   margin: 18px 0 0;
-  color: var(--color-text-secondary);
+  color: rgba(248, 245, 235, 0.78);
   font-size: var(--size-body);
   line-height: var(--lh-body);
 }

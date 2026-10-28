@@ -7,7 +7,7 @@ import {
   useElements,
   AddressElement,
 } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStripe } from "@stripe/stripe-js/pure";
 import ShippingSelector, {
   ShippingOption,
   DEFAULT_SHIPPING_OPTIONS,
@@ -56,17 +56,23 @@ const isFlatRateTier = (id: string): id is FlatRateTier =>
   id === "standard" || id === "express";
 const NON_CONTIGUOUS_STATES = ["AK", "HI", "PR", "VI", "GU", "AS", "MP", "AA", "AE", "AP"];
 
-const stripePromise = loadStripe(
-  process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "",
-)
-  .then((stripe) => {
-    logger.log("[stripe] Stripe.js loaded", { hasStripe: !!stripe });
-    return stripe;
-  })
-  .catch((error) => {
-    logger.error("[stripe] Stripe.js failed to load", error);
-    return null;
-  });
+// Loaded on first checkout render rather than on import, so pages without a
+// checkout (e.g. catering) don't download Stripe.js.
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+const getStripe = () => {
+  stripePromise ??= loadStripe(
+    process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "",
+  )
+    .then((stripe) => {
+      logger.log("[stripe] Stripe.js loaded", { hasStripe: !!stripe });
+      return stripe;
+    })
+    .catch((error) => {
+      logger.error("[stripe] Stripe.js failed to load", error);
+      return null;
+    });
+  return stripePromise;
+};
 const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 
 const formatPickupTimeframe = (start: string, end: string | null): string => {
@@ -1599,7 +1605,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
 
   // Check if Stripe loaded successfully
   useEffect(() => {
-    stripePromise.then((stripe) => {
+    getStripe().then((stripe) => {
       if (!stripe) {
         setStripeLoadError(
           "Stripe.js failed to load. Please refresh the page.",
@@ -1681,7 +1687,7 @@ const EmbeddedCheckout: React.FC<EmbeddedCheckoutProps> = ({
       {stripeLoadError && (
         <div className="error-message">{stripeLoadError}</div>
       )}
-      <Elements stripe={stripePromise} options={options}>
+      <Elements stripe={getStripe()} options={options}>
         <CheckoutForm
           onSuccess={handleSuccess}
           onCancel={onCancel}

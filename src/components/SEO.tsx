@@ -65,7 +65,11 @@ export const SEO: React.FC<SEOProps> = ({
     upsertMeta("name", "twitter:title", title);
     upsertMeta("name", "twitter:description", description);
     upsertMeta("name", "twitter:image", image);
-    upsertLink("canonical", canonicalUrl);
+    if (noIndex) {
+      document.head.querySelector('link[rel="canonical"]')?.remove();
+    } else {
+      upsertLink("canonical", canonicalUrl);
+    }
 
     document.head.querySelector("script[data-koinonia-seo-jsonld]")?.remove();
     if (structuredData) {

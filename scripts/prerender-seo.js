@@ -63,6 +63,8 @@ const renderHead = (page, { SITE_URL, HERO_IMAGE, buildStructuredData }) => {
     `<meta name="twitter:description" content="${description}"/>`,
     `<meta name="twitter:image" content="${HERO_IMAGE}"/>`,
     `<script type="application/ld+json" data-koinonia-seo-jsonld="true">${jsonLd}</script>`,
+    // The hero photo is the largest paint; start fetching it before the JS bundle renders it.
+    `<link rel="preload" as="image" href="${new URL(HERO_IMAGE).pathname}" fetchpriority="high"/>`,
   ].join("");
 };
 

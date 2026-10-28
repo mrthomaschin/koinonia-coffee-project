@@ -54,6 +54,7 @@ export class FlashquotesEmbed extends React.Component {
     return (
       <iframe
         ref={this.iframeRef}
+        loading="lazy"
         srcDoc={this.iframeContent}
         style={{
           width: "100%",
