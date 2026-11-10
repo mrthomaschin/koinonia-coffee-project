@@ -7,26 +7,30 @@
  */
 :root {
   /* ===== Brand colors (Brand Style Guide, 02.2026) ===== */
-  --color-midnight: #2F2B39;
-  --color-marina: #313D66;
-  --color-linen: #CBC5B9;
-  --color-pearl: #F8F5EB;
-  --color-denim: #59667E;
-  --color-smoke: #C2CAD3;
-  --color-eucalyptus: #84825E;
-  --color-sage: #C3C8A4;
+  --color-midnight: #2f2b39;
+  --color-marina: #313d66;
+  --color-linen: #cbc5b9;
+  --color-pearl: #f8f5eb;
+  --color-denim: #59667e;
+  --color-smoke: #c2cad3;
+  --color-eucalyptus: #84825e;
+  --color-sage: #c3c8a4;
 
   /* Semantic aliases */
   --color-text: var(--color-midnight);
-  --color-text-secondary: rgba(47, 43, 57, .76);
-  --color-text-muted: rgba(47, 43, 57, .6);
-  --color-hairline: rgba(47, 43, 57, .18);
+  --color-text-secondary: rgba(47, 43, 57, 0.76);
+  --color-text-muted: rgba(47, 43, 57, 0.6);
+  --color-hairline: rgba(47, 43, 57, 0.18);
   --color-bg: var(--color-pearl);
+  /* Pearl blended ~45% toward Linen, for alternating section bands. */
+  --color-bg-alt: #e4dfd5;
 
   /* ===== Font families ===== */
-  --font-heading: 'HedvigLettersSerif_18pt', Georgia, serif;
-  --font-body: 'RethinkSans-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  --font-accent: 'Besley-Italic', Georgia, serif;
+  --font-heading: "HedvigLettersSerif_18pt", Georgia, serif;
+  --font-body:
+    "RethinkSans-Regular", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", sans-serif;
+  --font-accent: "Besley-Italic", Georgia, serif;
 
   /* =====================================================================
    * Type scale — one role, one size. Reuse these anywhere the same role
@@ -36,13 +40,13 @@
 
   /* Display: page hero h1 */
   --size-display: clamp(48px, 6vw, 76px);
-  --lh-display: .9;
-  --tracking-display: -3px;
+  --lh-display: 0.9;
+  --tracking-display: 0px;
 
   /* Section heading: h2, major section titles within a page */
   --size-h2: clamp(32px, 4vw, 50px);
-  --lh-h2: .9;
-  --tracking-h2: -2px;
+  --lh-h2: 0.9;
+  --tracking-h2: 0px;
 
   /* Sub/card heading: h3, card or sub-section titles */
   --size-h3: 26px;
@@ -56,7 +60,7 @@
 
   /* Eyebrow / kicker label */
   --size-eyebrow: 11px;
-  --tracking-eyebrow: .2em;
+  --tracking-eyebrow: 0.2em;
 
   /* Callout (italic accent copy) */
   --size-callout: 17px;
@@ -75,4 +79,27 @@
   --space-6: 32px;
   --space-7: 48px;
   --space-8: 64px;
+
+  /* =====================================================================
+   * Minimal layout (homepage refresh, 11.2026). Pages move onto these as
+   * they're restyled; once every page uses them, fold the older display/h2/h3
+   * sizes above into these.
+   * ===================================================================== */
+  --radius-control: 4px; /* buttons and form fields */
+  --space-gutter: 5.5vw;
+  --space-section: clamp(64px, 7vw, 104px);
+
+  --size-page-title: clamp(32px, 3.4vw, 50px);
+  --size-section-title: clamp(28px, 2.8vw, 40px);
+  --size-item-title: clamp(22px, 1.9vw, 27px);
+  --lh-title: 1.1;
+  --tracking-title: -0.01em;
+}
+
+@media (max-width: 700px) {
+  :root {
+    --space-gutter: 20px;
+    --space-section: 56px;
+    --size-page-title: clamp(28px, 8vw, 36px);
+  }
 }

@@ -355,7 +355,7 @@ const CoffeeBagDetail: React.FC<CoffeeBagDetailProps> = ({ item, onBack }) => {
       {
         name: "Milk Drink",
         icon: (
-          <img src={ICONS.espresso} alt="Milk Drink" className="brewing-icon" />
+          <img src={ICONS.milkDrink} alt="Milk Drink" className="brewing-icon" />
         ),
         coffee: item.brewingMethods.milkDrink?.dose || "",
         water: item.brewingMethods.milkDrink?.yield || "",

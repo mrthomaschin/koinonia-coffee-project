@@ -61,9 +61,12 @@ const Calendar: React.FC = () => {
       selectedMonth.getMonth() + 1,
       0,
     ).getDate();
-    return Array.from({ length: first.getDay() + count }, (_, index) =>
-      index < first.getDay() ? null : index - first.getDay() + 1,
-    );
+    // Pad to whole weeks so the last row's rule spans the full grid.
+    const cells = Math.ceil((first.getDay() + count) / 7) * 7;
+    return Array.from({ length: cells }, (_, index) => {
+      const day = index - first.getDay() + 1;
+      return day >= 1 && day <= count ? day : null;
+    });
   }, [selectedMonth]);
 
   const eventsOnDay = (day: number): WebsiteEvent[] =>

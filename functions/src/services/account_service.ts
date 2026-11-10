@@ -43,6 +43,7 @@ import {
 import { isNewsletterId, NewsletterId } from "../config/newsletters";
 import { priceCartLines } from "./checkout_pricing";
 import { findReviewedOrderIds } from "../repositories/notion_review_repository";
+import { isFirstTimeCustomer } from "../repositories/notion_order_repository";
 import { itemRowHtml } from "../integrations/email/email_html";
 import { ContentBlock, fetchWebsiteContent } from "./notion_content";
 
@@ -1146,17 +1147,19 @@ export class AccountService {
       })
       .join("\\n");
     const notion = getNotion();
+    const customerName =
+      `${account.user.firstName} ${account.user.lastName}`.trim();
+    const firstTimer = await isFirstTimeCustomer({
+      name: customerName,
+      email: account.user.email,
+      orderId: order.id,
+      orderCreated: order.createdAt,
+    });
     const properties: Record<string, unknown> = {
       Customer: {
-        title: [
-          {
-            text: {
-              content:
-                `${account.user.firstName} ${account.user.lastName}`.trim(),
-            },
-          },
-        ],
+        title: [{ text: { content: customerName } }],
       },
+      "First Timer": { checkbox: firstTimer },
       "Order #": { rich_text: [{ text: { content: order.id } }] },
       Status: { status: { name: "Paid" } },
       Fulfillment: { status: { name: "Pending" } },

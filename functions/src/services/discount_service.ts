@@ -7,6 +7,7 @@ import {
 } from "./account_service";
 import {
   DiscountCode,
+  findAutomaticDiscountCodes,
   findDiscountCode,
   hasPreviousOrders,
 } from "../repositories/notion_discount_repository";
@@ -45,7 +46,11 @@ const contextFor = async (
 });
 
 /** Which rule refused a code. "first-order" means the buyer has ordered before, which won't change. */
-type RuleViolationReason = "subscription" | "partner-pricing" | "first-order";
+type RuleViolationReason =
+  | "subscription"
+  | "no-subscription"
+  | "partner-pricing"
+  | "first-order";
 
 interface RuleViolation {
   reason: RuleViolationReason;
@@ -62,6 +67,13 @@ const ruleViolation = async (
       reason: "subscription",
       message:
         "This code can't be combined with subscriptions. Remove the subscription from your cart to use it.",
+    };
+  }
+  if (discount.subscriptionsOnly && !context.hasSubscription) {
+    return {
+      reason: "no-subscription",
+      message:
+        "This code is for new subscriptions. Add a subscription to your cart to use it.",
     };
   }
   if (discount.noOtherDiscounts && context.hasPartnerPricing) {
@@ -126,9 +138,12 @@ export class DiscountService {
         valid: true,
         code: discount.code,
         percentOff: discount.percentOff,
-        message: discount.firstOrderOnly
-          ? `${discount.percentOff}% off your first order applied!`
-          : `${discount.percentOff}% discount applied!`,
+        subscriptionsOnly: discount.subscriptionsOnly,
+        message: discount.subscriptionsOnly
+          ? `${discount.percentOff}% off your first subscription order applied!`
+          : discount.firstOrderOnly
+            ? `${discount.percentOff}% off your first order applied!`
+            : `${discount.percentOff}% discount applied!`,
       });
     } catch (error: unknown) {
       logger.error("Error validating discount code", {
@@ -162,5 +177,55 @@ export class DiscountService {
     return violation
       ? { ok: false, message: violation.message }
       : { ok: true, discount: lookup.discount };
+  }
+
+  /**
+   * The largest "Automatically Applied" code whose rules this order meets,
+   * used when the customer hasn't entered a code. A Notion error means no
+   * automatic discount rather than a failed checkout.
+   */
+  static async automaticDiscount(
+    account: AccountProfile | null,
+    email: string | null,
+    items: CartLine[],
+  ): Promise<DiscountCode | null> {
+    try {
+      const discounts = await findAutomaticDiscountCodes();
+      if (!discounts.length) return null;
+      const context = await contextFor(
+        account,
+        normalizeNewsletterEmail(email),
+        items,
+      );
+      for (const discount of discounts) {
+        if (!(await ruleViolation(discount, context))) return discount;
+      }
+      return null;
+    } catch (error: unknown) {
+      logger.error("Error finding automatic discount", {
+        error: (error as Error).message,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * POST /automatic-discount — body { items, email? }, with the session token
+   * when signed in. Returns { discount: { code, percentOff, subscriptionsOnly }
+   * } for the cart to show, or { discount: null }.
+   */
+  static async handleAutomatic(req: Request, res: Response): Promise<void> {
+    const discount = await DiscountService.automaticDiscount(
+      await sessionAccount(req).catch(() => null),
+      typeof req.body?.email === "string" ? req.body.email : null,
+      cartLines(req.body?.items),
+    );
+    res.json({
+      discount: discount && {
+        code: discount.code,
+        percentOff: discount.percentOff,
+        subscriptionsOnly: discount.subscriptionsOnly,
+      },
+    });
   }
 }

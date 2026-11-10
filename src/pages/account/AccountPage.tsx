@@ -44,12 +44,11 @@ const AccountPage: React.FC<AccountPageProps> = ({ initialMode = 'login', partne
     }
   };
 
-  if (isLoading) return <main className="account-page"><div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Welcome back.</h1></div></div><div className="account-login-wrap"><p className="account-empty">Loading your profile…</p></div></main>;
+  if (isLoading) return <main className="account-page"><div className="account-login-wrap"><p className="account-empty">Loading your profile…</p></div></main>;
   if (initialMode === 'login' && (!isAuthenticated || !account)) return <Navigate to="/account-login" replace />;
   if (initialMode !== 'create' && isAuthenticated && account) return <AccountLayout />;
 
   return <main className="account-page">
-    <div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Welcome back.</h1></div></div>
     <section className="account-login-wrap"><div className="account-login-card">
       <p className="account-kicker">KOINONIA COFFEE PROJECT</p>
       <h1>{partnerMode ? 'Create a partner account.' : 'Create your account.'}</h1>

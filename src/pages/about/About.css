@@ -1,74 +1,115 @@
+/*
+ * About — same minimal system as the homepage. Bands alternate Pearl and the
+ * soft tint, with one Marina band for the values; photos sit inside the gutters.
+ */
 .about-page {
-  background: #f8f5eb;
-  color: #2f2b39;
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
 .about-eyebrow {
   display: block;
 }
 
+.about-page .about-eyebrow {
+  color: var(--color-text-secondary);
+}
+
+.about-page h1,
+.about-page h2,
+.about-page h3 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+.about-story h2,
+.about-pillar h2,
+.about-future h2,
+.about-values h2,
+.about-cta h2 {
+  margin: var(--space-3) 0 var(--space-6);
+  font-size: var(--size-section-title);
+  line-height: var(--lh-title);
+  letter-spacing: var(--tracking-title);
+}
+
+.about-story-copy p,
+.about-pillar-copy p,
+.about-future-copy p,
+.about-cta p {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--size-body);
+  line-height: var(--lh-body);
+}
+
+.about-story-copy p:last-child,
+.about-pillar-copy p:last-child,
+.about-future-copy p:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Hero: full-bleed photo, type anchored bottom-left (like the homepage) ===== */
 .about-hero {
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: min(78vh, 680px);
+  min-height: 520px;
+  height: min(calc(100vh - 120px), 760px);
   overflow: hidden;
   background: var(--color-midnight);
 }
 
-/* Full-bleed photo behind the copy, darkened toward the bottom-left where the text sits. */
 .about-hero-image {
   position: absolute;
   inset: 0;
 }
 
+/* Only darken the bottom, where the type sits. */
 .about-hero-image::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to top,
-    rgba(28, 25, 34, 0.82) 0%,
-    rgba(28, 25, 34, 0.45) 45%,
-    rgba(28, 25, 34, 0.15) 100%
+    180deg,
+    rgba(20, 21, 17, 0) 40%,
+    rgba(20, 21, 17, 0.55)
   );
 }
 
 .about-hero-copy {
   position: relative;
-  max-width: 820px;
-  padding: 120px 6vw 72px;
+  max-width: 720px;
+  padding: 0 var(--space-gutter) clamp(48px, 6vw, 88px);
   color: var(--color-pearl);
 }
 
-.about-hero .about-eyebrow {
-  color: var(--color-sage);
+.about-page .about-hero .about-eyebrow {
+  color: rgba(248, 245, 235, 0.75);
 }
 
 .about-hero h1 {
-  margin: 22px 0 22px;
+  margin: var(--space-3) 0 var(--space-4);
   color: var(--color-pearl);
-  font:
-    400 clamp(51.2px, 6vw, 84px) "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
-  line-height: 0.94;
+  font-size: var(--size-page-title);
+  line-height: var(--lh-title);
+  letter-spacing: var(--tracking-title);
 }
 
 .about-hero-copy p {
-  max-width: 560px;
+  max-width: 480px;
   margin: 0;
-  color: rgba(248, 245, 235, 0.86);
-  font-size: 15.2px;
-  line-height: 1.65;
+  color: rgba(248, 245, 235, 0.85);
+  font-size: var(--size-body);
+  line-height: var(--lh-body);
 }
 
 .about-hero-image img,
 .about-story-image img,
-.about-project-image img {
+.about-pillar-image img {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
   object-fit: cover;
 }
 
@@ -76,280 +117,150 @@
   object-position: center 40%;
 }
 
-.about-image-caption {
-  position: absolute;
-  right: 28px;
-  bottom: 22px;
-  color: #f8f5eb;
-  font-size: 9.92px;
-  letter-spacing: 0.2em;
-}
-
-.about-story {
+/* ===== Two-column bands: story intro and the three "Why" pillars ===== */
+.about-story,
+.about-pillar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10vw;
-  padding: 100px 6vw 96px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8vw;
+  padding: var(--space-section) var(--space-gutter);
 }
 
-.about-story-intro {
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 0;
-  min-height: 540px;
-  padding: 0;
-}
-
+/* Copy left, photo right. */
 .about-story-intro .about-story-copy {
   grid-column: 1;
   grid-row: 1;
-  max-width: none;
-  padding: 80px 9vw 80px 7vw;
-  align-self: center;
 }
 
 .about-story-intro .about-story-image {
   grid-column: 2;
   grid-row: 1;
-  height: 100%;
 }
 
-.about-story-heading,
-.about-story-copy {
-  max-width: 500px;
+.about-story-copy,
+.about-pillar-copy {
+  max-width: 480px;
 }
 
-.about-story-image {
+.about-story-image,
+.about-pillar-image {
   position: relative;
-  min-height: 540px;
+  aspect-ratio: 4 / 5;
   margin: 0;
+  overflow: hidden;
 }
 
-/* Bottom-left of the photo; the shadow keeps it readable over light parts of the image. */
-.about-story-image .about-image-caption {
-  right: auto;
-  left: 28px;
+/* Landscape, so the three "Why" bands stay short. */
+.about-pillar-image {
+  aspect-ratio: 4 / 3;
+}
+
+.about-image-caption {
+  position: absolute;
+  left: var(--space-5);
+  bottom: var(--space-5);
+  color: var(--color-pearl);
+  font: 10px var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
-.about-image-placeholder {
-  width: 100%;
-  height: 100%;
-  min-height: 540px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #c8c4ba;
-  color: rgba(47, 43, 57, 0.42);
-  font:
-    10px "RethinkSans-Regular",
-    sans-serif;
-  letter-spacing: 2px;
+/* Pearl → tint → Pearl, so each pillar reads as its own band. */
+.about-pillar--coffee {
+  background: var(--color-bg-alt);
 }
 
-.about-index {
-  display: block;
-  margin-bottom: 20px;
-  color: #84825e;
-  font:
-    19.2px "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
+.about-pillar--reverse .about-pillar-image {
+  order: 2;
 }
 
-.about-story h2,
-.about-pillar h2,
-.about-project h2,
-.about-future h2,
-.about-values h2,
-.about-cta h2 {
-  margin: 26px 0 0;
-  font:
-    400 clamp(40px, 4.2vw, 59.2px) "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
-  line-height: 0.98;
-}
-
-.about-story-copy {
-  padding-top: 3px;
-}
-
-.about-story-copy p,
-.about-pillar-copy p,
-.about-project-copy p,
-.about-future-copy p,
-.about-cta p {
-  margin: 0 0 22px;
-  color: #65626b;
-  font-size: 14.4px;
-  line-height: 1.8;
-}
-
-.about-story-copy p:last-child,
-.about-pillar-copy p:last-child,
-.about-project-copy p:last-child,
-.about-future-copy p:last-child {
-  margin-bottom: 0;
-}
-
-.about-project {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  min-height: 540px;
-  background: #bfc8d4;
-}
-
-.about-project-image {
-  min-height: 540px;
-}
-
-.about-project-image img {
-  object-position: center;
-}
-
-.about-project-copy {
-  padding: 80px 9vw 80px 7vw;
-  align-self: center;
-}
-
-.about-project-copy .about-eyebrow,
-.about-project-copy .about-index {
-  color: #56647f;
-}
-
-.about-project-copy h2 {
-  margin-bottom: 48px;
-}
-
-.about-story-copy h2 {
-  margin-bottom: 48px;
-}
-
-.about-project-copy p {
-  color: #525b6a;
-}
-
+/* ===== Values: the Marina band ===== */
 .about-values {
-  padding: 96px 6vw 102px;
+  padding: var(--space-section) var(--space-gutter);
   color: var(--color-pearl);
   background: var(--color-marina);
 }
 
-/* Light labels on the dark blue band (eucalyptus is too dark to read here). */
-.about-values .about-eyebrow {
-  color: var(--color-sage);
-}
-
-.about-values-header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 40px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(248, 245, 235, 0.28);
+.about-page .about-values .about-eyebrow,
+.about-value-card > span,
+.about-value-card p {
+  color: rgba(248, 245, 235, 0.75);
 }
 
 .about-values-header h2 {
-  margin-top: 25px;
-}
-
-.about-values-header p {
-  max-width: 230px;
-  margin: 0 0 2px;
-  color: rgba(248, 245, 235, 0.78);
-  font-size: 12.48px;
-  line-height: 1.5;
-  text-align: right;
+  margin-bottom: var(--space-7);
 }
 
 .about-values-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 5vw;
 }
 
+/* A thin rule over each value keeps the three columns distinct. */
 .about-value-card {
-  min-height: 194px;
-  padding: 30px 22px 20px;
-  border-right: 1px solid rgba(248, 245, 235, 0.2);
-}
-
-.about-value-card:first-child {
-  padding-left: 22px;
-}
-
-.about-value-card:last-child {
-  border-right: 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(248, 245, 235, 0.25);
 }
 
 .about-value-card > span {
-  color: var(--color-sage);
-  font-size: 15px;
-  letter-spacing: 0.15em;
+  display: block;
+  font: var(--size-eyebrow) var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
 }
 
 .about-value-card h3 {
-  margin: 22px 0 8px;
-  font:
-    400 28.8px "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
-  line-height: 1;
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: var(--size-item-title);
+  line-height: 1.15;
 }
 
 .about-value-card p {
   max-width: 320px;
   margin: 0;
-  color: rgba(248, 245, 235, 0.8);
-  /* Same body size as the story, pillar and future sections. */
-  font-size: 14.4px;
-  line-height: 1.8;
+  font-size: var(--size-body);
+  line-height: var(--lh-body);
 }
 
+/* ===== What's next: centered text on the tint ===== */
 .about-future {
-  background: #c8c4ba;
+  background: var(--color-bg-alt);
 }
 
-/* Text-only band, centered. */
 .about-future-copy {
-  max-width: 680px;
+  max-width: 600px;
   margin: 0 auto;
-  padding: 96px 6vw 100px;
+  padding: var(--space-section) var(--space-gutter);
   text-align: center;
-}
-
-.about-future-copy h2 {
-  margin: 25px 0 24px;
 }
 
 /* Small brand mark that closes the section. The source SVG is black, so it is used as a
    mask and filled with the brand blue. */
 .about-future-mark {
   display: block;
-  width: 36px;
-  height: 36px;
-  margin: 56px auto 0;
+  width: 32px;
+  height: 32px;
+  margin: var(--space-7) auto 0;
   background: var(--color-marina);
   /* --about-mark is set inline (see About.tsx) so the build doesn't try to bundle the public asset. */
   -webkit-mask: var(--about-mark) center / contain no-repeat;
   mask: var(--about-mark) center / contain no-repeat;
 }
 
-.about-future-copy p {
-  color: #5d5b60;
-}
-
+/* ===== Newsletter CTA ===== */
 .about-cta {
-  padding: 102px 24px 110px;
+  padding: var(--space-section) var(--space-gutter);
   text-align: center;
 }
 
 .about-cta h2 {
-  margin-top: 25px;
+  margin-bottom: var(--space-4);
 }
 
 .about-cta p {
-  max-width: 830px;
-  margin: 30px auto 28px;
+  max-width: 480px;
+  margin: 0 auto var(--space-6);
 }
 
 .about-newsletter-form {
@@ -362,106 +273,19 @@
   margin: 10px 0 0;
 }
 
-.about-cta-verse {
-  max-width: 700px;
-  margin: 84px auto 0;
-  color: rgba(47, 43, 57, 0.42);
-  font:
-    italic 16px "Besley-Italic",
-    Georgia,
-    serif;
-  line-height: 1.6;
-  padding-top: 30px;
-}
-
-/* Pillars: Why Koinonia / Why Coffee / Why Project. Image and copy alternate sides. */
-.about-pillar {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  min-height: 540px;
-  background: var(--about-pillar-bg);
-}
-
-.about-pillar--koinonia {
-  --about-pillar-bg: #e7e8dd;
-}
-
-.about-pillar--coffee {
-  --about-pillar-bg: #c7c2b8;
-}
-
-.about-pillar--project {
-  --about-pillar-bg: #bfc8d4;
-}
-
-.about-pillar--reverse {
-  grid-template-columns: 0.9fr 1.1fr;
-}
-
-.about-pillar--reverse .about-pillar-image {
-  order: 2;
-}
-
-/* The photo fills the band; the copy (or min-height) sets the band's height, not the photo. */
-.about-pillar-image {
-  position: relative;
-  min-height: 540px;
-  overflow: hidden;
-}
-
-.about-pillar-image img {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.about-pillar-copy {
-  align-self: center;
-  padding: 80px 9vw 80px 7vw;
-}
-
-.about-pillar-copy h2 {
-  margin-bottom: 48px;
+/* Scoped tighter than `.about-cta p` so it wins over the section's body copy. */
+.about-page .about-cta .about-cta-verse {
+  max-width: 600px;
+  margin: var(--space-8) auto 0;
+  color: var(--color-text-muted);
+  font: italic var(--size-callout) / 1.6 var(--font-accent);
 }
 
 @media (max-width: 768px) {
-  .about-hero,
   .about-story,
-  .about-project {
+  .about-pillar {
     grid-template-columns: 1fr;
-  }
-
-  .about-hero {
-    min-height: 560px;
-  }
-
-  .about-hero-copy {
-    padding: 140px 24px 56px;
-  }
-
-  .about-hero h1 {
-    font-size: 52px;
-  }
-
-  .about-project-image {
-    min-height: 340px;
-  }
-
-  .about-image-caption {
-    bottom: 16px;
-  }
-
-  .about-story {
-    gap: 42px;
-    padding: 70px 24px;
-  }
-
-  .about-story-intro {
-    gap: 0;
-    padding: 0;
+    gap: var(--space-7);
   }
 
   .about-story-intro .about-story-copy,
@@ -470,64 +294,15 @@
     grid-row: auto;
   }
 
-  .about-story-intro .about-story-copy {
-    padding: 64px 24px 72px;
-  }
-
-  .about-project-copy,
-  .about-pillar-copy,
-  .about-future-copy {
-    padding: 64px 24px 72px;
-  }
-
-  .about-pillar,
-  .about-pillar--reverse {
-    grid-template-columns: 1fr;
-  }
-
+  /* Photo above the copy on phones. */
+  .about-story-intro .about-story-image,
+  .about-pillar-image,
   .about-pillar--reverse .about-pillar-image {
-    order: 0;
-  }
-
-  .about-pillar-image {
-    min-height: 340px;
-  }
-
-  .about-story-image,
-  .about-image-placeholder {
-    min-height: 340px;
-  }
-
-  .about-values {
-    padding: 70px 24px;
-  }
-
-  .about-values-header {
-    display: block;
-  }
-
-  .about-values-header p {
-    margin-top: 20px;
-    text-align: left;
+    order: -1;
   }
 
   .about-values-grid {
     grid-template-columns: 1fr;
-  }
-
-  .about-value-card,
-  .about-value-card:first-child {
-    min-height: auto;
-    padding: 28px 0;
-    border-right: 0;
-    border-bottom: 1px solid rgba(248, 245, 235, 0.2);
-  }
-
-  .about-value-card:last-child {
-    border-bottom: 0;
-  }
-
-  .about-cta {
-    padding: 78px 24px 90px;
+    gap: var(--space-7);
   }
 }

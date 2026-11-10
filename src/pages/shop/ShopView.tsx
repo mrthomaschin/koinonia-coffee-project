@@ -12,18 +12,23 @@ import ShopFilterPanel from './ShopFilterPanel';
 import { EMPTY_FILTERS, ShopFilters, buildFilterOptions, matchesFilters } from './shopFilters';
 import { useInventory } from '../../contexts/InventoryContext';
 import SEO from '../../components/SEO';
+import { ShopCategory } from './shopCategories';
 
 interface ShopProps {
   availableHeight: number;
+  category: ShopCategory;
 }
 
-const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
+const Shop: React.FC<ShopProps> = ({ availableHeight, category }) => {
   const navigate = useNavigate();
   const { items, isLoading, error } = useInventory();
   const [sortBy, setSortBy] = useState<SortBy>(SortBy.DEFAULT);
   const [filters, setFilters] = useState<ShopFilters>(EMPTY_FILTERS);
 
-  const visibleItems = useMemo(() => items.filter(isConsumerVisible), [items]);
+  const visibleItems = useMemo(
+    () => items.filter(item => isConsumerVisible(item) && category.includes(item)),
+    [items, category],
+  );
   const filterOptions = useMemo(() => buildFilterOptions(visibleItems), [visibleItems]);
 
   const sortedItems = useMemo(() => {
@@ -54,12 +59,14 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
     navigate(`/shop/${slug}`);
   }, [navigate]);
 
+  const seo = <SEO title={category.seoTitle} description={category.description} path={category.path} />;
+
   if (isLoading) {
     return (
       <div className="shop-page" style={{ minHeight: availableHeight }}>
-        <SEO title="Koinonia Coffee Project | All Coffee & Merch" description="Shop thoughtfully roasted coffee, apparel, and merch from Koinonia Coffee Project." path="/shop" />
+        {seo}
         <div className="shop-header">
-          <h1 className="shop-title">Products</h1>
+          <h1 className="shop-title">{category.title}</h1>
         </div>
         <div style={{
           display: 'flex',
@@ -76,10 +83,10 @@ const Shop: React.FC<ShopProps> = ({ availableHeight }) => {
 
   return (
     <div className="shop-page" style={{ minHeight: availableHeight }}>
-      <SEO title="Koinonia Coffee Project | All Coffee & Merch" description="Shop thoughtfully roasted coffee, apparel, and merch from Koinonia Coffee Project." path="/shop" />
+      {seo}
       <header className="shop-header">
         <div>
-          <h1 className="shop-title">Shop</h1>
+          <h1 className="shop-title">{category.title}</h1>
         </div>
       </header>
 

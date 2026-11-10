@@ -15,7 +15,7 @@ export interface Announcement {
  * The next roast date is added automatically by useAnnouncements.
  */
 export const ANNOUNCEMENTS: Announcement[] = [
-  { id: 'free-shipping', message: 'Free shipping on orders over $40', href: '/shop' },
+  { id: 'free-shipping', message: 'Free shipping on orders over $40', href: '/shop/coffee' },
 ];
 
 export const isAnnouncementActive = (announcement: Announcement, now: Date = new Date()): boolean => {

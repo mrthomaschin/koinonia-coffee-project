@@ -30,8 +30,8 @@ const logger = createLogger("newsletter");
  */
 const CONSENT_LOG_COLLECTION = "newsletter_consent_log";
 
-export type NewsletterSource = "footer" | "checkout" | "about" | "account" | "email-change";
-const PUBLIC_SOURCES: NewsletterSource[] = ["footer", "checkout", "about"];
+export type NewsletterSource = "footer" | "checkout" | "about" | "homepage" | "account" | "email-change";
+const PUBLIC_SOURCES: NewsletterSource[] = ["footer", "checkout", "about", "homepage"];
 
 export interface NewsletterPreference {
   id: NewsletterId;

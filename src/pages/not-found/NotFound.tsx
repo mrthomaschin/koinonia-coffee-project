@@ -29,7 +29,7 @@ const NotFound: React.FC<NotFoundProps> = ({ availableHeight }) => (
     <nav className="not-found-links" aria-label="Popular pages">
       <Link to="/">Home</Link>
       <Link to="/catering">Coffee cart catering</Link>
-      <Link to="/shop">Shop coffee</Link>
+      <Link to="/shop/coffee">Shop coffee</Link>
     </nav>
   </main>
 );

@@ -3,9 +3,9 @@ export const PAGES = {
   MENU: 'menu',
   SHOP: 'shop',
   ABOUT: 'about',
-  GALLERY: 'gallery',
   CATERING: 'catering',
   CHURCH_PARTNERSHIP: 'church-partnership',
+  INITIATIVES: 'initiatives',
   CALENDAR: 'calendar',
   CONTACT: 'contact',
   CART: 'cart',
@@ -22,9 +22,11 @@ export const ICONS = {
   emailIcon: '/assets/icons/icons8-mail-50.svg',
   heroImage: 'https://firebasestorage.googleapis.com/v0/b/koinonia-coffee-project.firebasestorage.app/o/products%2FDSCF3464.jpg?alt=media&token=c31db4d4-a0b4-41ac-ba33-81f729615366',
   shopPlaceholder: '/assets/images/shop_placeholder.png',
-  v60: '/assets/icons/v60.png',
-  chemex: '/assets/icons/chemex.png',
-  espresso: '/assets/icons/espresso.png'
+  // Brew-guide line icons (single dripper, batch dripper, espresso, milk drink).
+  v60: '/assets/icons/brew-dripper.svg',
+  chemex: '/assets/icons/brew-batch.svg',
+  espresso: '/assets/icons/brew-espresso.svg',
+  milkDrink: '/assets/icons/brew-milk.svg'
 } as const;
 
 export const ASSETS = {

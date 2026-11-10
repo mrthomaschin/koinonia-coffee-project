@@ -4,6 +4,7 @@ import "./Homepage.css";
 import SEO from "../../components/SEO";
 import { Eyebrow } from "../../components/ui/Typography";
 import Button from "../../components/ui/Button";
+import NewsletterPopup from "../../components/NewsletterPopup";
 import { useInventory } from "../../contexts/InventoryContext";
 import {
   Item,
@@ -60,6 +61,7 @@ const Homepage: React.FC<HomepageProps> = ({
 
   return (
     <main className="homepage">
+      <NewsletterPopup />
       <SEO
         title="Koinonia Coffee Project | Specialty Coffee & Coffee Cart Catering in LA"
         description="Specialty coffee roasted for community, plus mobile coffee cart catering for weddings and events across Los Angeles, Orange County, and the Inland Empire."
@@ -101,7 +103,9 @@ const Homepage: React.FC<HomepageProps> = ({
             <span className="hero-nowrap">Cultivating community,</span> <br />
             one cup at a time.
           </h1>
-          <Button onClick={scrollToContent}>EXPLORE KOINONIA</Button>
+          <Button variant="text" onClick={scrollToContent}>
+            EXPLORE KOINONIA
+          </Button>
         </div>
       </section>
 
@@ -149,7 +153,7 @@ const Homepage: React.FC<HomepageProps> = ({
             Specialty coffee, roasted fresh with the love of the craft. Click on
             the button below to view our current offerings.
           </p>
-          <Button as={Link} to="/shop" variant="text">
+          <Button as={Link} to="/shop/coffee" variant="text">
             SHOP COFFEE
           </Button>
         </article>
@@ -187,11 +191,6 @@ const Homepage: React.FC<HomepageProps> = ({
                     alt={item.name}
                     loading="lazy"
                   />
-                  {item.itemType === ItemType.coffee && (
-                    <span className="featured-card-tag">
-                      Subscribe and save!
-                    </span>
-                  )}
                 </span>
                 <span className="featured-card-copy">
                   <strong>{item.name}</strong>
@@ -201,6 +200,11 @@ const Homepage: React.FC<HomepageProps> = ({
                   <span className="featured-card-price">
                     ${item.price.toFixed(2)}
                   </span>
+                  {item.itemType === ItemType.coffee && (
+                    <span className="featured-card-note">
+                      Subscribe and save
+                    </span>
+                  )}
                 </span>
               </Link>
             ))}

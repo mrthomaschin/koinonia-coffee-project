@@ -29,7 +29,7 @@ export const useAnnouncements = (): Announcement[] => {
       announcements.push({
         id: 'next-roast',
         message: `Next roast: ${formatRoastDate(upcoming[0])}`,
-        href: '/shop',
+        href: '/shop/coffee',
       });
     }
     return announcements;

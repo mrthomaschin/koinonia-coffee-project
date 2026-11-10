@@ -19,6 +19,7 @@ import { cateringSubpages } from './pages/catering/subpages';
 import Calendar, { EventDetail } from './pages/calendar/Calendar';
 import Shop from './pages/shop/ShopView';
 import { ItemView } from './pages/shop/item/ItemView';
+import { SHOP_CATEGORIES } from './pages/shop/shopCategories';
 import About from './pages/about/About';
 import Menu from './pages/menu/Menu';
 import CartView from './pages/cart/CartView';
@@ -33,8 +34,8 @@ import AccountLoginPage from './pages/account/AccountLoginPage';
 import VerifyEmailPage from './pages/account/VerifyEmailPage';
 import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
-import Gallery from './pages/gallery/Gallery';
 import ChurchPartnership from './pages/church-partnership/ChurchPartnership';
+import Initiatives from './pages/initiatives/Initiatives';
 import ReviewPage from './pages/review/ReviewPage';
 import ReviewUnsubscribePage from './pages/review/ReviewUnsubscribePage';
 import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages/legal/LegalPage';
@@ -88,16 +89,21 @@ const MainContent: React.FC = () => {
               )
             }
           />
-          <Route
-            path="/shop"
-            element={
-              isPageEnabled(PAGES.SHOP) ? (
-                <Shop availableHeight={availableHeight} />
-              ) : (
-                <ComingSoon availableHeight={availableHeight} />
-              )
-            }
-          />
+          {/* The all-products page was split by category; old /shop links land on coffee. */}
+          <Route path="/shop" element={<Navigate to={SHOP_CATEGORIES.coffee.path} replace />} />
+          {Object.values(SHOP_CATEGORIES).map((category) => (
+            <Route
+              key={category.key}
+              path={category.path}
+              element={
+                isPageEnabled(PAGES.SHOP) ? (
+                  <Shop availableHeight={availableHeight} category={category} />
+                ) : (
+                  <ComingSoon availableHeight={availableHeight} />
+                )
+              }
+            />
+          ))}
           <Route
             path="/shop/:slug"
             element={
@@ -132,6 +138,7 @@ const MainContent: React.FC = () => {
             />
           ))}
           <Route path={`/${PAGES.CHURCH_PARTNERSHIP}`} element={<ChurchPartnership />} />
+          <Route path={`/${PAGES.INITIATIVES}`} element={<Initiatives />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/calendar/:eventId" element={<EventDetail />} />
           <Route
@@ -154,7 +161,6 @@ const MainContent: React.FC = () => {
               )
             }
           />
-          <Route path="/gallery" element={<Gallery />} />
           <Route path="/terms-of-service" element={<TermsOfServicePage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/refund-policy" element={<RefundPolicyPage />} />

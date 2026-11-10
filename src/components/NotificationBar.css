@@ -1,6 +1,7 @@
 .notification-bar {
+  /* Height is matched by the AppBar's sticky top offset (AppBar.css). */
   height: 40px;
-  background-color: #84825e;
+  background-color: var(--color-midnight);
   position: sticky;
   top: 0;
   z-index: 1001;
@@ -21,11 +22,12 @@
 }
 
 .notification-message {
-  font-family: "ShipporiAntiqueB1", sans-serif;
-  font-size: 13px;
+  font-family: var(--font-body);
+  font-size: var(--size-eyebrow);
   font-weight: 400;
-  color: #ffffff;
-  letter-spacing: 0.5px;
+  color: var(--color-pearl);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -36,6 +38,8 @@
 .notification-link {
   color: inherit;
   text-decoration: none;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .notification-link:hover,
@@ -43,10 +47,11 @@
   text-decoration: underline;
 }
 
+/* A gentle fade-up as each announcement rotates in. */
 @keyframes notification-slide-in {
   from {
     opacity: 0;
-    transform: translateX(60px);
+    transform: translateY(6px);
   }
 
   to {
@@ -67,6 +72,7 @@
   }
 
   .notification-message {
-    font-size: 11px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
   }
 }

@@ -38,7 +38,6 @@ const VerifyEmailPage: React.FC = () => {
   }, [token, applyVerifiedAccount]);
 
   return <main className="account-page">
-    <div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Confirm your email.</h1></div></div>
     <section className="account-login-wrap"><div className="account-login-card" aria-live="polite">
       <p className="account-kicker">KOINONIA COFFEE PROJECT</p>
       {state.status === 'verifying' && <><h1>Confirming…</h1><p className="account-intro">One moment while we confirm your email.</p></>}

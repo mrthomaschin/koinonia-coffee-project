@@ -8,6 +8,7 @@ import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
 import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
 import { EmailService } from "./email_service";
+import { isFirstTimeCustomer } from "../repositories/notion_order_repository";
 const logger = createLogger("notion");
 
 const getNextRoastDateForInventory = async (): Promise<string | null> => {
@@ -585,11 +586,21 @@ export class NotionService {
                 });
             }
 
+            const firstTimer = await isFirstTimeCustomer({
+                name: customerName,
+                email: customerEmail,
+                orderId,
+                orderCreated: orderDate,
+            });
+
             const response = await notion.pages.create({
                 parent: {
                     database_id: databaseId,
                 },
                 properties: {
+                    "First Timer": {
+                        checkbox: firstTimer,
+                    },
                     "Customer": {
                         title: [
                             {

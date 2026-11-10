@@ -22,7 +22,8 @@ interface NavigationProviderProps {
 }
 
 const getPageFromPath = (pathname: string): PageType => {
-  const path = pathname.slice(1);
+  // First path segment, so nested routes (/shop/coffee, /catering/torrance) highlight their section.
+  const path = pathname.split('/')[1] || '';
   const pageValues = Object.values(PAGES);
   return pageValues.includes(path as PageType) ? (path as PageType) : PAGES.HOME;
 };

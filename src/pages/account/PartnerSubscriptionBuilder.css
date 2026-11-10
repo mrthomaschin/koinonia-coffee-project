@@ -1,28 +1,29 @@
 .partner-order-catalog { margin: 24px 0 40px; }
 .partner-order-intro { margin-bottom: 26px; }
-.partner-order-intro > span { display: inline-block; padding: 5px 15px; border: 1px solid #625f58; border-radius: 6px; font-size: 12px; font-weight: 600; letter-spacing: .07em; }
-.partner-order-intro h3 { margin: 28px 0 18px; font-size: 28px; }
-.partner-order-intro p { color: #69665f; }
-.partner-order-search { display: grid; max-width: 360px; gap: 7px; margin: 0 0 38px; color: #69665f; font-size: 12px; }
-.partner-order-search input { padding: 11px 13px; border: 1px solid #aaa89e; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-size: 14px; }
+.partner-order-intro > span { display: inline-block; padding: 5px 15px; border: 1px solid var(--color-text); font-size: 12px; font-weight: 600; letter-spacing: .07em; }
+.partner-order-intro h3 { margin: 28px 0 18px; font-size: var(--size-item-title); }
+.partner-order-intro p { color: var(--color-text-secondary); }
+.partner-order-search { display: grid; max-width: 360px; gap: 7px; margin: 0 0 38px; color: var(--color-text-secondary); font-size: 12px; }
+.partner-order-search input { padding: 11px 13px; border: 1px solid rgba(47, 43, 57, .3); border-radius: var(--radius-control); background: transparent; color: inherit; font: inherit; font-size: 14px; }
 .partner-order-table-wrap { width: 100%; overflow-x: auto; }
 .partner-order-table { width: 100%; border-collapse: collapse; text-align: left; }
-.partner-order-table th { padding: 12px 14px; color: #68655e; font-size: 13px; font-weight: 600; }
-.partner-order-table td { padding: 14px; border-top: 1px solid #deddd7; vertical-align: top; }
+.partner-order-table th { padding: 12px 14px; color: var(--color-text-secondary); font-size: var(--size-eyebrow); font-weight: 400; letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; }
+.partner-order-table td { padding: 14px; border-top: 1px solid var(--color-hairline); vertical-align: top; }
 .partner-order-table th:first-child, .partner-order-table td:first-child { padding-left: 0; }
 .partner-order-product { display: flex; min-width: 270px; gap: 18px; align-items: center; }
-.partner-order-product img { width: 90px; height: 74px; object-fit: contain; background: #eeeee2; }
+.partner-order-product img { width: 90px; height: 74px; object-fit: contain; background: var(--color-bg-alt); }
 .partner-order-product span { display: grid; gap: 5px; }
-.partner-order-product strong { font-size: 15px; }
-.partner-order-product small, .partner-order-price small { color: #6d6a64; }
+.partner-order-product strong { font: 400 17px var(--font-heading); }
+.partner-order-product small, .partner-order-price small { color: var(--color-text-secondary); }
 .partner-order-price { min-width: 124px; white-space: nowrap; }
 .partner-order-price strong, .partner-order-price small, .partner-order-price s { display: block; }
-.partner-order-price s { color: #777; }
-.partner-order-table input[type='number'] { width: 82px; padding: 9px 8px; border: 1px solid #aaa89e; border-radius: 4px; background: transparent; color: inherit; }
+.partner-order-price s { color: var(--color-text-muted); }
+.partner-order-table input[type='number'] { width: 82px; padding: 9px 8px; border: 1px solid rgba(47, 43, 57, .3); border-radius: var(--radius-control); background: transparent; color: inherit; }
 .partner-order-table input:disabled { opacity: .5; }
 .partner-order-total { min-width: 120px; font-weight: 600; white-space: nowrap; }
-.partner-order-add { padding: 9px 14px; border: 1px solid #38362f; border-radius: 4px; background: #38362f; color: white; cursor: pointer; }
+.partner-order-add { padding: 10px 16px; border: 0; border-radius: var(--radius-control); background: var(--color-midnight); color: var(--color-pearl); font: var(--size-eyebrow) var(--font-body); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; transition: background-color .2s ease; }
+.partner-order-add:hover:not(:disabled) { background: var(--color-marina); }
 .partner-order-add:disabled { opacity: .4; cursor: not-allowed; }
-.partner-order-empty { color: #69665f; text-align: center; }
+.partner-order-empty { color: var(--color-text-secondary); text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 700px) { .partner-order-product { min-width: 220px; gap: 10px; } .partner-order-product img { width: 62px; height: 62px; } .partner-order-table th, .partner-order-table td { padding: 12px 9px; } }

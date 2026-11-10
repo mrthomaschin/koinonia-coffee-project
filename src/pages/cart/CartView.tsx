@@ -16,7 +16,10 @@ import {
   CheckoutQuote,
   stripeService,
 } from "../../services/stripeService";
-import { validateDiscountCode } from "../../services/discountService";
+import {
+  fetchAutomaticDiscount,
+  validateDiscountCode,
+} from "../../services/discountService";
 import {
   clearPendingDiscountCode,
   getPendingDiscountCode,
@@ -61,11 +64,11 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
   );
   const discountAmount = useMemo(
     () => viewModel.getDiscountAmount(),
-    [viewModel.discountCode, subtotal],
+    [viewModel.discountCode, viewModel.automaticDiscount, subtotal],
   );
   const subtotalAfterDiscount = useMemo(
     () => viewModel.getSubtotalAfterDiscount(),
-    [viewModel.discountCode, subtotal],
+    [viewModel.discountCode, viewModel.automaticDiscount, subtotal],
   );
   const isEmpty = useMemo(
     () => viewModel.cartItems.length === 0,
@@ -231,6 +234,32 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
     [viewModel.cartItems],
   );
 
+  // Shows the promotion checkout will apply without a code (like a launch
+  // discount on new subscriptions). It's looked up again when the cart's
+  // subscriptions or sign-in change; the server applies it at checkout.
+  const automaticDiscountKey = JSON.stringify([
+    discountCartLines(),
+    token || "",
+  ]);
+  useEffect(() => {
+    if (!viewModel.cartItems.length) return;
+    let cancelled = false;
+    fetchAutomaticDiscount(discountCartLines(), token)
+      .catch((error) => {
+        logger.error("[discount] Could not load automatic discount:", error);
+        return null;
+      })
+      .then((discount) => {
+        if (cancelled) return;
+        viewModel.automaticDiscount = discount;
+        setUpdateTrigger((prev) => prev + 1);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [automaticDiscountKey]);
+
   const handleApplyDiscount = useCallback(async () => {
     if (!discountCodeInput.trim()) {
       showToast("Please enter a discount code", "error");
@@ -245,7 +274,11 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
       );
 
       if (data.valid && data.code && data.percentOff) {
-        viewModel.setDiscountCode(data.code, data.percentOff);
+        viewModel.setDiscountCode(
+          data.code,
+          data.percentOff,
+          data.subscriptionsOnly,
+        );
         setUpdateTrigger((prev) => prev + 1);
         forceUpdate();
         showToast(data.message, "success");
@@ -316,7 +349,11 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
         ) {
           return;
         }
-        viewModel.setDiscountCode(result.code, result.percentOff);
+        viewModel.setDiscountCode(
+          result.code,
+          result.percentOff,
+          result.subscriptionsOnly,
+        );
         setUpdateTrigger((prev) => prev + 1);
         forceUpdate();
         showToast(
@@ -750,6 +787,22 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
           <h2 className="summary-title">Order Summary</h2>
           <div className="discount-code-section">
             <h3>Discount Code</h3>
+            {!viewModel.discountCode && viewModel.automaticDiscount && (
+              <div className="discount-applied">
+                <div className="discount-info">
+                  <span className="discount-code-text">
+                    {viewModel.automaticDiscount.code}
+                  </span>
+                  <span className="discount-percent">
+                    ({viewModel.automaticDiscount.percentOff}% off
+                    {viewModel.automaticDiscount.subscriptionsOnly
+                      ? " your first subscription order"
+                      : ""}
+                    , applied automatically)
+                  </span>
+                </div>
+              </div>
+            )}
             {!viewModel.discountCode ? (
               <div className="discount-input-group">
                 <input
@@ -804,11 +857,11 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
             <span className="summary-label">Shipping</span>
             <span className="summary-value">Calculated at checkout</span>
           </div>
-          {viewModel.discountCode && (
+          {viewModel.getAppliedDiscount() && (
             <>
               <div className="summary-row discount-row">
                 <span className="summary-label">
-                  Discount ({viewModel.discountCode.code}):
+                  Discount ({viewModel.getAppliedDiscount()?.code}):
                 </span>
                 <span className="summary-value discount-value">
                   -${discountAmount.toFixed(2)}

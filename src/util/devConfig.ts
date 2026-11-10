@@ -11,7 +11,6 @@ export const DEV_FLAGS = {
   ENABLE_CATERING: true,
   ENABLE_MENU: false,
   ENABLE_ABOUT: true,
-  ENABLE_GALLERY: false,
   ENABLE_CONTACT: true,
   ENABLE_CART: true,
 } as const;
@@ -26,7 +25,6 @@ export const isPageEnabled = (page: string): boolean => {
     catering: DEV_FLAGS.ENABLE_CATERING,
     menu: DEV_FLAGS.ENABLE_MENU,
     about: DEV_FLAGS.ENABLE_ABOUT,
-    gallery: DEV_FLAGS.ENABLE_GALLERY,
     contact: DEV_FLAGS.ENABLE_CONTACT,
     cart: DEV_FLAGS.ENABLE_CART
   };

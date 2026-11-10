@@ -220,7 +220,7 @@ export class MilkDrink implements BrewMethod {
     this.maxPressure = maxPressure;
     this.time = time;
     this.description = description;
-    this.icon = ICONS.espresso;
+    this.icon = ICONS.milkDrink;
   }
 }
 

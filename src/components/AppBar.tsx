@@ -1,18 +1,25 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useCart } from "../contexts/CartContext";
-import { useNavigation } from "../contexts/NavigationContext";
-import { ICONS, PAGES, PageType } from "../util/constants";
+import { useInventory } from "../contexts/InventoryContext";
+import { ICONS, PAGES } from "../util/constants";
+import { SHOP_CATEGORIES, categoryFor } from "../pages/shop/shopCategories";
+import { generateSlug } from "../pages/shop/shopData";
 import "./AppBar.css";
 
-const navItems: { label: string; page: PageType }[] = [
-  { label: "SHOP", page: PAGES.SHOP },
-  { label: "CATERING", page: PAGES.CATERING },
-  { label: "GALLERY", page: PAGES.GALLERY },
-  { label: "CALENDAR", page: PAGES.CALENDAR },
-  { label: "ACCOUNT", page: PAGES.ACCOUNT },
-  { label: "CART", page: PAGES.CART },
+// `to` doubles as the item's key; an item is active on its path and anything nested under it.
+const navItems: { label: string; to: string }[] = [
+  { label: "COFFEE", to: SHOP_CATEGORIES.coffee.path },
+  { label: "MERCH", to: SHOP_CATEGORIES.merch.path },
+  { label: "CATERING", to: `/${PAGES.CATERING}` },
+  { label: "INITIATIVES", to: `/${PAGES.INITIATIVES}` },
+  { label: "CALENDAR", to: `/${PAGES.CALENDAR}` },
+  { label: "ACCOUNT", to: `/${PAGES.ACCOUNT}` },
+  { label: "CART", to: `/${PAGES.CART}` },
 ];
+
+const ACCOUNT_PATH = `/${PAGES.ACCOUNT}`;
+const CART_PATH = `/${PAGES.CART}`;
 
 const AccountIcon: React.FC = () => (
   <svg className="nav-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
@@ -35,27 +42,37 @@ const CartIcon: React.FC<{ count: number }> = ({ count }) => (
 );
 
 const AppBar: React.FC = () => {
-  const { currentPage, navigateTo } = useNavigation();
+  const { pathname } = useLocation();
   const { cart } = useCart();
+  const { items } = useInventory();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState<PageType | null>(null);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const cartCount = cart.getTotalItems();
 
-  const handleNavClick = (page: PageType): void => {
-    navigateTo(page);
-    setIsMenuOpen(false);
-  };
+  // Product pages (/shop/<slug>) highlight the category the product belongs to.
+  const productCategoryPath = useMemo(() => {
+    const slug = pathname.match(/^\/shop\/([^/]+)$/)?.[1];
+    const item = slug && items.find((i) => generateSlug(i.name) === slug);
+    return item ? categoryFor(item).path : null;
+  }, [pathname, items]);
 
-  const renderIcon = (page: PageType): React.ReactNode => {
-    if (page === PAGES.CART) return <CartIcon count={cartCount} />;
-    if (page === PAGES.ACCOUNT) return <AccountIcon />;
+  const isActive = (to: string): boolean =>
+    pathname === to ||
+    pathname.startsWith(`${to}/`) ||
+    to === productCategoryPath;
+
+  const handleNavClick = (): void => setIsMenuOpen(false);
+
+  const renderIcon = (to: string): React.ReactNode => {
+    if (to === CART_PATH) return <CartIcon count={cartCount} />;
+    if (to === ACCOUNT_PATH) return <AccountIcon />;
     return null;
   };
 
-  const getAccessibleLabel = (page: PageType): string | undefined => {
-    if (page === PAGES.CART)
+  const getAccessibleLabel = (to: string): string | undefined => {
+    if (to === CART_PATH)
       return `Cart${cartCount ? `, ${cartCount} items` : ""}`;
-    if (page === PAGES.ACCOUNT) return "Account";
+    if (to === ACCOUNT_PATH) return "Account";
     return undefined;
   };
 
@@ -73,20 +90,21 @@ const AppBar: React.FC = () => {
         <div className="app-bar-spacer" />
 
         <nav className="app-bar-nav-desktop" aria-label="Main navigation">
-          {navItems.map(({ label, page }) => {
-            const isIcon = page === PAGES.CART || page === PAGES.ACCOUNT;
+          {navItems.map(({ label, to }) => {
+            const isIcon = to === CART_PATH || to === ACCOUNT_PATH;
             return (
               <Link
-                key={page}
-                to={`/${page}`}
+                key={to}
+                to={to}
                 className={`nav-item${isIcon ? " nav-icon-item" : ""}`}
-                onMouseEnter={() => setHoveredItem(page)}
+                onMouseEnter={() => setHoveredItem(to)}
                 onMouseLeave={() => setHoveredItem(null)}
-                onClick={() => handleNavClick(page)}
-                aria-label={getAccessibleLabel(page)}
+                onClick={handleNavClick}
+                aria-label={getAccessibleLabel(to)}
+                aria-current={isActive(to) ? "page" : undefined}
               >
                 {isIcon ? (
-                  renderIcon(page)
+                  renderIcon(to)
                 ) : (
                   <span className="nav-label">{label}</span>
                 )}
@@ -94,7 +112,7 @@ const AppBar: React.FC = () => {
                   className="nav-underline"
                   style={{
                     width:
-                      currentPage === page || hoveredItem === page
+                      isActive(to) || hoveredItem === to
                         ? isIcon
                           ? "100%"
                           : "40px"
@@ -123,21 +141,21 @@ const AppBar: React.FC = () => {
 
       {isMenuOpen && (
         <nav className="app-bar-dropdown" aria-label="Mobile navigation">
-          {navItems.map(({ label, page }) => {
-            if (page === PAGES.CART) return null;
-            if (page === PAGES.ACCOUNT) {
+          {navItems.map(({ label, to }) => {
+            if (to === CART_PATH) return null;
+            if (to === ACCOUNT_PATH) {
               return (
                 <div className="dropdown-icon-row" key="account-cart">
-                  {[PAGES.ACCOUNT, PAGES.CART].map((iconPage) => (
+                  {[ACCOUNT_PATH, CART_PATH].map((iconPath) => (
                     <Link
-                      key={iconPage}
-                      to={`/${iconPage}`}
+                      key={iconPath}
+                      to={iconPath}
                       className="dropdown-item dropdown-icon-item"
-                      aria-label={getAccessibleLabel(iconPage)}
-                      onClick={() => handleNavClick(iconPage)}
+                      aria-label={getAccessibleLabel(iconPath)}
+                      onClick={handleNavClick}
                     >
-                      {renderIcon(iconPage)}
-                      {currentPage === iconPage && (
+                      {renderIcon(iconPath)}
+                      {isActive(iconPath) && (
                         <div className="dropdown-underline" />
                       )}
                     </Link>
@@ -148,13 +166,13 @@ const AppBar: React.FC = () => {
 
             return (
               <Link
-                key={page}
-                to={`/${page}`}
+                key={to}
+                to={to}
                 className="dropdown-item"
-                onClick={() => handleNavClick(page)}
+                onClick={handleNavClick}
               >
                 <span className="dropdown-label">{label}</span>
-                {currentPage === page && <div className="dropdown-underline" />}
+                {isActive(to) && <div className="dropdown-underline" />}
               </Link>
             );
           })}

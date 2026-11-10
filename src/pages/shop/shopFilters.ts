@@ -1,11 +1,9 @@
 import { Item, ItemType } from './item/ItemModel';
 import { CoffeeBagItem } from './item/coffee_bag/CoffeeBagItem';
-import { FilterBy } from './ShopViewModel';
 
 export type Availability = 'in-stock' | 'out-of-stock';
 
 export interface ShopFilters {
-  category: FilterBy;
   availability: Availability[];
   priceMin: string;
   priceMax: string;
@@ -19,7 +17,6 @@ export interface ShopFilters {
 }
 
 export const EMPTY_FILTERS: ShopFilters = {
-  category: FilterBy.ALL,
   availability: [],
   priceMin: '',
   priceMax: '',
@@ -79,9 +76,6 @@ const overlaps = (selected: string[], values: string[]): boolean => {
 export const matchesFilters = (item: Item, filters: ShopFilters): boolean => {
   const coffee = asCoffee(item);
 
-  if (filters.category === FilterBy.BEANS && !coffee) return false;
-  if (filters.category === FilterBy.MERCH && coffee) return false;
-
   if (filters.availability.length > 0) {
     const status: Availability = isInStock(item) ? 'in-stock' : 'out-of-stock';
     if (!filters.availability.includes(status)) return false;
@@ -104,7 +98,6 @@ export const matchesFilters = (item: Item, filters: ShopFilters): boolean => {
 };
 
 export const hasActiveFilters = (filters: ShopFilters): boolean =>
-  filters.category !== FilterBy.ALL ||
   filters.priceMin !== '' ||
   filters.priceMax !== '' ||
   [filters.availability, filters.sizes, filters.roastLevels, filters.processes, filters.varietals, filters.origins, filters.flavors, filters.brewMethods]

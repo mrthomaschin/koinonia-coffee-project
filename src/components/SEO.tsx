@@ -43,7 +43,8 @@ export const SEO: React.FC<SEOProps> = ({
   title,
   description,
   path = "/",
-  image = `${SITE_URL}/assets/logos/logo_square.png`,
+  // Without an image, link previews (e.g. iMessage) fall back to the small site icon.
+  image,
   noIndex = false,
   structuredData,
 }) => {
@@ -60,11 +61,16 @@ export const SEO: React.FC<SEOProps> = ({
     upsertMeta("property", "og:description", description);
     upsertMeta("property", "og:type", "website");
     upsertMeta("property", "og:url", canonicalUrl);
-    upsertMeta("property", "og:image", image);
-    upsertMeta("name", "twitter:card", "summary_large_image");
+    upsertMeta("name", "twitter:card", image ? "summary_large_image" : "summary");
     upsertMeta("name", "twitter:title", title);
     upsertMeta("name", "twitter:description", description);
-    upsertMeta("name", "twitter:image", image);
+    if (image) {
+      upsertMeta("property", "og:image", image);
+      upsertMeta("name", "twitter:image", image);
+    } else {
+      document.head.querySelector('meta[property="og:image"]')?.remove();
+      document.head.querySelector('meta[name="twitter:image"]')?.remove();
+    }
     if (noIndex) {
       document.head.querySelector('link[rel="canonical"]')?.remove();
     } else {

@@ -31,11 +31,11 @@
 }
 
 .section-title {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-size: var(--size-eyebrow);
   font-weight: 400;
-  color: #2F2B39;
-  letter-spacing: 1px;
+  color: var(--color-text-secondary);
+  letter-spacing: var(--tracking-eyebrow);
   margin: 0 0 4px;
 }
 
@@ -74,8 +74,8 @@
 
 .legal-links a {
   color: #F8F5EB;
-  font: 12px 'ShipporiAntiqueB1', sans-serif;
-  letter-spacing: 1px;
+  font: 10px var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
   text-decoration: none;
 }
@@ -85,8 +85,9 @@
 }
 
 .copyright-text {
-  font-family: 'ShipporiAntiqueB1', sans-serif;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: var(--tracking-eyebrow);
   color: #F8F5EB;
   margin: 0;
   white-space: nowrap;

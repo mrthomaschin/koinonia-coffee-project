@@ -1,1 +1,2 @@
 scripts/migrate_account_labels.js
+scripts/check_lockfile.js

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { ICONS, PAGES } from "../util/constants";
 import NewsletterSignup from "./NewsletterSignup";
+import { SHOP_CATEGORIES } from "../pages/shop/shopCategories";
 import "./BottomBar.css";
 
 const BottomBar: React.FC = () => (
@@ -27,6 +28,9 @@ const BottomBar: React.FC = () => (
         <Link className="section-link" to={`/${PAGES.CHURCH_PARTNERSHIP}`}>
           Church partnerships
         </Link>
+        <Link className="section-link" to={`/${PAGES.INITIATIVES}`}>
+          Initiatives
+        </Link>
       </nav>
 
       <nav className="bottom-bar-section" aria-label="Account">
@@ -44,11 +48,14 @@ const BottomBar: React.FC = () => (
 
       <nav className="bottom-bar-section" aria-label="Categories">
         <h2 className="section-title">CATEGORIES</h2>
+        <Link className="section-link" to={SHOP_CATEGORIES.coffee.path}>
+          Coffee
+        </Link>
+        <Link className="section-link" to={SHOP_CATEGORIES.merch.path}>
+          Merch
+        </Link>
         <Link className="section-link" to={`/${PAGES.CATERING}`}>
           Catering
-        </Link>
-        <Link className="section-link" to={`/${PAGES.SHOP}`}>
-          Store
         </Link>
         <Link className="section-link" to={`/${PAGES.CALENDAR}`}>
           Event calendar

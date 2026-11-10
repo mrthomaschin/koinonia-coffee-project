@@ -27,11 +27,20 @@ export interface CartItem {
 export interface DiscountCode {
   code: string;
   percentOff: number;
+  // Only comes off the subscription items.
+  subscriptionsOnly?: boolean;
 }
 
 export class CartViewModel {
   cartItems: Array<CartItem> = [];
   discountCode: DiscountCode | null = null;
+  // A promotion applied without a code, used when no code is entered.
+  automaticDiscount: DiscountCode | null = null;
+
+  /** The entered code, or else the automatic promotion. */
+  getAppliedDiscount(): DiscountCode | null {
+    return this.discountCode ?? this.automaticDiscount;
+  }
 
   getSubtotal(): number {
     return this.cartItems.reduce((total, cartItem) => {
@@ -41,17 +50,30 @@ export class CartViewModel {
   }
 
   getDiscountAmount(): number {
-    if (!this.discountCode) return 0;
-    const subtotal = this.getSubtotal();
-    return subtotal * (this.discountCode.percentOff / 100);
+    const discount = this.getAppliedDiscount();
+    if (!discount) return 0;
+    const discountable = discount.subscriptionsOnly
+      ? this.cartItems
+          .filter((cartItem) => cartItem.selections.subscriptionPlan)
+          .reduce(
+            (total, cartItem) =>
+              total + this.getItemPrice(cartItem) * cartItem.quantity,
+            0,
+          )
+      : this.getSubtotal();
+    return discountable * (discount.percentOff / 100);
   }
 
   getSubtotalAfterDiscount(): number {
     return this.getSubtotal() - this.getDiscountAmount();
   }
 
-  setDiscountCode(code: string, percentOff: number): void {
-    this.discountCode = { code, percentOff };
+  setDiscountCode(
+    code: string,
+    percentOff: number,
+    subscriptionsOnly = false,
+  ): void {
+    this.discountCode = { code, percentOff, subscriptionsOnly };
   }
 
   clearDiscountCode(): void {

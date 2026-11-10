@@ -11,12 +11,14 @@ interface NewsletterFormProps {
   // Recorded with the subscriber's consent, to show where they signed up.
   source: NewsletterSignupSource;
   className?: string;
+  onSubscribed?: () => void;
 }
 
 /** Email field and subscribe button for the monthly newsletter. Callers supply the heading and copy. */
 const NewsletterForm: React.FC<NewsletterFormProps> = ({
   source,
   className,
+  onSubscribed,
 }) => {
   const inputId = useId();
   const [email, setEmail] = useState("");
@@ -40,6 +42,7 @@ const NewsletterForm: React.FC<NewsletterFormProps> = ({
       if (welcomeDiscount) savePendingDiscountCode(welcomeDiscount.code);
       setDiscount(welcomeDiscount);
       setStatus("done");
+      onSubscribed?.();
     } catch (requestError) {
       setError((requestError as Error).message);
       setStatus("idle");

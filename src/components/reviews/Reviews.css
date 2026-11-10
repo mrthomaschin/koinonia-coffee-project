@@ -20,16 +20,16 @@
 
 .product-reviews {
   max-width: 1000px;
-  margin: 80px auto 0;
+  margin: var(--space-section) auto 0;
   scroll-margin-top: 120px;
 }
 
 .product-reviews-header h2 {
   margin: 8px 0 28px;
   color: var(--color-text);
-  font: 400 var(--size-h2) var(--font-heading);
-  line-height: var(--lh-h2);
-  letter-spacing: var(--tracking-h2);
+  font: 400 var(--size-section-title) var(--font-heading);
+  line-height: var(--lh-title);
+  letter-spacing: var(--tracking-title);
 }
 
 .product-reviews-empty {
@@ -47,7 +47,7 @@
 
 .product-reviews-average {
   color: var(--color-text);
-  font: 400 56px var(--font-heading);
+  font: 400 44px var(--font-heading);
   line-height: 1;
 }
 
@@ -126,12 +126,8 @@
 }
 
 @media (max-width: 768px) {
-  .product-reviews {
-    margin-top: 56px;
-  }
-
   .product-reviews-average {
-    font-size: 44px;
+    font-size: 36px;
   }
 }
 
@@ -642,9 +638,8 @@
 .review-response {
   margin-top: 14px;
   padding: 12px 16px;
-  border-left: 3px solid var(--color-eucalyptus);
-  border-radius: 0 8px 8px 0;
-  background: rgba(195, 200, 164, 0.25);
+  border-left: 1px solid var(--color-text);
+  background: var(--color-bg-alt);
   font-family: var(--font-body);
 }
 

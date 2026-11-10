@@ -1,6 +1,12 @@
 const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 
-export type NewsletterSignupSource = "footer" | "checkout" | "about";
+export type NewsletterSignupSource = "footer" | "checkout" | "about" | "homepage";
+
+/**
+ * First-order discount for new subscribers. Keep in step with WELCOME_DISCOUNT in
+ * functions/src/config/newsletters.ts, which issues the code.
+ */
+export const WELCOME_PERCENT_OFF = 10;
 
 interface NewsletterSignup {
   email: string;

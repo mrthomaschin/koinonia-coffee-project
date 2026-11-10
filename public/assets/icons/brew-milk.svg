@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#2f2b39" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Saucer, cup and handle, seen from above -->
+  <circle cx="22" cy="24" r="19"/>
+  <circle cx="22" cy="24" r="13"/>
+  <path d="M35 21h3.5a3 3 0 0 1 0 6H35"/>
+  <!-- Tulip: a heart over stacked wings, cut by the pull-through -->
+  <path d="M22 21c-3.4-2-4.4-4.8-2.9-6.2 1.1-1 2.5-.6 2.9.6.4-1.2 1.8-1.6 2.9-.6 1.5 1.4.5 4.2-2.9 6.2z"/>
+  <path d="M17 22Q22 28 27 22Q22 25.4 17 22z"/>
+  <path d="M14.6 25.5Q22 32.5 29.4 25.5Q22 29.5 14.6 25.5z"/>
+  <path d="M12.4 29Q22 37 31.6 29Q22 33.6 12.4 29z"/>
+  <path d="M22 21v13.5"/>
+</svg>

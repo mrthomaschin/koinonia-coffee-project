@@ -9,6 +9,7 @@ import {
   subscriptionPlans,
 } from "./account_service";
 import { DiscountService } from "./discount_service";
+import { DiscountCode } from "../repositories/notion_discount_repository";
 import { computeTax, TAX_CODES, TaxAddress } from "./tax_service";
 import {
   parcelForOunces,
@@ -19,8 +20,9 @@ import {
 /**
  * The server's price for a web checkout. The browser shows its own running
  * total while the customer fills in checkout, but the amount charged is always
- * this quote, built from the inventory cache, the Notion discount codes, the
- * EasyPost rate, and Stripe Tax.
+ * this quote, built from the inventory cache, the Notion discount codes
+ * (entered, or marked "Automatically Applied"), the EasyPost rate, and Stripe
+ * Tax.
  */
 
 export const FREE_SHIPPING_THRESHOLD_CENTS = 4000;
@@ -101,7 +103,13 @@ export type DeliveryInput =
 export interface CheckoutQuote {
   lines: PricedLine[];
   subtotal: number; // all amounts in cents
-  discount: { code: string; percentOff: number; amount: number } | null;
+  discount: {
+    code: string;
+    percentOff: number;
+    amount: number;
+    // True when the discount came off the subscription lines only.
+    subscriptionsOnly: boolean;
+  } | null;
   shipping: number;
   tax: number;
   total: number;
@@ -335,18 +343,29 @@ const shippingQuote = async (
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/** Spreads the order discount across lines, so tax is charged on what the customer pays. */
+/**
+ * Spreads the order discount across the lines it came off (every line, or the
+ * subscription lines for a subscriptions-only code), so tax is charged on what
+ * the customer pays.
+ */
 const discountedLineAmounts = (
   lines: PricedLine[],
-  subtotal: number,
-  discountAmount: number,
+  discount: CheckoutQuote["discount"],
 ): number[] => {
+  const applies = (line: PricedLine) =>
+    !discount?.subscriptionsOnly || !!line.subscriptionPlan;
+  const discountAmount = discount?.amount || 0;
+  const base = lines
+    .filter(applies)
+    .reduce((sum, line) => sum + line.amount, 0);
+  const lastIndex = lines.map(applies).lastIndexOf(true);
   let remaining = discountAmount;
   return lines.map((line, index) => {
+    if (!applies(line) || !discountAmount) return line.amount;
     const share =
-      index === lines.length - 1
+      index === lastIndex
         ? remaining
-        : Math.round((discountAmount * line.amount) / subtotal);
+        : Math.round((discountAmount * line.amount) / base);
     remaining -= share;
     return line.amount - share;
   });
@@ -367,7 +386,8 @@ export const quoteCheckout = async (input: {
   const lines = await priceCartLines(cartLines, input.account);
   const subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
 
-  let discount: CheckoutQuote["discount"] = null;
+  // A code the customer entered; otherwise any automatic promotion that applies.
+  let applied: DiscountCode | null = null;
   if (typeof input.discountCode === "string" && input.discountCode.trim()) {
     const result = await DiscountService.checkoutDiscount(
       input.discountCode,
@@ -376,10 +396,28 @@ export const quoteCheckout = async (input: {
       cartLines,
     );
     if (!result.ok) throw new PricingError(result.message, true);
+    applied = result.discount;
+  } else {
+    applied = await DiscountService.automaticDiscount(
+      input.account,
+      input.email ?? null,
+      cartLines,
+    );
+  }
+
+  let discount: CheckoutQuote["discount"] = null;
+  if (applied) {
+    // A subscriptions-only code comes off the subscription lines alone.
+    const discountable = applied.subscriptionsOnly
+      ? lines
+          .filter((line) => line.subscriptionPlan)
+          .reduce((sum, line) => sum + line.amount, 0)
+      : subtotal;
     discount = {
-      code: result.discount.code,
-      percentOff: result.discount.percentOff,
-      amount: Math.round((subtotal * result.discount.percentOff) / 100),
+      code: applied.code,
+      percentOff: applied.percentOff,
+      amount: Math.round((discountable * applied.percentOff) / 100),
+      subscriptionsOnly: applied.subscriptionsOnly,
     };
   }
   const subtotalAfterDiscount = subtotal - (discount?.amount || 0);
@@ -395,15 +433,13 @@ export const quoteCheckout = async (input: {
       cartHash,
     );
     shipping = delivery.amount;
-    const taxLines = discountedLineAmounts(
-      lines,
-      subtotal,
-      discount?.amount || 0,
-    ).map((amount, index) => ({
-      amount,
-      reference: lines[index].sku,
-      taxCode: lines[index].taxCode,
-    }));
+    const taxLines = discountedLineAmounts(lines, discount).map(
+      (amount, index) => ({
+        amount,
+        reference: lines[index].sku,
+        taxCode: lines[index].taxCode,
+      }),
+    );
     tax = (await computeTax(taxLines, delivery.taxAddress)).taxCents;
   }
 
@@ -433,11 +469,7 @@ export const publicQuote = (quote: CheckoutQuote) => ({
     taxCode,
   })),
   // What tax is charged on: each line after its share of the discount.
-  taxableAmounts: discountedLineAmounts(
-    quote.lines,
-    quote.subtotal,
-    quote.discount?.amount || 0,
-  ),
+  taxableAmounts: discountedLineAmounts(quote.lines, quote.discount),
 });
 
 /** Stripe allows 50 metadata keys of up to 500 characters each. */

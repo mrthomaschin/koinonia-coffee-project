@@ -1,49 +1,38 @@
+/*
+ * Calendar + event detail — same minimal system as the homepage: Pearl,
+ * Midnight text, Marina only for event chips and links.
+ */
 .events-page,
 .event-detail-page {
-  color: #2f2b39;
-  background: #f8f5eb;
+  color: var(--color-text);
+  background: var(--color-bg);
   min-height: calc(100vh - 120px);
-  padding: 64px 6vw 90px;
+  padding: var(--space-section) var(--space-gutter);
+}
+.events-page .ui-eyebrow {
+  color: var(--color-text-secondary);
 }
 .events-heading {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6%;
-  align-items: end;
-  border-bottom: 1px solid rgba(47, 43, 57, 0.18);
-  padding-bottom: 54px;
+  padding-bottom: var(--space-7);
+  border-bottom: 1px solid var(--color-hairline);
 }
 .events-eyebrow {
-  margin: 0 0 20px;
-  color: #84825e;
-  font:
-    10px "RethinkSans-Regular",
-    sans-serif;
-  letter-spacing: 2px;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font: var(--size-eyebrow) var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
 }
 .events-heading h1,
 .event-detail-page h1 {
-  grid-column: 1;
   margin: 0;
-  font:
-    400 clamp(54px, 7vw, 86px)/0.82 "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
-  letter-spacing: -3px;
-}
-.events-heading > p:last-child {
-  max-width: 370px;
-  margin: 0;
-  color: rgba(47, 43, 57, 0.72);
-  font:
-    15px/1.7 "RethinkSans-Regular",
-    sans-serif;
+  font: 400 var(--size-page-title) / var(--lh-title) var(--font-heading);
+  letter-spacing: var(--tracking-title);
 }
 .events-content {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr);
-  gap: 7%;
-  padding-top: 50px;
+  gap: 6vw;
+  padding-top: var(--space-7);
 }
 .calendar-panel {
   min-width: 0;
@@ -52,200 +41,176 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 25px;
+  margin-bottom: var(--space-5);
 }
 .calendar-header h2 {
   margin: 0;
-  font:
-    400 29px "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
+  font: 400 var(--size-item-title) var(--font-heading);
 }
 .calendar-header button {
-  border: 1px solid rgba(47, 43, 57, 0.2);
+  width: 36px;
+  height: 36px;
+  border: 0;
+  color: var(--color-text);
   background: transparent;
-  width: 38px;
-  height: 38px;
-  font-size: 20px;
-  color: #2f2b39;
+  font-size: 18px;
   cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.calendar-header button:hover {
+  opacity: 0.6;
 }
 .calendar-weekdays,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
 }
-.calendar-weekdays {
-  gap: 1px;
-  margin-bottom: 1px;
-}
 .calendar-weekdays span {
-  padding: 10px 8px;
-  color: #84825e;
-  font:
-    10px "RethinkSans-Regular",
-    sans-serif;
-  letter-spacing: 1px;
+  padding: var(--space-2);
+  color: var(--color-text-secondary);
+  font: 10px var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
+/* Only horizontal rules between weeks; no boxed cells. */
 .calendar-grid {
-  gap: 1px;
-  background: rgba(47, 43, 57, 0.16);
-  border: 1px solid rgba(47, 43, 57, 0.16);
+  border-top: 1px solid var(--color-hairline);
 }
 .calendar-day {
-  min-height: 105px;
-  padding: 9px;
-  background: #f8f5eb;
-}
-.calendar-day.empty {
-  background: #eeece4;
+  min-height: 100px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-hairline);
 }
 .calendar-date {
   display: block;
-  margin-bottom: 7px;
-  font:
-    13px "RethinkSans-Regular",
-    sans-serif;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  font: 13px var(--font-body);
 }
 .calendar-event {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: var(--space-1);
   padding: 5px 6px;
-  border-radius: 6px;
-  color: #f8f5eb;
-  background: #84825e;
+  color: var(--color-pearl);
+  background: var(--color-marina);
   text-decoration: none;
-  font:
-    11px/1.2 "RethinkSans-Regular",
-    sans-serif;
+  font: 11px/1.2 var(--font-body);
+  transition: background-color 0.2s ease;
 }
-.events-list {
-  padding-top: 4px;
+.calendar-event:hover {
+  background: var(--color-midnight);
+}
+.events-list .ui-eyebrow {
+  margin-bottom: var(--space-4);
+}
+.events-list > p:not(.ui-eyebrow) {
+  color: var(--color-text-secondary);
+  font: var(--size-body) / var(--lh-body) var(--font-body);
 }
 .event-list-item {
   display: block;
-  padding: 17px 0;
-  border-top: 1px solid rgba(47, 43, 57, 0.2);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--color-hairline);
   color: inherit;
   text-decoration: none;
 }
 .event-list-item:last-child {
-  border-bottom: 1px solid rgba(47, 43, 57, 0.2);
+  border-bottom: 1px solid var(--color-hairline);
 }
 .event-list-item span,
 .event-list-item small {
   display: block;
-  color: #84825e;
-  font:
-    10px "RethinkSans-Regular",
-    sans-serif;
-  letter-spacing: 1px;
+  color: var(--color-text-secondary);
+  font: 10px var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
 .event-list-item strong {
   display: block;
-  margin: 7px 0;
-  font:
-    400 24px "HedvigLettersSerif_18pt",
-    Georgia,
-    serif;
+  margin: var(--space-2) 0;
+  font: 400 20px / 1.25 var(--font-heading);
+  transition: opacity 0.2s ease;
 }
-.event-list-item small {
-  color: rgba(47, 43, 57, 0.62);
+.event-list-item:hover strong {
+  opacity: 0.6;
 }
 .events-status {
-  padding: 50px 0;
-  font:
-    15px "RethinkSans-Regular",
-    sans-serif;
+  padding: var(--space-7) 0;
+  color: var(--color-text-secondary);
+  font: var(--size-body) var(--font-body);
 }
+
+/* ===== Event detail ===== */
 .event-detail-page {
   max-width: 900px;
 }
 .event-back-link {
   display: inline-block;
-  margin-bottom: 70px;
-  color: #313d66;
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid currentColor;
+  color: var(--color-text);
   text-decoration: none;
-  font:
-    11px "RethinkSans-Regular",
-    sans-serif;
-  letter-spacing: 1.5px;
+  font: var(--size-link) var(--font-body);
+  letter-spacing: var(--tracking-link);
+  transition: opacity 0.2s ease;
+}
+.event-back-link:hover {
+  opacity: 0.6;
 }
 .event-detail-page h1 {
   max-width: 780px;
-  margin-bottom: 25px;
+  margin-bottom: var(--space-5);
 }
 .event-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 25px;
-  padding: 20px 0;
-  border-top: 1px solid rgba(47, 43, 57, 0.2);
-  border-bottom: 1px solid rgba(47, 43, 57, 0.2);
-  font:
-    13px "RethinkSans-Regular",
-    sans-serif;
+  gap: var(--space-5);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
+  color: var(--color-text-secondary);
+  font: var(--size-body-sm) var(--font-body);
 }
 .event-body {
   max-width: 680px;
-  padding-top: 48px;
-  font:
-    16px/1.75 "RethinkSans-Regular",
-    sans-serif;
+  padding-top: var(--space-7);
+  font: var(--size-body) / var(--lh-body) var(--font-body);
 }
 .event-body h1,
 .event-body h2,
 .event-body h3 {
-  font-family: "HedvigLettersSerif_18pt", Georgia, serif;
+  font-family: var(--font-heading);
   font-weight: 400;
 }
 .event-body img {
   max-width: 100%;
 }
 .event-body a {
-  color: #313d66;
+  color: var(--color-marina);
 }
 .event-body .notion-section:first-child {
   padding-top: 0;
 }
 @media (max-width: 700px) {
-  .events-page,
-  .event-detail-page {
-    padding: 48px 24px 70px;
-  }
-  .events-heading,
   .events-content {
     grid-template-columns: 1fr;
-  }
-  .events-heading {
-    gap: 30px;
-    padding-bottom: 38px;
-  }
-  .events-heading h1 {
-    grid-column: auto;
-  }
-  .events-content {
-    gap: 55px;
-    padding-top: 38px;
+    gap: var(--space-7);
   }
   .calendar-day {
-    min-height: 86px;
-    padding: 6px;
+    min-height: 80px;
+    padding: var(--space-1);
   }
   .calendar-event {
+    padding: 3px 4px;
     font-size: 9px;
-    padding: 4px;
   }
   .calendar-weekdays span {
-    padding-left: 4px;
-    padding-right: 4px;
-  }
-  .event-detail-page h1 {
-    font-size: 58px;
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
+    letter-spacing: 0.08em;
   }
   .event-back-link {
-    margin-bottom: 50px;
+    margin-bottom: var(--space-7);
   }
 }

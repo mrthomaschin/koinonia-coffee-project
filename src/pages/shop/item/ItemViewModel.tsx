@@ -5,6 +5,7 @@ import { CartViewModel } from '../../cart/CartViewModel';
 import { createLogger } from '../../../util/logger';
 import { useInventory } from '../../../contexts/InventoryContext';
 import { generateSlug } from '../shopData';
+import { SHOP_CATEGORIES, categoryFor } from '../shopCategories';
 
 const logger = createLogger('ItemViewModel');
 
@@ -25,7 +26,7 @@ export const useItemDetailViewModel = (itemProp?: Item, cart?: CartViewModel) =>
     const [isBrewingMethodDropdownOpen, setIsBrewingMethodDropdownOpen] = useState(false);
 
     const handleBack = () => {
-        navigate('/shop');
+        navigate(item ? categoryFor(item).path : SHOP_CATEGORIES.coffee.path);
     };
 
     const toggleDetailsDropdown = () => {

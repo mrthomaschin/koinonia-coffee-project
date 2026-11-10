@@ -13,6 +13,7 @@ import { ICONS } from '../../../util/constants';
 import { isLimitedTimeOfferAvailable, allowsUnlimitedPurchases } from '../../../util/limitedTimeOffer';
 import { useInventory } from '../../../contexts/InventoryContext';
 import { generateSlug } from '../shopData';
+import { categoryFor } from '../shopCategories';
 import SEO, { SITE_URL } from '../../../components/SEO';
 import NotionBody from '../../../components/NotionBody';
 import { NotionContent } from '../../../components/notion';
@@ -235,7 +236,7 @@ export const ItemView: React.FC<ItemViewProps> = ({
     <div className="item-detail-page-wrapper">
       {productSeo}
       <button className="detail-back-button" onClick={onBack}>
-        ← BACK TO SHOP
+        ← BACK TO {categoryFor(item).title.toUpperCase()}
       </button>
 
       <div className="detail-container">

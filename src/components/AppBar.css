@@ -1,22 +1,21 @@
 .app-bar {
   height: 80px;
-  background-color: #f8f5eb;
+  background-color: var(--color-bg);
   position: sticky;
   top: 40px;
   z-index: 1000;
-  border-bottom: 1px solid rgba(47, 43, 57, 0.16);
 }
 
 .app-bar-content {
   height: 100%;
-  padding: 0 40px;
+  padding: 0 5.5vw;
   display: flex;
   align-items: center;
   gap: 40px;
 }
 
 .app-bar-logo {
-  height: 50px;
+  height: 44px;
   filter: invert(20%) sepia(15%) saturate(1000%) hue-rotate(210deg)
     brightness(95%);
 }
@@ -28,7 +27,7 @@
 .app-bar-nav-desktop {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 36px;
 }
 
 .nav-item {
@@ -43,16 +42,16 @@
 }
 
 .nav-label {
-  font-family: "ShipporiAntiqueB1", sans-serif;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 11px;
   font-weight: 400;
-  color: #2f2b39;
-  letter-spacing: 1px;
+  color: var(--color-midnight);
+  letter-spacing: var(--tracking-eyebrow);
 }
 
 .nav-underline {
-  height: 2px;
-  background-color: #2f2b39;
+  height: 1px;
+  background-color: var(--color-midnight);
   position: absolute;
   top: calc(100% + 3px);
   left: 50%;
@@ -69,8 +68,8 @@
   width: 23px;
   height: 23px;
   fill: none;
-  stroke: #2f2b39;
-  stroke-width: 1.7;
+  stroke: var(--color-midnight);
+  stroke-width: 1.4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -131,16 +130,16 @@
 
 .menu-icon {
   font-size: 28px;
-  color: #2f2b39;
+  color: var(--color-midnight);
 }
 
 .app-bar-dropdown {
   position: absolute;
   top: 80px;
   right: 8px;
-  background-color: #f8f5eb;
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 8px 18px rgba(47, 43, 57, 0.14);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-hairline);
+  border-top: 0;
   padding: 8px 0 14px;
   width: 185px;
   min-width: 185px;
@@ -185,23 +184,23 @@
 }
 
 .dropdown-label {
-  font-family: "ShipporiAntiqueB1", sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 400;
-  color: #2f2b39;
-  letter-spacing: 1px;
+  color: var(--color-midnight);
+  letter-spacing: var(--tracking-eyebrow);
 }
 
 .dropdown-underline {
-  height: 2px;
+  height: 1px;
   width: 40px;
-  background-color: #2f2b39;
+  background-color: var(--color-midnight);
   margin-top: 4px;
 }
 
 @media (max-width: 1100px) {
   .app-bar-content {
-    padding: 0 16px;
+    padding: 0 20px;
     gap: 4px;
   }
 

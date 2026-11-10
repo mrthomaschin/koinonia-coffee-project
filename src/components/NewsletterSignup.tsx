@@ -1,5 +1,6 @@
 import React from "react";
 import NewsletterForm from "./NewsletterForm";
+import { WELCOME_PERCENT_OFF } from "../services/newsletterService";
 import "./NewsletterSignup.css";
 
 /** The footer's newsletter column. */
@@ -12,7 +13,7 @@ const NewsletterSignup: React.FC = () => (
       NEWSLETTER
     </h2>
     <p className="newsletter-signup-copy">
-      Get <b>10% off your first order</b> when you subscribe to Koinonia's
+      Get <b>{WELCOME_PERCENT_OFF}% off your first order</b> when you subscribe to Koinonia's
       newsletter.
     </p>
     <NewsletterForm source="footer" />

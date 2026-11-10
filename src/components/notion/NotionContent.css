@@ -186,13 +186,13 @@
 /* ----- Sectioned mode: each h2 is a full-width band ----- */
 .notion-section {
   position: relative;
-  padding: 70px 0 68px;
+  padding: var(--space-section) 0;
 }
 
 /* Full-bleed tinted band without changing layout width. */
 .notion-section--tinted {
-  background: #c7c2b8;
-  box-shadow: 0 0 0 100vmax #c7c2b8;
+  background: var(--color-bg-alt);
+  box-shadow: 0 0 0 100vmax var(--color-bg-alt);
   clip-path: inset(0 -100vmax);
 }
 
@@ -200,8 +200,8 @@
   max-width: 760px;
   margin: 0 0 var(--space-5);
   color: var(--color-text);
-  font: 400 var(--size-h2)/var(--lh-h2) var(--font-heading);
-  letter-spacing: var(--tracking-h2);
+  font: 400 var(--size-section-title)/var(--lh-title) var(--font-heading);
+  letter-spacing: var(--tracking-title);
 }
 
 .notion-section-body {
@@ -209,9 +209,6 @@
 }
 
 @media (max-width: 700px) {
-  .notion-section {
-    padding: 52px 0 50px;
-  }
 
   .notion-columns {
     grid-template-columns: minmax(0, 1fr);

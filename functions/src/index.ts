@@ -18,6 +18,7 @@ import { MAX_REVIEW_PHOTO_BYTES, ReviewService } from "./services/review_service
 import { MonthlyMetricsService } from "./services/monthly_metrics_service";
 import { NewsletterService } from "./services/newsletter_service";
 import { DiscountService } from "./services/discount_service";
+import { handleShopPageMeta } from "./services/shop_page_meta";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -291,6 +292,9 @@ app.post("/newsletter/subscribe", NewsletterService.handleSubscribe);
 
 // Validate discount code
 app.post("/validate-discount-code", DiscountService.handleValidate);
+
+// Discount codes marked "Automatically Applied" in Notion, applied without a code.
+app.post("/automatic-discount", DiscountService.handleAutomatic);
 
 // Account and subscription data live in Firestore. Notion is an operations-facing mirror.
 app.post("/account/login", AccountService.login);
@@ -597,3 +601,15 @@ if (process.env.FUNCTIONS_EMULATOR !== "true") {
   ];
 }
 export const api = onRequest(apiOptions, app);
+
+// Product pages for link previews; Firebase Hosting rewrites /shop/** here. Reads only the
+// Firestore inventory cache (no Notion call), so a preview never waits on Notion.
+export const shopPageMeta = onRequest(
+  // Hosting proxies public visitors here, so the function must allow unauthenticated calls.
+  // The org's domain-restricted-sharing policy blocks granting allUsers, so public access comes
+  // from the Cloud Run service having its invoker IAM check disabled, set once outside deploys:
+  //   gcloud run services update shoppagemeta --region us-central1 --no-invoker-iam-check
+  // Without that, a direct visit to /shop/<item> returns 403 Forbidden.
+  { region: "us-central1", memory: "256MiB" },
+  handleShopPageMeta(getInventoryCache),
+);

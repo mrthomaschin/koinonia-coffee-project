@@ -1,208 +1,148 @@
+/* Contact — same minimal system as the homepage: Pearl, Midnight text, one tinted band. */
 .contact-page {
-  background: #f8f5eb;
-  color: #2f2b39;
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
-.contact-hero {
-  min-height: 210px;
-  padding: 68px 5.5% 42px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 40px;
+.contact-page .eyebrow {
+  margin-bottom: var(--space-3);
+  color: var(--color-text-secondary);
 }
 
-.contact-hero h1,
-.contact-intro h2,
 .contact-intro h1,
 .instagram-copy h2,
 .contact-form-heading {
-  font-family: "HedvigLettersSerif_18pt", serif;
+  font-family: var(--font-heading);
   font-weight: 400;
-  letter-spacing: -1.8px;
 }
 
-.contact-hero h1 {
-  font-size: clamp(52px, 5.5vw, 70px);
-  line-height: 0.95;
-}
-
-.hero-copy {
-  color: #5e5b62;
-  font:
-    13px "RethinkSans-Regular",
-    sans-serif;
-  line-height: 1.45;
-  text-align: right;
-  padding-bottom: 2px;
-}
-
+/* ===== Intro + form ===== */
 .contact-main-section {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(470px, 1.55fr);
-  gap: 7%;
-  padding: 56px 5.5% 68px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8vw;
+  padding: var(--space-section) var(--space-gutter);
 }
 
-.contact-intro {
-  padding-top: 4px;
-}
-
-.contact-intro h2,
 .contact-intro h1 {
-  font-size: clamp(37px, 4vw, 49px);
-  line-height: 0.91;
-  margin-bottom: 24px;
+  margin: 0 0 var(--space-5);
+  font-size: var(--size-page-title);
+  line-height: var(--lh-title);
+  letter-spacing: var(--tracking-title);
 }
 
 .intro-copy {
-  max-width: 330px;
-  color: #5e5b62;
-  font:
-    14px "RethinkSans-Regular",
-    sans-serif;
-  line-height: 1.55;
-  margin-bottom: 24px;
+  max-width: 360px;
+  margin: 0 0 var(--space-6);
+  color: var(--color-text-secondary);
+  font: var(--size-body) / var(--lh-body) var(--font-body);
 }
 
 .contact-email {
   display: inline-block;
-  color: #313d66;
-  padding-bottom: 8px;
-  font:
-    22px "GentiumBookPlus-Regular",
-    serif;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid currentColor;
+  color: var(--color-text);
+  font: 400 20px var(--font-heading);
   text-decoration: none;
+  transition: opacity 0.2s ease;
 }
 
-.contact-links {
-  margin-top: 54px;
-  max-width: 326px;
-}
-
-.contact-links a {
-  color: #2f2b39;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0 13px;
-  text-decoration: none;
-}
-
-.contact-links span {
-  font:
-    21px "GentiumBookPlus-Regular",
-    serif;
-}
-
-.contact-links small {
-  color: #313d66;
-  font:
-    12px "ShipporiAntiqueB1",
-    sans-serif;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-.contact-form-column {
-  padding-top: 7px;
+.contact-email:hover {
+  opacity: 0.6;
 }
 
 .contact-form-heading {
-  font-size: 30px;
-  margin-bottom: 23px;
+  margin-bottom: var(--space-5);
+  font-size: var(--size-item-title);
+  line-height: 1.15;
 }
 
 .contact-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
+/* Each field is a box with its label inside, like the account forms' inputs. */
 .contact-field {
-  border: 1px solid #bdb9ae;
-  min-height: 73px;
-  padding: 13px;
   display: flex;
   flex-direction: column;
+  min-height: 72px;
+  padding: var(--space-3) 14px;
+  border: 1px solid rgba(47, 43, 57, 0.3);
+  border-radius: var(--radius-control);
   cursor: text;
+  transition: border-color 0.2s ease;
 }
 
 .contact-field:focus-within {
-  border-color: #84825e;
+  border-color: var(--color-text);
 }
 
 .contact-field-label {
-  color: #77747a;
-  font:
-    10px "ShipporiAntiqueB1",
-    sans-serif;
-  letter-spacing: 1.3px;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  font: var(--size-eyebrow) var(--font-body);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
-  margin-bottom: 14px;
 }
 
 .contact-field input,
 .contact-field select,
 .contact-field textarea {
+  width: 100%;
   border: 0;
   outline: 0;
-  color: #2f2b39;
+  color: var(--color-text);
   background: transparent;
-  font:
-    14px "RethinkSans-Regular",
-    sans-serif;
-  width: 100%;
+  font: var(--size-body) var(--font-body);
   resize: vertical;
 }
 
 .contact-field input::placeholder,
 .contact-field textarea::placeholder,
 .contact-field select:invalid {
-  color: #96928b;
+  color: var(--color-text-muted);
   opacity: 1;
 }
 
 .contact-field select {
   appearance: none;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%2384825e'/%3E%3C/svg%3E")
-    right center / 10px no-repeat;
   padding-right: 18px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%232f2b39'/%3E%3C/svg%3E")
+    right center / 10px no-repeat;
 }
 
 .contact-message-field {
   grid-column: 1 / -1;
-  min-height: 110px;
-}
-
-.contact-message-field .contact-field-label {
-  margin-bottom: 14px;
+  min-height: 140px;
 }
 
 .contact-submit-row {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 13px;
-  margin-top: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-5);
 }
 
 .submit-button {
-  background: #84825e;
+  min-width: 160px;
+  padding: var(--space-4) var(--space-6);
   border: 0;
-  color: white;
-  cursor: pointer;
-  min-width: 119px;
-  padding: 16px 18px;
+  border-radius: var(--radius-control);
+  color: var(--color-pearl);
+  background: var(--color-midnight);
+  font: var(--size-link) var(--font-body);
+  letter-spacing: var(--tracking-link);
   text-transform: uppercase;
-  font:
-    12px "ShipporiAntiqueB1",
-    sans-serif;
-  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.submit-button:hover {
-  background: #6d6a4d;
+.submit-button:hover:not(:disabled) {
+  background: var(--color-marina);
 }
 
 .submit-button:disabled {
@@ -211,18 +151,14 @@
 }
 
 .submit-note {
-  color: #85817d;
-  font:
-    14px "RethinkSans-Regular",
-    sans-serif;
+  color: var(--color-text-secondary);
+  font: var(--size-body-sm) var(--font-body);
 }
 
 .error-text {
-  color: #a23d35;
-  font:
-    14px "RethinkSans-Regular",
-    sans-serif;
   margin-top: 5px;
+  color: #a23d35;
+  font: var(--size-body-sm) var(--font-body);
 }
 
 .contact-field input.error,
@@ -231,39 +167,28 @@
   color: #a23d35;
 }
 
+/* ===== Instagram: on the tint ===== */
 .instagram-section {
-  background: #c9c6bc;
-  min-height: 287px;
-  padding: 60px 5.5% 69px;
   display: grid;
-  grid-template-columns: 1fr 1.55fr;
-  gap: 7%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8vw;
   align-items: center;
-}
-
-.instagram-copy .eyebrow {
-  margin-bottom: 21px;
+  padding: var(--space-section) var(--space-gutter);
+  background: var(--color-bg-alt);
 }
 
 .instagram-copy h2 {
-  font-size: clamp(36px, 4vw, 48px);
-  line-height: 0.9;
-  margin-bottom: 18px;
+  margin: 0 0 var(--space-4);
+  font-size: var(--size-section-title);
+  line-height: var(--lh-title);
+  letter-spacing: var(--tracking-title);
 }
 
 .instagram-copy > p:last-child {
-  max-width: 300px;
-  color: #5e5b62;
-  font:
-    13px "RethinkSans-Regular",
-    sans-serif;
-  line-height: 1.45;
-}
-
-.instagram-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  max-width: 320px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font: var(--size-body) / var(--lh-body) var(--font-body);
 }
 
 .instagram-section .instagram-embed-container {
@@ -276,61 +201,7 @@
   max-width: 620px !important;
 }
 
-.instagram-post {
-  aspect-ratio: 1;
-  display: block;
-  position: relative;
-  overflow: hidden;
-  background: #b6b3a9;
-}
-
-.instagram-post img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: saturate(0.8);
-  transition: transform 0.35s ease;
-}
-
-.instagram-post:hover img {
-  transform: scale(1.06);
-}
-
-.instagram-overlay {
-  position: absolute;
-  inset: auto 0 0;
-  padding: 14px 10px 11px;
-  color: white;
-  background: linear-gradient(transparent, rgba(47, 43, 57, 0.7));
-  font:
-    12px "ShipporiAntiqueB1",
-    sans-serif;
-  letter-spacing: 0.8px;
-  opacity: 0;
-  transition: opacity 0.25s;
-}
-
-.instagram-post:hover .instagram-overlay,
-.instagram-post:focus .instagram-overlay {
-  opacity: 1;
-}
-
 @media (max-width: 800px) {
-  .contact-hero {
-    min-height: auto;
-    padding: 48px 24px 36px;
-    display: block;
-  }
-
-  .contact-hero h1 {
-    font-size: 52px;
-  }
-
-  .hero-copy {
-    text-align: left;
-    margin-top: 24px;
-  }
-
   .desktop-break {
     display: none;
   }
@@ -338,35 +209,12 @@
   .contact-main-section,
   .instagram-section {
     grid-template-columns: 1fr;
-    gap: 44px;
-    padding: 45px 24px 52px;
-  }
-
-  .contact-intro h2,
-  .contact-intro h1 {
-    font-size: 42px;
-  }
-
-  .contact-links {
-    margin-top: 38px;
-    max-width: none;
-  }
-
-  .contact-form-grid {
-    gap: 10px;
-  }
-
-  .instagram-section {
-    padding-top: 48px;
-    padding-bottom: 52px;
-  }
-
-  .instagram-grid {
-    gap: 6px;
+    gap: var(--space-7);
   }
 
   .instagram-section .instagram-embed-container {
     min-height: 300px;
+    justify-content: center;
   }
 }
 
@@ -377,9 +225,5 @@
 
   .contact-message-field {
     grid-column: auto;
-  }
-
-  .contact-email {
-    font-size: 24px;
   }
 }

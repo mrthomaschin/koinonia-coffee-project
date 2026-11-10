@@ -29,7 +29,12 @@ export type CheckoutDelivery =
 /** The server's price for a checkout. Amounts are in cents. */
 export interface CheckoutQuote {
   subtotal: number;
-  discount: { code: string; percentOff: number; amount: number } | null;
+  discount: {
+    code: string;
+    percentOff: number;
+    amount: number;
+    subscriptionsOnly?: boolean;
+  } | null;
   shipping: number;
   tax: number;
   total: number;

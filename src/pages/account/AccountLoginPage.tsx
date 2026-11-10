@@ -27,7 +27,6 @@ const AccountLoginPage: React.FC = () => {
 
   return (
     <main className="account-page">
-      <div className="account-hero"><div><p className="account-kicker">ACCOUNT</p><h1>Welcome back.</h1></div></div>
       <section className="account-login-wrap">
         <div className="account-login-card">
           <p className="account-kicker">KOINONIA COFFEE PROJECT</p>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SortBy, FilterBy } from './ShopViewModel';
+import { SortBy } from './ShopViewModel';
 import { Availability, FilterOptions, ShopFilters, hasActiveFilters } from './shopFilters';
 
 interface ShopFilterPanelProps {
@@ -19,12 +19,6 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: SortBy.NAME_Z_TO_A, label: 'Name (Z-A)' },
   { value: SortBy.PRICE_LOW_TO_HIGH, label: 'Price (Low to High)' },
   { value: SortBy.PRICE_HIGH_TO_LOW, label: 'Price (High to Low)' },
-];
-
-const CATEGORY_OPTIONS: { value: FilterBy; label: string }[] = [
-  { value: FilterBy.ALL, label: 'All Products' },
-  { value: FilterBy.BEANS, label: 'Coffee Beans' },
-  { value: FilterBy.MERCH, label: 'Merch' },
 ];
 
 const AVAILABILITY_OPTIONS: { value: Availability; label: string }[] = [
@@ -104,19 +98,6 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({ filters, options, sor
               <li key={option.value}>
                 <label className="filter-option">
                   <input type="radio" name="shop-sort" checked={sortBy === option.value} onChange={() => onSortChange(option.value)} />
-                  <span>{option.label}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </Section>
-
-        <Section title="Category" defaultOpen>
-          <ul className="filter-options">
-            {CATEGORY_OPTIONS.map(option => (
-              <li key={option.value}>
-                <label className="filter-option">
-                  <input type="radio" name="shop-category" checked={filters.category === option.value} onChange={() => update({ category: option.value })} />
                   <span>{option.label}</span>
                 </label>
               </li>
