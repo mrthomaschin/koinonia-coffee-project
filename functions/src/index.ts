@@ -21,6 +21,8 @@ import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
 import { adminApp } from "./admin/admin_app";
 import { contentSource } from "./content/content_source";
+import { inventoryWithLiveStock, rebuildInventoryCache } from "./content/inventory_publish";
+import { takeOrderFromStock } from "./content/products_store";
 import { syncNotionOrders } from "./orders/notion_order_sync";
 import { fulfillCheckoutOrder, isServerFulfilled } from "./orders/checkout_fulfillment";
 import { sweepPaidCheckouts } from "./orders/checkout_orders";
@@ -109,6 +111,13 @@ const getInventoryWithFallback = async (): Promise<InventoryCache> => {
   const cache = await getInventoryCache();
   const now = Date.now();
 
+  // Products managed in the dashboard: never Notion. Rebuild from what's
+  // published when the cache is missing or stale, and apply live stock.
+  if ((await contentSource("products")) === "firestore") {
+    const current = cache && now - cache.lastSyncedAt < INVENTORY_CACHE_TTL_MS * 3 ? cache : await rebuildInventoryCache();
+    return inventoryWithLiveStock(current);
+  }
+
   if (cache && now - cache.lastSyncedAt < INVENTORY_CACHE_TTL_MS) {
     logger.info("Serving inventory from Firestore cache");
     return cache;
@@ -188,7 +197,9 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
     const bypassCache = req.query.bypass === "true";
     let cache: InventoryCache;
 
-    if (bypassCache) {
+    if (bypassCache && (await contentSource("products")) === "firestore") {
+      cache = await inventoryWithLiveStock(await rebuildInventoryCache());
+    } else if (bypassCache) {
       logger.info("Bypassing cache, fetching fresh from Notion");
       cache = await fetchInventoryFromNotion();
       await writeInventoryCache(cache);
@@ -529,6 +540,12 @@ export const syncInventoryCache = onSchedule(
   syncInventoryCacheOptions,
   async () => {
     try {
+      // Products managed in the dashboard: refresh from what's published
+      // (keeps the next roast date current) instead of reading Notion.
+      if ((await contentSource("products")) === "firestore") {
+        await rebuildInventoryCache();
+        return;
+      }
       logger.info("Starting scheduled inventory cache sync");
       await syncInventoryToCache();
       logger.info("Scheduled inventory cache sync completed");
@@ -664,6 +681,7 @@ export const adminApi = onRequest(
       "NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY", "STRIPE_SECRET_KEY",
       // One-time imports of events, discount codes and reviews.
       "NOTION_ALL_EVENTS_DATABASE_ID", "NOTION_DISCOUNT_CODES_DATABASE_ID", "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
+      "NOTION_INVENTORY_DATABASE_ID",
     ],
     // Image uploads are resized in memory.
     memory: "1GiB",
@@ -706,5 +724,18 @@ export const sweepPaidCheckoutsToOrders = onSchedule(
   },
   async () => {
     await sweepPaidCheckouts();
+  },
+);
+
+// Takes each new order's items out of stock for SKUs that track it (once
+// products are managed in the dashboard). Orders imported from Notion were
+// already counted there.
+export const takeNewOrdersFromStock = onDocumentCreated(
+  { region: "us-central1", document: "orders/{orderId}", retry: true },
+  async (event) => {
+    const order = event.data?.data();
+    if (!order || order.origin === "notion") return;
+    if ((await contentSource("products")) !== "firestore") return;
+    await takeOrderFromStock(event.params.orderId, Array.isArray(order.items) ? order.items : []);
   },
 );

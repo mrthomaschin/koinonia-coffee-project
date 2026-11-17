@@ -107,3 +107,13 @@ export const requirePermission = (permission: Permission) =>
     }
     next();
   };
+
+/** Passes when the staff member has any one of these permissions. */
+export const requireAnyPermission = (...permissions: Permission[]) =>
+  (_req: Request, res: Response, next: NextFunction): void => {
+    const role = currentStaff(res).role;
+    if (!permissions.some((permission) => hasPermission(role, permission))) {
+      return deny(res, 403, "You don't have access to this.");
+    }
+    next();
+  };

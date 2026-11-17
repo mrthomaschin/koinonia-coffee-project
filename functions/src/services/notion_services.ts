@@ -281,7 +281,16 @@ export class NotionService {
         }
     }
 
-    static async fetchInventoryFromNotion(forceRefresh: boolean = false): Promise<InventoryCache> {
+    /**
+     * Builds the shop's inventory from Notion. `includeInactive` (the one-time
+     * import to the dashboard) also returns inactive products and variants,
+     * each with its `active` flag and sort `index`.
+     */
+    static async fetchInventoryFromNotion(
+        forceRefresh: boolean = false,
+        options: { includeInactive?: boolean } = {},
+    ): Promise<InventoryCache> {
+        void forceRefresh;
         const databaseId = process.env.NOTION_INVENTORY_DATABASE_ID;
         if (!databaseId) {
             throw new Error("Notion inventory database ID not configured");
@@ -326,7 +335,7 @@ export class NotionService {
             } else if (!isVariant) {
                 // Only include parent items that are active
                 const isActive = properties["Active"]?.checkbox !== false;
-                if (sku && isActive) {
+                if (sku && (isActive || options.includeInactive)) {
                     parentItems.set(sku, properties);
                 }
             }
@@ -425,7 +434,7 @@ export class NotionService {
                             const isWholesale = variantProps["Wholesale"]?.checkbox || variantSku.endsWith("-WS");
                             const active = variantProps["Active"]?.checkbox !== false;
                             const variantWeight = variantProps["Variant Weight"]?.select?.name || "";
-                            const keep = active || isWholesale;
+                            const keep = active || isWholesale || !!options.includeInactive;
                             logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, Wholesale=${isWholesale}, keep=${keep}`);
                             return keep;
                         })
@@ -452,6 +461,7 @@ export class NotionService {
                                 ltoEndDate,
                                 ltoUnlimitedPurchases,
                                 isWholesale,
+                                ...(options.includeInactive ? { rawActive: variantProps["Active"]?.checkbox !== false } : {}),
                             };
                         });
 
@@ -487,6 +497,10 @@ export class NotionService {
                     ltoEndDate,
                     ltoUnlimitedPurchases,
                     brewingMethods,
+                    ...(options.includeInactive ? {
+                        active: properties["Active"]?.checkbox !== false,
+                        index: properties["Index"]?.number ?? null,
+                    } : {}),
                 };
             })
         );

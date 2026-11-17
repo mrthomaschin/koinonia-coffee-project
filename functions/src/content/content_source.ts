@@ -5,7 +5,7 @@ import { getDatabase } from "../integrations/firebase_admin";
  * on Notion (as before) until its one-time import in the dashboard switches
  * it to Firestore, so deploying the new code changes nothing on its own.
  */
-export type ContentModule = "events" | "discounts" | "reviews";
+export type ContentModule = "events" | "discounts" | "reviews" | "products";
 export type ContentSource = "notion" | "firestore";
 
 const DOC = "admin_sync/content_sources";
@@ -29,4 +29,5 @@ export const allContentSources = async (): Promise<Record<ContentModule, Content
   events: await contentSource("events"),
   discounts: await contentSource("discounts"),
   reviews: await contentSource("reviews"),
+  products: await contentSource("products"),
 });
