@@ -83,9 +83,27 @@ export const isFirstTimeCustomer = async ({
  * itself is written by the shared order mirror (AccountService.syncOrderMirrorById).
  * Returns true once the page has a receipt, including when it already had one.
  */
-export const attachRenewalReceipt = async (
-  order: RenewalOrder,
-): Promise<boolean> => {
+export interface ReceiptOrder {
+  id: string;
+  customerName: string;
+  email: string;
+  billingAddress: string;
+  items: Array<{ name: string; sku: string; quantity: number; price: number; variations?: string }>;
+  subtotal: number;
+  shipping: number;
+  tax?: number;
+  totalAmount: number;
+  createdAt: string;
+  paymentIntentId: string;
+  discountCode?: string;
+}
+
+/**
+ * Generates the invoice receipt image and attaches it to the order's Notion
+ * page. True when the page has a receipt afterwards. Throws only when the
+ * page doesn't exist yet, so a caller can retry once it has been mirrored.
+ */
+export const attachOrderReceipt = async (order: ReceiptOrder): Promise<boolean> => {
   const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
   if (!databaseId)
     throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
@@ -102,22 +120,16 @@ export const attachRenewalReceipt = async (
     const receiptImage = await generateReceiptImage({
       customerName: order.customerName,
       customerEmail: order.email,
-      customerAddress: order.renewal.billingAddress || "N/A",
+      customerAddress: order.billingAddress || "N/A",
       orderId: order.id,
-      items: order.items.map((line) => ({
-        name: line.name,
-        sku: line.sku,
-        quantity: line.quantity,
-        price: line.price,
-        variations: line.selections.weight,
-      })),
-      // Derived from the charged total so add-ons are included and the receipt sums correctly.
-      subtotal:
-        Math.round((order.totalAmount - order.shippingCharged) * 100) / 100,
-      shipping: order.shippingCharged,
+      items: order.items,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      ...(order.tax !== undefined ? { tax: order.tax } : {}),
       totalAmount: order.totalAmount,
       orderDate: order.createdAt,
       transactionId: order.paymentIntentId,
+      ...(order.discountCode ? { discountCode: order.discountCode } : {}),
     });
     const filename = receiptFilename(order.id);
     const receiptUploadId = await uploadReceiptToNotion(filename, receiptImage);
@@ -135,14 +147,38 @@ export const attachRenewalReceipt = async (
         },
       } as any,
     });
-    logger.info("Renewal invoice receipt attached", { orderId: order.id });
+    logger.info("Invoice receipt attached", { orderId: order.id });
     return true;
   } catch (error: unknown) {
     // A missing receipt image should not block the label or customer emails.
-    logger.error("Unable to generate renewal invoice receipt", {
+    logger.error("Unable to generate invoice receipt", {
       orderId: order.id,
       error: (error as Error).message,
     });
     return false;
   }
 };
+
+export const attachRenewalReceipt = async (
+  order: RenewalOrder,
+): Promise<boolean> =>
+  attachOrderReceipt({
+    id: order.id,
+    customerName: order.customerName,
+    email: order.email,
+    billingAddress: order.renewal.billingAddress || "N/A",
+    items: order.items.map((line) => ({
+      name: line.name,
+      sku: line.sku,
+      quantity: line.quantity,
+      price: line.price,
+      variations: line.selections.weight,
+    })),
+    // Derived from the charged total so add-ons are included and the receipt sums correctly.
+    subtotal:
+      Math.round((order.totalAmount - order.shippingCharged) * 100) / 100,
+    shipping: order.shippingCharged,
+    totalAmount: order.totalAmount,
+    createdAt: order.createdAt,
+    paymentIntentId: order.paymentIntentId,
+  });

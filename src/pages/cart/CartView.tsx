@@ -565,6 +565,9 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
       // Store order data before clearing cart
       const orderData = {
         paymentIntentId,
+        // Set when the server recorded the order (regular carts); it also
+        // sends the confirmation emails, so the confirmation page doesn't.
+        orderId: quote?.orderId || null,
         subscriptionItems: viewModel.cartItems
           .filter((item) => item.selections.subscriptionPlan)
           .map((item) => ({

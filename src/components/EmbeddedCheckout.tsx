@@ -864,6 +864,28 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         return;
       }
 
+      // Saved with the quote so the server can create the order itself once
+      // the payment succeeds, even if this page closes.
+      let shippingAddressText = "";
+      if (deliveryMethod === "shipping") {
+        const addressData = await elements
+          .getElement("address", { mode: "shipping" })
+          ?.getValue();
+        const address = addressData?.value?.address;
+        if (address) {
+          shippingAddressText = [
+            address.line1,
+            address.line2,
+            address.city,
+            address.state,
+            address.postal_code,
+            address.country,
+          ]
+            .filter(Boolean)
+            .join(", ");
+        }
+      }
+
       // The server prices the order, checks the discount against this email,
       // and sets the payment to that amount. Pay only if it matches the total
       // the customer is looking at; otherwise show it and let them review.
@@ -875,6 +897,11 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             items: checkoutLines,
             discountCode: discountCode?.code || null,
             email: customerEmail,
+            customer: { name: customerName, phone: customerPhone },
+            shippingAddress: shippingAddressText || undefined,
+            billingAddress: billingAddress || undefined,
+            orderPickupId:
+              deliveryMethod === "pickup" ? selectedPickupId : undefined,
             delivery:
               deliveryMethod === "pickup"
                 ? { method: "pickup" }
@@ -940,6 +967,41 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           );
         }
 
+        // Regular carts: the server records the order, buys the label and
+        // sends the emails. This only asks it to record the order right away
+        // so the confirmation page can show the order number.
+        const isSubscriptionCart = checkoutLines.some(
+          (line) => !!line.subscriptionPlan,
+        );
+        if (!isSubscriptionCart && finalQuote.orderId && paymentIntent?.id) {
+          let completedQuote = finalQuote;
+          try {
+            const orderId = await stripeService.completeCheckout(
+              paymentIntent.id,
+            );
+            if (orderId) completedQuote = { ...finalQuote, orderId };
+          } catch (completeError) {
+            // The server's sweep records it within minutes regardless.
+            logger.error("[checkout] Couldn't confirm the order yet", completeError);
+          }
+          onSuccess(
+            paymentIntent.id,
+            customerEmail,
+            customerName,
+            customerPhone,
+            null,
+            shippingAddressText,
+            taxAmount,
+            currentAddress,
+            deliveryMethod === "pickup" ? selectedPickupId : undefined,
+            billingAddress,
+            completedQuote,
+          );
+          return;
+        }
+
+        // Subscription carts: unchanged. The browser buys the label and the
+        // account service records the order.
         // Purchase shipment if shipping is selected and rate is available
         logger.log("[shipment] Checking shipment purchase conditions", {
           deliveryMethod,

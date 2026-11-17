@@ -1089,23 +1089,49 @@ export class AccountService {
     );
   }
 
-  static async syncOrderMirrorById(orderId: string): Promise<void> {
+  /**
+   * Creates or updates the order's Notion page. Account orders take the
+   * customer's details from the account. `allowGuest` mirrors orders without
+   * an account too, using the order's own name, email and phone (web
+   * checkout); the order trigger leaves it off so it only mirrors accounts.
+   */
+  static async syncOrderMirrorById(
+    orderId: string,
+    options: { allowGuest?: boolean } = {},
+  ): Promise<void> {
     const orderSnapshot = await database()
       .collection("orders")
       .doc(orderId)
       .get();
     if (!orderSnapshot.exists) return;
-    const order = orderSnapshot.data() as Order;
-    if (!order.accountId) return;
-    const accountSnapshot = await database()
-      .collection("accounts")
-      .doc(order.accountId)
-      .get();
-    if (!accountSnapshot.exists) return;
-    const storedAccount = accountSnapshot.data() as StoredAccount & {
-      phone?: string;
-    };
-    const account = publicProfile(storedAccount);
+    const order = orderSnapshot.data() as Order & { discountCode?: string | null };
+    let contact: { name: string; email: string; phone: string | null } | null =
+      null;
+    if (order.accountId) {
+      const accountSnapshot = await database()
+        .collection("accounts")
+        .doc(order.accountId)
+        .get();
+      if (accountSnapshot.exists) {
+        const storedAccount = accountSnapshot.data() as StoredAccount & {
+          phone?: string;
+        };
+        const account = publicProfile(storedAccount);
+        contact = {
+          name: `${account.user.firstName} ${account.user.lastName}`.trim(),
+          email: account.user.email,
+          phone: storedAccount.phone || order.phone || null,
+        };
+      }
+    }
+    if (!contact && options.allowGuest && order.email) {
+      contact = {
+        name: order.customerName || "",
+        email: order.email,
+        phone: order.phone || null,
+      };
+    }
+    if (!contact) return;
     const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
     if (!databaseId)
       throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
@@ -1162,11 +1188,10 @@ export class AccountService {
       })
       .join("\n");
     const notion = getNotion();
-    const customerName =
-      `${account.user.firstName} ${account.user.lastName}`.trim();
+    const customerName = contact.name;
     const firstTimer = await isFirstTimeCustomer({
       name: customerName,
-      email: account.user.email,
+      email: contact.email,
       orderId: order.id,
       orderCreated: order.createdAt,
     });
@@ -1186,8 +1211,16 @@ export class AccountService {
       "Items ordered formatted": {
         rich_text: [{ text: { content: itemsOrderedFormatted } }],
       },
-      Email: { email: account.user.email },
-      Phone: { phone_number: storedAccount.phone || null },
+      Email: { email: contact.email },
+      Phone: { phone_number: contact.phone },
+      // Discount checks (once per email, first order only) read this column.
+      ...(order.discountCode
+        ? {
+            "Discount Code": {
+              rich_text: [{ text: { content: order.discountCode } }],
+            },
+          }
+        : {}),
       "Shipping address": {
         rich_text: [{ text: { content: order.shippingAddress || "N/A" } }],
       },

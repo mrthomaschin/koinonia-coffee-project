@@ -21,6 +21,8 @@ import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
 import { adminApp } from "./admin/admin_app";
 import { syncNotionOrders } from "./orders/notion_order_sync";
+import { fulfillCheckoutOrder } from "./orders/checkout_fulfillment";
+import { sweepPaidCheckouts } from "./orders/checkout_orders";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -175,6 +177,7 @@ app.post("/calculate-tax", StripeService.calculateTax);
 
 // Prices the order with shipping and tax and sets the payment's amount before the customer pays
 app.post("/checkout/quote", StripeService.quoteCheckout);
+app.post("/checkout/complete", StripeService.completeCheckout);
 
 app.get("/checkout-session/:sessionId", StripeService.getCheckoutSession);
 
@@ -353,7 +356,8 @@ export const syncAccountOrderToNotion = onDocumentWritten(
   async (event) => {
     if (!event.data?.after.exists) return;
     const after = event.data.after.data();
-    if (after?.source === "subscription-renewal") return;
+    // Renewal and web checkout orders are mirrored by their own fulfillment steps.
+    if (after?.source === "subscription-renewal" || after?.source === "web-checkout") return;
     // Orders that came from Notion, and writes made by the Notion sync or the
     // admin dashboard, must not be mirrored back (see src/orders/).
     if (after?.origin === "notion") return;
@@ -663,5 +667,29 @@ export const syncNotionOrdersToFirestore = onSchedule(
   },
   async () => {
     await syncNotionOrders();
+  },
+);
+
+// Finishes a paid web checkout order: Notion page, label, receipt, emails.
+// Same secrets and retry behavior as renewal fulfillment.
+export const fulfillWebCheckoutOrder = onDocumentCreated(
+  { ...subscriptionRenewalOptions, document: "orders/{orderId}", retry: true },
+  async (event) => {
+    if (event.data?.data()?.source !== "web-checkout") return;
+    await fulfillCheckoutOrder(event.params.orderId);
+  },
+);
+
+// Records paid checkouts whose browser closed before calling /checkout/complete.
+export const sweepPaidCheckoutsToOrders = onSchedule(
+  {
+    region: "us-central1",
+    schedule: "every 10 minutes",
+    timeZone: "America/Los_Angeles",
+    timeoutSeconds: 120,
+    secrets: ["STRIPE_SECRET_KEY"],
+  },
+  async () => {
+    await sweepPaidCheckouts();
   },
 );

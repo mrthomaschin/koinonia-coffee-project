@@ -47,6 +47,16 @@ export interface CheckoutQuote {
   }[];
   // Each line's amount after its share of the discount; tax is charged on these.
   taxableAmounts: number[];
+  // The order number the server assigned, when the checkout sent customer details.
+  orderId?: string;
+}
+
+/** Contact and address details saved with the quote so the server can create the order. */
+export interface CheckoutCustomerDetails {
+  customer: { name: string; phone?: string };
+  shippingAddress?: string;
+  billingAddress?: string;
+  orderPickupId?: string;
 }
 
 class StripeService {
@@ -109,12 +119,28 @@ class StripeService {
       discountCode: string | null;
       email: string;
       delivery: CheckoutDelivery;
-    },
+    } & Partial<CheckoutCustomerDetails>,
     token?: string | null,
   ): Promise<CheckoutQuote> {
-    return (
-      await this.post<{ quote: CheckoutQuote }>("/checkout/quote", input, token)
-    ).quote;
+    const response = await this.post<{ quote: CheckoutQuote; orderId?: string }>(
+      "/checkout/quote",
+      input,
+      token,
+    );
+    return response.orderId
+      ? { ...response.quote, orderId: response.orderId }
+      : response.quote;
+  }
+
+  /**
+   * Asks the server to record the paid order now. Returns its number. The
+   * server also records it on its own if this never arrives.
+   */
+  async completeCheckout(paymentIntentId: string): Promise<string | null> {
+    const response = await this.post<{ orderId?: string }>("/checkout/complete", {
+      paymentIntentId,
+    });
+    return response.orderId || null;
   }
 
   async retrieveSession(sessionId: string): Promise<any> {
