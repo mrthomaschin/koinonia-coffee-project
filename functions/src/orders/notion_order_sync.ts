@@ -77,7 +77,11 @@ const toIsoDate = (value: string | undefined, fallback: string): string => {
 export const orderFromNotionPage = (page: any, now: string): AdminOrder | null => {
   const p: Props = page.properties || {};
   // Kept exactly as written: it's the document id customers' account pages match on.
-  const id = richText(p["Order #"]);
+  // Orders entered by hand in Notion often have no Order #; they get N-<Seq #>
+  // (stable, and can't collide with real 8-character order numbers).
+  const seq = p["Seq #"]?.unique_id?.number ?? null;
+  const written = richText(p["Order #"]);
+  const id = written || (seq !== null && richText(p.Customer) ? `N-${seq}` : "");
   if (!id || id.includes("/")) return null;
   const email = (p.Email?.email || "").trim();
   const paymentStatus = paymentFromNotion(select(p.Status));
@@ -85,7 +89,7 @@ export const orderFromNotionPage = (page: any, now: string): AdminOrder | null =
   return {
     id,
     origin: "notion",
-    seq: p["Seq #"]?.unique_id?.number ?? null,
+    seq,
     customerName: richText(p.Customer),
     email,
     emailNormalized: email.toLowerCase(),

@@ -99,7 +99,7 @@ export const OrderRepository = {
       const needle = text.toLowerCase();
       const snapshot = await applyFilters(orders()).orderBy("createdAt", "desc").limit(SEARCH_WINDOW).get();
       const matches = toOrders(snapshot.docs).filter((order) =>
-        [order.customerName, order.email, order.itemsSummary, order.discountCode, order.trackingNumber]
+        [order.id, order.customerName, order.email, order.itemsSummary, order.discountCode, order.trackingNumber]
           .some((value) => (value || "").toLowerCase().includes(needle)));
       return { orders: matches.slice(0, options.limit), nextAfter: null };
     }
