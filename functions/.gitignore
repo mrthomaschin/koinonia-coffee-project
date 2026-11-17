@@ -12,3 +12,5 @@ node_modules/
 # Environment variables (use Firebase secrets for production)
 .env
 .env.local
+# Firebase params for the deployed project (ADMIN_OWNER_EMAIL); read at deploy time.
+.env.koinonia-coffee-project
