@@ -144,7 +144,7 @@ export interface AdminOrder {
 export interface OrderEvent {
   id: string;
   at: string;
-  type: "note" | "fulfillment" | "imported" | "email" | "refund";
+  type: "note" | "fulfillment" | "imported" | "email" | "refund" | "label";
   actor: { email: string; name: string } | null;
   message: string;
   data?: Record<string, unknown>;

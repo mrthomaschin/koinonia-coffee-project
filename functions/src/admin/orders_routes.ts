@@ -22,6 +22,9 @@ import {
   STRIPE_REASONS,
 } from "../orders/refunds";
 import { hasPermission, REFUND_APPROVAL_THRESHOLD_CENTS } from "./permissions";
+import { BOXES, buyLabel, getLabelInfo, LabelError, quoteLabel, voidCurrentLabel } from "../orders/labels";
+import { fulfillCheckoutOrder } from "../orders/checkout_fulfillment";
+import type { AdminOrder } from "../orders/order_model";
 
 type Handler = (req: Request, res: Response) => Promise<void>;
 const route = (handler: Handler) => (req: Request, res: Response, next: NextFunction) =>
@@ -221,4 +224,96 @@ refundsRouter.post("/:id/decision", requirePermission("orders.refund_large"), ro
   } catch (error) {
     if (!refundError(res, error)) throw error;
   }
+}));
+
+// ---- Shipping labels ----
+
+const labelError = (res: Response, error: unknown): boolean => {
+  if (error instanceof LabelError) {
+    fail(res, error.status, error.message);
+    return true;
+  }
+  return false;
+};
+
+ordersRouter.get("/:id/label", requirePermission("orders.read"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  let info = null;
+  try {
+    info = await getLabelInfo(order);
+  } catch {
+    // EasyPost unreachable or the shipment is gone: the form still works.
+  }
+  // Web checkout orders record their server steps; a stuck one can be retried.
+  const extra = order as AdminOrder & { source?: string; fulfillment?: { lastError?: string } };
+  const lastError = extra.source === "web-checkout" ? extra.fulfillment?.lastError || null : null;
+  res.json({ info, boxes: BOXES, retryable: !!lastError, lastError });
+}));
+
+ordersRouter.post("/:id/label/rates", requirePermission("orders.fulfill"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  try {
+    res.json(await quoteLabel(order, {
+      address: req.body?.address,
+      boxId: String(req.body?.boxId || ""),
+      weightOunces: Number(req.body?.weightOunces),
+    }));
+  } catch (error) {
+    if (!labelError(res, error)) throw error;
+  }
+}));
+
+ordersRouter.post("/:id/label", requirePermission("orders.fulfill"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const staff = currentStaff(res);
+  try {
+    const updated = await buyLabel(order, staff, {
+      shipmentId: String(req.body?.shipmentId || ""),
+      rateId: String(req.body?.rateId || ""),
+      voidPrevious: req.body?.voidPrevious === true,
+    });
+    await AuditLog.record(staff, {
+      action: "order.label_buy",
+      target: { type: "order", id: order.id },
+      before: { shipmentId: order.shipmentId, trackingNumber: order.trackingNumber },
+      after: { shipmentId: updated.shipmentId, trackingNumber: updated.trackingNumber, shippingLabelPrice: updated.shippingLabelPrice },
+    });
+    res.json({ order: updated, events: await OrderRepository.events(order.id) });
+  } catch (error) {
+    if (!labelError(res, error)) throw error;
+  }
+}));
+
+ordersRouter.post("/:id/label/void", requirePermission("orders.fulfill"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const staff = currentStaff(res);
+  try {
+    const status = await voidCurrentLabel(order, staff);
+    await AuditLog.record(staff, {
+      action: "order.label_void",
+      target: { type: "order", id: order.id },
+      after: { shipmentId: order.shipmentId, voidStatus: status },
+    });
+    res.json({ status });
+  } catch (error) {
+    if (!labelError(res, error)) throw error;
+  }
+}));
+
+// Re-runs a web checkout order's server steps (label, Notion, receipt, emails)
+// after a failure. Each finished step is skipped, so nothing repeats.
+ordersRouter.post("/:id/fulfillment/retry", requirePermission("orders.fulfill"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  try {
+    await fulfillCheckoutOrder(order.id);
+  } catch (error) {
+    return fail(res, 502, `Still failing: ${(error as Error).message}`);
+  }
+  await AuditLog.record(currentStaff(res), { action: "order.fulfillment_retry", target: { type: "order", id: order.id } });
+  res.json({ order: await OrderRepository.get(order.id), events: await OrderRepository.events(order.id) });
 }));
