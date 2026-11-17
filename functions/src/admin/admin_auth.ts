@@ -52,10 +52,14 @@ export const requireStaff = async (req: Request, res: Response, next: NextFuncti
   const token = req.header("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return deny(res, 401, "Sign in required.");
 
+  // Signature and expiry only. Revocation isn't checked here (that needs a
+  // Firebase Auth admin role); turning a staff member off takes effect through
+  // the staff lookup below on their very next request.
   let decoded;
   try {
-    decoded = await getAdminAuth().verifyIdToken(token, true);
-  } catch {
+    decoded = await getAdminAuth().verifyIdToken(token);
+  } catch (error) {
+    logger.warn("Rejected ID token", { code: (error as { code?: string }).code, message: (error as Error).message });
     return deny(res, 401, "Your session has expired. Sign in again.");
   }
   if (!decoded.email || !decoded.email_verified) {

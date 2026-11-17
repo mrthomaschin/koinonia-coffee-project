@@ -1,5 +1,4 @@
 import express, { NextFunction, Request, Response, Router } from "express";
-import { getAdminAuth } from "../integrations/firebase_admin";
 import { createLogger } from "../logger";
 import { AuditLog } from "./audit_log";
 import { currentStaff, requirePermission, requireStaff } from "./admin_auth";
@@ -117,11 +116,8 @@ router.patch("/staff/:email", requirePermission("staff.manage"), route(async (re
     throw new HttpError(400, "There must always be at least one Owner.");
   }
 
+  // Turning someone off applies on their next request: requireStaff checks status every time.
   const updated = await StaffRepository.update(existing.email, changes);
-  if (changes.status === "disabled" && existing.uid) {
-    // Ends their open sessions now instead of when their token expires.
-    await getAdminAuth().revokeRefreshTokens(existing.uid);
-  }
   await AuditLog.record(actor, {
     action: changes.status === "disabled" ? "staff.disable" : "staff.update",
     target: { type: "staff", id: existing.email },
