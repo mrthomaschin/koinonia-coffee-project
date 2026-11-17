@@ -12,6 +12,7 @@ import {
 } from "./permissions";
 import { normalizeEmail, StaffMember, StaffRepository, StaffStatus } from "./staff_repository";
 import { ordersRouter, refundsRouter } from "./orders_routes";
+import { customersRouter } from "./customers_routes";
 
 /**
  * The admin dashboard's API. Served at dashboard.koinoniacoffeeproject.com/api/**
@@ -140,6 +141,7 @@ router.get("/audit-log", requirePermission("audit.read"), route(async (req, res)
 
 router.use("/orders", ordersRouter);
 router.use("/refunds", refundsRouter);
+router.use("/customers", customersRouter);
 
 export const adminApp = express();
 adminApp.disable("x-powered-by");

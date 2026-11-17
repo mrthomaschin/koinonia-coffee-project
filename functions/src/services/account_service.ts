@@ -3050,3 +3050,76 @@ export class AccountService {
     res.status(204).send();
   }
 }
+
+/**
+ * Read and support actions on customer accounts for the admin dashboard
+ * (src/admin/customers.ts). Never exposes password hashes or sessions.
+ */
+export const AccountAdmin = {
+  async list(): Promise<Array<{
+    id: string;
+    name: string;
+    email: string;
+    emails: string[];
+    label: AccountLabel;
+    emailVerified: boolean;
+    phone: string | null;
+  }>> {
+    const snapshot = await database().collection("accounts").get();
+    return snapshot.docs.map((doc) => {
+      const account = { ...(doc.data() as StoredAccount), id: doc.id };
+      return {
+        id: doc.id,
+        name: `${account.user?.firstName || ""} ${account.user?.lastName || ""}`.trim(),
+        email: account.user?.email || "",
+        emails: account.user?.email ? accountEmails(account) : [],
+        label: account.label || DEFAULT_ACCOUNT_LABEL,
+        emailVerified: isEmailVerified(account),
+        phone: account.phone || null,
+      };
+    });
+  },
+
+  async details(accountId: string) {
+    const account = await storedAccount(accountId);
+    if (!account) return null;
+    const subscriptionSnapshot = await database()
+      .collection("account_subscriptions")
+      .where("accountId", "==", accountId)
+      .get();
+    return {
+      profile: publicProfile(account),
+      emails: accountEmails(account),
+      phone: account.phone || null,
+      addresses: savedAddresses(account),
+      stripeCustomerId: account.billing?.stripeCustomerId || null,
+      hasSavedCard: !!account.billing?.stripePaymentMethodId,
+      verificationSentAt: account.verificationSentAt || null,
+      subscriptions: subscriptionSnapshot.docs.map((doc) => ({
+        ...(doc.data() as Subscription),
+        id: doc.id,
+      })),
+      preferences: await emailPreferences(publicProfile(account)),
+    };
+  },
+
+  /** Resends the account's confirmation email; false while the one-minute cooldown is on. */
+  async resendVerification(accountId: string): Promise<{ sentTo: string } | null | false> {
+    const account = await storedAccount(accountId);
+    if (!account) return null;
+    const target: { email: string; purpose: EmailVerificationPurpose } | null =
+      account.pendingEmail
+        ? { email: account.pendingEmail, purpose: "change" }
+        : !isEmailVerified(account)
+          ? { email: account.user.email, purpose: "signup" }
+          : null;
+    if (!target) return null;
+    if (verificationCooldownActive(account)) return false;
+    await sendVerificationEmail(account, target.email, target.purpose);
+    return { sentTo: target.email };
+  },
+
+  async setLabel(accountId: string, label: AccountLabel): Promise<void> {
+    await database().collection("accounts").doc(accountId).update({ label });
+  },
+};
