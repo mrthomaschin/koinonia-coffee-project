@@ -1,6 +1,7 @@
 import React, { FormEvent, useId, useState } from "react";
 import {
   NewsletterSignupSource,
+  formatWelcomeExpiry,
   savePendingDiscountCode,
   subscribeToNewsletter,
   WelcomeDiscount,
@@ -89,7 +90,7 @@ const NewsletterForm: React.FC<NewsletterFormProps> = ({
         )}
         <p>
           {discount
-            ? `Subscribed! ${discount.percentOff}% off your first order, applied automatically at checkout.`
+            ? `Subscribed! Here's ${discount.percentOff}% off your first order, good through ${formatWelcomeExpiry(discount.expiresOn)}. Check out with this email and it's applied automatically.`
             : "Subscribed! Thanks for following along the journey."}
         </p>
       </div>

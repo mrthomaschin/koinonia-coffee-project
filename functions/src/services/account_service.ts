@@ -265,6 +265,13 @@ export const subscriptionPlans: Record<
   },
 };
 
+// Same wording as SUBSCRIPTION_CADENCES in src/models/AccountModel.ts.
+const cadenceLabels: Record<SubscriptionCadence, string> = {
+  "every-session": "Every roast session",
+  "every-other-session": "Every other roast session",
+  "every-third-session": "Every third roast session",
+};
+
 const planFor = (
   bagCount: Subscription["bagCount"],
   cadence: SubscriptionCadence,
@@ -1120,23 +1127,31 @@ export class AccountService {
     const subscriptionBySku = new Map(
       subscriptions.map((subscription) => [subscription.itemSku, subscription]),
     );
+    // Every chosen option (weight, size, color, ...), so a tee's size isn't dropped.
+    const variationLabel = (item: (typeof items)[number]) => {
+      const values = Object.values(item.selections || {}).filter(
+        (value): value is string | number =>
+          (typeof value === "string" && value.trim() !== "") ||
+          typeof value === "number",
+      );
+      return values.length ? ` (${values.join(", ")})` : "";
+    };
     const orderLines = items.map((item) => {
       const subscription = item.sku
         ? subscriptionBySku.get(item.sku)
         : undefined;
+      // Human-readable; the subscription ID stays in "Items ordered formatted".
       const subscriptionLabel = subscription
-        ? ` — Subscription ${subscription.id} (${subscription.plan})`
+        ? ` · Subscription, ${cadenceLabels[subscription.cadence].toLowerCase()}`
         : "";
-      return `${item.quantity}x ${item.name}${item.selections?.weight ? ` (${item.selections.weight})` : ""}${subscriptionLabel}`;
+      return `${item.quantity}x ${item.name}${variationLabel(item)}${subscriptionLabel}`;
     });
     const itemsOrdered = orderLines.length
-      ? orderLines.join("\\n")
+      ? orderLines.join("\n")
       : order.itemsSummary || "";
     const itemsOrderedFormatted = items
       .map((item) => {
-        const variation = item.selections?.weight
-          ? ` (${item.selections.weight})`
-          : "";
+        const variation = variationLabel(item);
         const subscription = item.sku
           ? subscriptionBySku.get(item.sku)
           : undefined;
@@ -1145,7 +1160,7 @@ export class AccountService {
           : "";
         return `${item.name}${variation},${item.sku || ""},${item.internalQuantity ?? item.quantity}${subscriptionLabel}`;
       })
-      .join("\\n");
+      .join("\n");
     const notion = getNotion();
     const customerName =
       `${account.user.firstName} ${account.user.lastName}`.trim();

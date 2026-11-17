@@ -11,6 +11,8 @@ export interface DiscountCode {
   // "Subscriptions Only" checkbox: needs a subscription in the cart, and only
   // takes the percentage off the subscription lines.
   subscriptionsOnly: boolean;
+  // Set on a subscriber's own welcome code: it only works for this email.
+  ownerEmail?: string;
 }
 
 export type DiscountCodeLookup =
@@ -112,22 +114,56 @@ export const findAutomaticDiscountCodes = async (): Promise<DiscountCode[]> => {
     .sort((a, b) => b.percentOff - a.percentOff);
 };
 
+const ordersDatabaseId = (): string => {
+  const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+  if (!databaseId)
+    throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
+  return databaseId;
+};
+
+const emailFilters = (emails: string[]) =>
+  [...new Set(emails.filter(Boolean))].map((email) => ({
+    property: "Email",
+    email: { equals: email },
+  }));
+
+/**
+ * True when any of the emails has an order that used this code. Every web
+ * order, guest or account, is recorded in the Notion online orders database
+ * with the code it used, so that database is the record of who used what.
+ */
+export const hasUsedDiscountCode = async (
+  emails: string[],
+  code: string,
+): Promise<boolean> => {
+  const filters = emailFilters(emails);
+  if (!filters.length) return false;
+  const response = await getNotionClient().databases.query({
+    database_id: ordersDatabaseId(),
+    filter: {
+      and: [
+        filters.length === 1 ? filters[0] : { or: filters },
+        {
+          property: "Discount Code",
+          rich_text: { equals: code.trim().toUpperCase() },
+        },
+      ],
+    },
+    page_size: 1,
+  });
+  return response.results.length > 0;
+};
+
 /**
  * True when any of the emails has placed an order. Every order, guest or
  * account, is recorded in the Notion online orders database, whose email
  * filter ignores letter case.
  */
 export const hasPreviousOrders = async (emails: string[]): Promise<boolean> => {
-  const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-  if (!databaseId)
-    throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
-  const filters = [...new Set(emails.filter(Boolean))].map((email) => ({
-    property: "Email",
-    email: { equals: email },
-  }));
+  const filters = emailFilters(emails);
   if (!filters.length) return false;
   const response = await getNotionClient().databases.query({
-    database_id: databaseId,
+    database_id: ordersDatabaseId(),
     filter: filters.length === 1 ? filters[0] : { or: filters },
     page_size: 1,
   });

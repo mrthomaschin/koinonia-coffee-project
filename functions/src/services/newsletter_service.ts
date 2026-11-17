@@ -20,6 +20,14 @@ import {
   setContactUnsubscribed,
   updateContactTopics,
 } from "../integrations/email/resend_contacts";
+import {
+  ensureWelcomeCode,
+  isWelcomeCodeActive,
+  markWelcomeReminderSent,
+  WelcomeCode,
+  welcomeCodesNeedingReminder,
+} from "../repositories/welcome_code_repository";
+import { hasPreviousOrders } from "../repositories/notion_discount_repository";
 
 const logger = createLogger("newsletter");
 
@@ -55,6 +63,17 @@ const MAX_NAME_LENGTH = 100;
 export const normalizeNewsletterEmail = (value: unknown): string | null => {
   const email = typeof value === "string" ? value.trim().toLowerCase() : "";
   return email.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(email) ? email : null;
+};
+
+/** "Thursday, November 19" for a YYYY-MM-DD calendar date. */
+const formatExpiry = (calendarDate: string): string => {
+  const [year, month, day] = calendarDate.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
 };
 
 const cleanName = (value: unknown): string | undefined => {
@@ -162,60 +181,107 @@ export class NewsletterService {
   }
 
   /**
-   * Subscribes an email and, the first time it subscribes, sends the welcome
-   * email with the first-order code. Checkout signups get no welcome email:
-   * they have just ordered, so the code wouldn't apply.
+   * Subscribes an email and returns its first-order welcome code. The first
+   * time an email gets a code, the welcome email sends it; an email only ever
+   * gets one code, so signing up again returns the same one. Checkout signups
+   * get no code: they have just ordered, so it wouldn't apply.
    */
   static async subscribe(
     email: string,
     newsletters: NewsletterId[],
     context: ConsentContext,
-  ): Promise<void> {
-    const before = await NewsletterService.getPreferences(email);
+  ): Promise<WelcomeCode | null> {
     await NewsletterService.setSubscriptions(
       email,
       Object.fromEntries(newsletters.map((id) => [id, true])),
       context,
     );
-    const newlySubscribed = before.some((newsletter) => newsletters.includes(newsletter.id) && !newsletter.subscribed);
-    if (!newlySubscribed || context.source === "checkout") return;
+    if (context.source === "checkout") return null;
+
+    let welcome: { code: WelcomeCode; issued: boolean };
     try {
-      await NewsletterService.sendWelcome(email, siteUrlFor(context.request?.header("origin")));
+      welcome = await ensureWelcomeCode(email);
     } catch (error: unknown) {
-      // They're subscribed and saw the code on screen, so this doesn't fail the signup.
-      logger.error("Error sending newsletter welcome email", { error: (error as Error).message });
+      // The subscription stands; they just don't get a code this time.
+      logger.error("Error issuing welcome code", { error: (error as Error).message });
+      return null;
     }
+    if (welcome.issued) {
+      try {
+        await NewsletterService.sendWelcome(welcome.code, siteUrlFor(context.request?.header("origin")));
+      } catch (error: unknown) {
+        // They're subscribed and saw the code on screen, so this doesn't fail the signup.
+        logger.error("Error sending newsletter welcome email", { error: (error as Error).message });
+      }
+    }
+    return welcome.code;
   }
 
-  /** Thanks a new subscriber and gives them the first-order code. */
-  static async sendWelcome(email: string, siteUrl: string): Promise<void> {
+  /** Thanks a new subscriber and gives them their first-order code. */
+  static async sendWelcome(code: WelcomeCode, siteUrl: string): Promise<void> {
     await sendResendTemplate({
-      to: email,
+      to: code.email,
       template: RESEND_TEMPLATES.newsletterWelcome,
       variables: {
-        discount_code: WELCOME_DISCOUNT.code,
+        discount_code: code.code,
         percent_off: `${WELCOME_DISCOUNT.percentOff}%`,
+        // Completes "Enter the code in your cart…" in the template; blank by default.
+        expiry_note: ` and check out with this email by ${formatExpiry(code.expiresOn)}`,
         shop_url: `${siteUrl}/shop`,
       },
     }, "Newsletter welcome email error");
   }
 
   /**
+   * Daily: reminds subscribers whose welcome code expires soon. Skips anyone
+   * who has since ordered (the code no longer applies) or unsubscribed (it's a
+   * marketing email). Each code gets at most one reminder, recorded even when
+   * skipped so it isn't checked again.
+   */
+  static async sendExpiryReminders(): Promise<void> {
+    const codes = await welcomeCodesNeedingReminder(WELCOME_DISCOUNT.reminderDaysLeft);
+    let sent = 0;
+    for (const code of codes) {
+      try {
+        if (!isWelcomeCodeActive(code)) continue;
+        const subscribed = (await NewsletterService.getPreferences(code.email))
+          .some((newsletter) => newsletter.subscribed);
+        if (subscribed && !(await hasPreviousOrders([code.email]))) {
+          await sendResendTemplate({
+            to: code.email,
+            template: RESEND_TEMPLATES.newsletterDiscountReminder,
+            variables: {
+              discount_code: code.code,
+              percent_off: `${WELCOME_DISCOUNT.percentOff}%`,
+              expires_on: formatExpiry(code.expiresOn),
+              shop_url: `${siteUrlFor()}/shop`,
+            },
+          }, "Welcome code reminder email error");
+          sent++;
+        }
+        await markWelcomeReminderSent(code.code);
+      } catch (error: unknown) {
+        // Left unmarked, so tomorrow's run tries again while the code is still active.
+        logger.error("Error sending welcome code reminder", { code: code.code, error: (error as Error).message });
+      }
+    }
+    logger.info("Welcome code reminders done", { due: codes.length, sent });
+  }
+
+  /**
    * POST /newsletter/subscribe — the footer, About page, and checkout signups.
    * Body: { email, firstName?, lastName?, source, website? }. Subscribes right
-   * away and returns the first-order code to show on screen; its rules (first
-   * order only, no other discounts) are checked when it's used. Checkout
-   * signups get no code, since they have just ordered.
+   * away and returns the subscriber's own first-order code to show on screen,
+   * as { code, percentOff, expiresOn }, or null once it has expired. Its rules
+   * (this email only, first order only, no other discounts) are checked when
+   * it's used. Checkout signups get no code, since they have just ordered.
    * `website` is a hidden field that people never fill in; requests that fill
    * it are bots.
    */
   static async handleSubscribe(req: Request, res: Response): Promise<void> {
     const source = PUBLIC_SOURCES.includes(req.body?.source) ? req.body.source as NewsletterSource : "footer";
-    const discount = source === "checkout" ?
-      null :
-      { code: WELCOME_DISCOUNT.code, percentOff: WELCOME_DISCOUNT.percentOff };
     if (req.body?.website) {
-      res.json({ ok: true, discount });
+      res.json({ ok: true, discount: null });
       return;
     }
     const email = normalizeNewsletterEmail(req.body?.email);
@@ -224,12 +290,15 @@ export class NewsletterService {
       return;
     }
     try {
-      await NewsletterService.subscribe(email, [DEFAULT_NEWSLETTER], {
+      const code = await NewsletterService.subscribe(email, [DEFAULT_NEWSLETTER], {
         source,
         firstName: cleanName(req.body?.firstName),
         lastName: cleanName(req.body?.lastName),
         request: req,
       });
+      const discount = code && isWelcomeCodeActive(code) ?
+        { code: code.code, percentOff: WELCOME_DISCOUNT.percentOff, expiresOn: code.expiresOn } :
+        null;
       res.json({ ok: true, discount });
     } catch (error: unknown) {
       logger.error("Error subscribing to newsletter", { source, error: (error as Error).message });

@@ -341,6 +341,11 @@ const CartView: React.FC<CartViewProps> = ({ availableHeight }) => {
           );
           return;
         }
+        // An expired or already-used code won't start working again.
+        if (!result.valid && (!result.reason || result.reason === "already-used")) {
+          clearPendingDiscountCode();
+          return;
+        }
         if (
           !result.valid ||
           !result.code ||

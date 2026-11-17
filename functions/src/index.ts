@@ -388,6 +388,19 @@ const subscriptionRenewalOptions = {
   ],
 };
 
+// Reminds new subscribers whose welcome code is about to expire. Mid-morning
+// Pacific so the email arrives at a sensible hour.
+export const sendWelcomeCodeReminders = onSchedule(
+  {
+    region: "us-central1",
+    schedule: "every day 10:00",
+    timeZone: "America/Los_Angeles",
+    timeoutSeconds: 300,
+    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY"],
+  },
+  () => NewsletterService.sendExpiryReminders()
+);
+
 export const checkDueSubscriptions = onSchedule(
   { ...subscriptionRenewalOptions, schedule: "every 15 minutes", timeZone: "America/Los_Angeles" },
   () => AccountService.checkDueSubscriptions()

@@ -12,12 +12,17 @@ export interface DiscountValidation {
   // The percentage only comes off the subscription items.
   subscriptionsOnly?: boolean;
   message: string;
-  // Which rule refused the code. "first-order" means the buyer has ordered before.
+  // Which rule refused the code. "first-order" means the buyer has ordered
+  // before, "already-used" that they've used this code, and "wrong-email"
+  // that the code belongs to another email. No reason means the code itself
+  // isn't valid (unknown, inactive, or expired).
   reason?:
     | "subscription"
     | "no-subscription"
     | "partner-pricing"
-    | "first-order";
+    | "first-order"
+    | "already-used"
+    | "wrong-email";
 }
 
 /**
