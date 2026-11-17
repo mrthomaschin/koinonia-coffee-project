@@ -4,10 +4,8 @@ import { getNotionClient } from "../integrations/notion/notion_client";
 import { ContentBlock, fetchWebsiteContent, listChildBlocks } from "./notion_content";
 import { getImageVariantsList } from "./image_variants";
 
-import { getShipmentStatus } from "./easypost_service";
 import { nextUpcomingRoastSessionDate } from "./account_service";
 import { generateReceiptImage, receiptFilename, uploadReceiptToNotion } from "./pictify_service";
-import { EmailService } from "./email_service";
 import { isFirstTimeCustomer } from "../repositories/notion_order_repository";
 const logger = createLogger("notion");
 
@@ -283,7 +281,16 @@ export class NotionService {
         }
     }
 
-    static async fetchInventoryFromNotion(forceRefresh: boolean = false): Promise<InventoryCache> {
+    /**
+     * Builds the shop's inventory from Notion. `includeInactive` (the one-time
+     * import to the dashboard) also returns inactive products and variants,
+     * each with its `active` flag and sort `index`.
+     */
+    static async fetchInventoryFromNotion(
+        forceRefresh: boolean = false,
+        options: { includeInactive?: boolean } = {},
+    ): Promise<InventoryCache> {
+        void forceRefresh;
         const databaseId = process.env.NOTION_INVENTORY_DATABASE_ID;
         if (!databaseId) {
             throw new Error("Notion inventory database ID not configured");
@@ -328,7 +335,7 @@ export class NotionService {
             } else if (!isVariant) {
                 // Only include parent items that are active
                 const isActive = properties["Active"]?.checkbox !== false;
-                if (sku && isActive) {
+                if (sku && (isActive || options.includeInactive)) {
                     parentItems.set(sku, properties);
                 }
             }
@@ -427,7 +434,7 @@ export class NotionService {
                             const isWholesale = variantProps["Wholesale"]?.checkbox || variantSku.endsWith("-WS");
                             const active = variantProps["Active"]?.checkbox !== false;
                             const variantWeight = variantProps["Variant Weight"]?.select?.name || "";
-                            const keep = active || isWholesale;
+                            const keep = active || isWholesale || !!options.includeInactive;
                             logger.info(`🔍 Filtering variant ${variantSku} (${variantWeight}): Active=${variantProps["Active"]?.checkbox}, Wholesale=${isWholesale}, keep=${keep}`);
                             return keep;
                         })
@@ -454,6 +461,7 @@ export class NotionService {
                                 ltoEndDate,
                                 ltoUnlimitedPurchases,
                                 isWholesale,
+                                ...(options.includeInactive ? { rawActive: variantProps["Active"]?.checkbox !== false } : {}),
                             };
                         });
 
@@ -489,6 +497,10 @@ export class NotionService {
                     ltoEndDate,
                     ltoUnlimitedPurchases,
                     brewingMethods,
+                    ...(options.includeInactive ? {
+                        active: properties["Active"]?.checkbox !== false,
+                        index: properties["Index"]?.number ?? null,
+                    } : {}),
                 };
             })
         );
@@ -971,512 +983,4 @@ export class NotionService {
             res.status(500).json({ error: (error as Error).message });
         }
     }
-
-    static async handleTestOrderStatus(req: Request, res: Response): Promise<void> {
-        try {
-            logger.info("Starting order status check...");
-
-            const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-
-            if (!databaseId) {
-                res.status(500).json({ error: "NOTION_ONLINE_ORDERS_DATABASE_ID not configured" });
-                return;
-            }
-
-            if (!process.env.RESEND_API_KEY) {
-                res.status(500).json({ error: "RESEND_API_KEY not configured" });
-                return;
-            }
-
-            const notion = getNotion();
-
-            // Query all orders (filter in code to catch old deliveries)
-            const response = await notion.databases.query({
-                database_id: databaseId,
-            });
-
-            logger.info(`Found ${response.results.length} recently updated orders`);
-
-            const results = {
-                ordersChecked: response.results.length,
-                emailsSent: 0,
-                errors: [] as string[],
-            };
-
-            for (const page of response.results) {
-                if (!("properties" in page)) continue;
-
-                const properties = page.properties;
-
-                // Extract order data
-                const fulfillmentProp = properties["Fulfillment"];
-                const orderConfirmedEmailSentProp = properties["Order Confirmed Email Sent"];
-                const shippedEmailSentProp = properties["Shipped Email Sent"];
-                const outForDeliveryEmailSentProp = properties["Out For Delivery Email Sent"];
-                const deliveredEmailSentProp = properties["Delivered Email Sent"];
-                const emailProp = properties["Email"];
-                const customerProp = properties["Customer"];
-                const orderIdProp = properties["Order #"];
-                const itemsOrderedProp = properties["Items ordered"];
-                const shippingAddressProp = properties["Shipping address"];
-                const trackingCarrierProp = properties["Tracking Carrier"];
-                const trackingInfoProp = properties["Tracking Info"];
-                const shipmentIdProp = properties["Shipment ID"];
-
-                if (
-                    fulfillmentProp?.type !== "status" ||
-                    orderConfirmedEmailSentProp?.type !== "checkbox" ||
-                    shippedEmailSentProp?.type !== "checkbox" ||
-                    outForDeliveryEmailSentProp?.type !== "checkbox" ||
-                    deliveredEmailSentProp?.type !== "checkbox" ||
-                    emailProp?.type !== "email" ||
-                    customerProp?.type !== "title" ||
-                    orderIdProp?.type !== "rich_text"
-                ) {
-                    continue;
-                }
-
-                const shippedEmailSent = shippedEmailSentProp.checkbox;
-                const outForDeliveryEmailSent = outForDeliveryEmailSentProp.checkbox;
-                const deliveredEmailSent = deliveredEmailSentProp.checkbox;
-                const fulfillmentStatus = fulfillmentProp?.type === "status" ? (fulfillmentProp.status as any)?.name : "";
-                const customerEmail = emailProp.email as string;
-                const customerFullName = (customerProp.title as any)[0]?.plain_text || "Customer";
-                const customerName = getFirstName(customerFullName);
-                const orderId = (orderIdProp.rich_text as any)[0]?.plain_text || "N/A";
-                const itemsOrdered = (itemsOrderedProp?.type === "rich_text" ?
-                    (itemsOrderedProp.rich_text as any)[0]?.plain_text || "" : "") as string;
-                const shippingAddress = shippingAddressProp?.type === "rich_text" ?
-                    (shippingAddressProp.rich_text as any)[0]?.plain_text || "N/A" : "N/A";
-                const trackingCarrier = trackingCarrierProp?.type === "select" ?
-                    (trackingCarrierProp.select as any)?.name || "" : "";
-                const trackingInfo = trackingInfoProp?.type === "rich_text" ?
-                    (trackingInfoProp.rich_text as any)[0]?.plain_text || "" : "";
-                const shipmentId = shipmentIdProp?.type === "rich_text" ?
-                    (shipmentIdProp.rich_text as any)[0]?.plain_text || "" : "";
-
-                if (!customerEmail) {
-                    logger.warn(`Order ${orderId} has no email address, skipping`);
-                    results.errors.push(`Order ${orderId}: No email address`);
-                    continue;
-                }
-
-                // Parse items for HTML rendering
-                const itemsHtml: string = parseItemsToHtml(itemsOrdered);
-
-                // Check EasyPost shipment status instead of Notion fulfillment status
-                let easyPostStatus = 'unknown';
-                let estimatedDelivery = '';
-                if (shipmentId) {
-                    const shipmentStatus = await getShipmentStatus(shipmentId);
-                    if (shipmentStatus) {
-                        easyPostStatus = shipmentStatus.status;
-                        estimatedDelivery = shipmentStatus.estimatedDelivery || '';
-                        logger.info(`EasyPost status for order ${orderId}: ${easyPostStatus}, estimated delivery: ${estimatedDelivery}`);
-                    }
-                }
-
-                // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent) {
-                    logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
-
-                    try {
-                        await sendShippedNotification({
-                            toEmail: customerEmail,
-                            customerName,
-                            orderId,
-                            itemsHtml,
-                            shippingAddress,
-                            trackingCarrier,
-                            trackingInfo,
-                            estimatedDelivery,
-                        });
-
-                        // Mark shipped email as sent and update fulfillment status in Notion
-                        await notion.pages.update({
-                            page_id: page.id,
-                            properties: {
-                                "Shipped Email Sent": {
-                                    checkbox: true,
-                                },
-                                "Fulfillment": {
-                                    status: {
-                                        name: "Shipped",
-                                    },
-                                },
-                            },
-                        });
-
-                        logger.info(`✅ Shipped notification sent and Notion updated for order ${orderId}`);
-                        results.emailsSent++;
-                    } catch (error) {
-                        const errorMsg = `Failed to send shipped notification for ${orderId}: ${(error as Error).message}`;
-                        logger.error(errorMsg);
-                        results.errors.push(errorMsg);
-                    }
-                }
-
-                // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent) {
-                    logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
-
-                    try {
-                        await sendOutForDeliveryNotification({
-                            toEmail: customerEmail,
-                            customerName,
-                            orderId,
-                            itemsHtml,
-                            trackingCarrier,
-                            trackingInfo,
-                            deliveryDate: new Date().toLocaleDateString("en-US", {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                            }),
-                        });
-
-                        // Mark out for delivery email as sent in Notion
-                        await notion.pages.update({
-                            page_id: page.id,
-                            properties: {
-                                "Out For Delivery Email Sent": {
-                                    checkbox: true,
-                                },
-                                "Fulfillment": {
-                                    status: {
-                                        name: "Out for delivery",
-                                    },
-                                },
-                            },
-                        });
-
-                        logger.info(`✅ Out for delivery notification sent for order ${orderId}`);
-                        results.emailsSent++;
-                    } catch (error) {
-                        const errorMsg = `Failed to send out for delivery notification for ${orderId}: ${(error as Error).message}`;
-                        logger.error(errorMsg);
-                        results.errors.push(errorMsg);
-                    }
-                }
-
-                // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent) {
-                    logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
-
-                    try {
-                        await sendDeliveredNotification({
-                            toEmail: customerEmail,
-                            customerName,
-                            orderId,
-                            itemsHtml,
-                            deliveryDate: new Date().toLocaleDateString("en-US", {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                            }),
-                        });
-
-                        // Mark delivered email as sent and update fulfillment status in Notion
-                        await notion.pages.update({
-                            page_id: page.id,
-                            properties: {
-                                "Delivered Email Sent": {
-                                    checkbox: true,
-                                },
-                                "Fulfillment": {
-                                    status: {
-                                        name: "Delivered",
-                                    },
-                                },
-                            },
-                        });
-
-                        logger.info(`✅ Delivered notification sent and Notion updated for order ${orderId}`);
-                        results.emailsSent++;
-                    } catch (error) {
-                        const errorMsg = `Failed to send delivered notification for ${orderId}: ${(error as Error).message}`;
-                        logger.error(errorMsg);
-                        results.errors.push(errorMsg);
-                    }
-                }
-            }
-
-            logger.info("Order status check completed");
-            res.json({
-                success: true,
-                message: "Order status check completed",
-                results,
-            });
-        } catch (error) {
-            logger.error("Error in manual test trigger:", error);
-            res.status(500).json({
-                success: false,
-                error: (error as Error).message,
-            });
-        }
-    }
-
-    static async handleScheduledOrderStatus(event?: any): Promise<void> {
-        try {
-            logger.info("Starting order status check...");
-
-            const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-
-            if (!databaseId) {
-                logger.error("NOTION_ONLINE_ORDERS_DATABASE_ID not configured");
-                return;
-            }
-
-            if (!process.env.RESEND_API_KEY) {
-                logger.error("RESEND_API_KEY not configured");
-                return;
-            }
-
-            const notion = getNotion();
-
-            // Query all orders (filter in code to catch old deliveries)
-            const response = await notion.databases.query({
-                database_id: databaseId,
-            });
-
-            logger.info(`Found ${response.results.length} recently updated orders`);
-
-            for (const page of response.results) {
-                if (!("properties" in page)) continue;
-
-                const properties = page.properties;
-
-                // Extract order data
-                const fulfillmentProp = properties["Fulfillment"];
-                const shippedEmailSentProp = properties["Shipped Email Sent"];
-                const outForDeliveryEmailSentProp = properties["Out For Delivery Email Sent"];
-                const deliveredEmailSentProp = properties["Delivered Email Sent"];
-                const emailProp = properties["Email"];
-                const customerProp = properties["Customer"];
-                const orderIdProp = properties["Order #"];
-                const itemsOrderedProp = properties["Items ordered"];
-                const shippingAddressProp = properties["Shipping address"];
-                const trackingCarrierProp = properties["Tracking Carrier"];
-                const trackingInfoProp = properties["Tracking Info"];
-                const shipmentIdProp = properties["Shipment ID"];
-
-                if (
-                    fulfillmentProp?.type !== "status" ||
-                    shippedEmailSentProp?.type !== "checkbox" ||
-                    outForDeliveryEmailSentProp?.type !== "checkbox" ||
-                    deliveredEmailSentProp?.type !== "checkbox" ||
-                    emailProp?.type !== "email" ||
-                    customerProp?.type !== "title" ||
-                    orderIdProp?.type !== "rich_text"
-                ) {
-                    continue;
-                }
-
-                const shippedEmailSent = shippedEmailSentProp.checkbox;
-                const outForDeliveryEmailSent = outForDeliveryEmailSentProp.checkbox;
-                const deliveredEmailSent = deliveredEmailSentProp.checkbox;
-                const fulfillmentStatus = fulfillmentProp?.type === "status" ? (fulfillmentProp.status as any)?.name : "";
-                const customerEmail = emailProp.email as string;
-                const customerFullName = (customerProp.title as any)[0]?.plain_text || "Customer";
-                const customerName = getFirstName(customerFullName);
-                const orderId = (orderIdProp.rich_text as any)[0]?.plain_text || "N/A";
-                const itemsOrdered = (itemsOrderedProp?.type === "rich_text" ?
-                    (itemsOrderedProp.rich_text as any)[0]?.plain_text || "" : "") as string;
-                const shippingAddress = shippingAddressProp?.type === "rich_text" ?
-                    (shippingAddressProp.rich_text as any)[0]?.plain_text || "N/A" : "N/A";
-                const trackingCarrier = trackingCarrierProp?.type === "select" ?
-                    (trackingCarrierProp.select as any)?.name || "" : "";
-                const trackingInfo = trackingInfoProp?.type === "rich_text" ?
-                    (trackingInfoProp.rich_text as any)[0]?.plain_text || "" : "";
-                const shipmentId = shipmentIdProp?.type === "rich_text" ?
-                    (shipmentIdProp.rich_text as any)[0]?.plain_text || "" : "";
-
-                if (!customerEmail) {
-                    logger.warn(`Order ${orderId} has no email address, skipping`);
-                    continue;
-                }
-
-                // Parse items for HTML rendering
-                const itemsHtml: string = parseItemsToHtml(itemsOrdered);
-
-                // Check EasyPost shipment status instead of Notion fulfillment status
-                let easyPostStatus = 'unknown';
-                let estimatedDelivery = '';
-                if (shipmentId) {
-                    const shipmentStatus = await getShipmentStatus(shipmentId);
-                    if (shipmentStatus) {
-                        easyPostStatus = shipmentStatus.status;
-                        estimatedDelivery = shipmentStatus.estimatedDelivery || '';
-                        logger.info(`EasyPost status for order ${orderId}: ${easyPostStatus}, estimated delivery: ${estimatedDelivery}`);
-                    }
-                }
-
-                // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "in_transit" || fulfillmentStatus === "Shipped") && !shippedEmailSent) {
-                    logger.info(`Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
-
-                    try {
-                        await sendShippedNotification({
-                            toEmail: customerEmail,
-                            customerName,
-                            orderId,
-                            itemsHtml,
-                            shippingAddress,
-                            trackingCarrier,
-                            trackingInfo,
-                            estimatedDelivery,
-                        });
-
-                        // Mark shipped email as sent and update fulfillment status in Notion
-                        await notion.pages.update({
-                            page_id: page.id,
-                            properties: {
-                                "Shipped Email Sent": {
-                                    checkbox: true,
-                                },
-                                "Fulfillment": {
-                                    status: {
-                                        name: "Shipped",
-                                    },
-                                },
-                            },
-                        });
-
-                        logger.info(`✅ Shipped notification sent and Notion updated for order ${orderId}`);
-                    } catch (error) {
-                        logger.error(`Failed to send shipped notification for ${orderId}:`, error);
-                    }
-                }
-
-                // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "out_for_delivery" || fulfillmentStatus === "Out for delivery") && !outForDeliveryEmailSent) {
-                    logger.info(`Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
-
-                    try {
-                        await sendOutForDeliveryNotification({
-                            toEmail: customerEmail,
-                            customerName,
-                            orderId,
-                            itemsHtml,
-                            trackingCarrier,
-                            trackingInfo,
-                            deliveryDate: new Date().toLocaleDateString("en-US", {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                            }),
-                        });
-
-                        // Mark out for delivery email as sent in Notion
-                        await notion.pages.update({
-                            page_id: page.id,
-                            properties: {
-                                "Out For Delivery Email Sent": {
-                                    checkbox: true,
-                                },
-                                "Fulfillment": {
-                                    status: {
-                                        name: "Out for delivery",
-                                    },
-                                },
-                            },
-                        });
-
-                        logger.info(`✅ Out for delivery notification sent for order ${orderId}`);
-                    } catch (error) {
-                        logger.error(`Failed to send out for delivery notification for ${orderId}:`, error);
-                    }
-                }
-
-                // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
-                if ((easyPostStatus === "delivered" || fulfillmentStatus === "Delivered") && !deliveredEmailSent) {
-                    logger.info(`Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`);
-
-                    try {
-                        await sendDeliveredNotification({
-                            toEmail: customerEmail,
-                            customerName,
-                            orderId,
-                            itemsHtml,
-                            deliveryDate: new Date().toLocaleDateString("en-US", {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                            }),
-                        });
-
-                        // Mark delivered email as sent and update fulfillment status in Notion
-                        await notion.pages.update({
-                            page_id: page.id,
-                            properties: {
-                                "Delivered Email Sent": {
-                                    checkbox: true,
-                                },
-                                "Fulfillment": {
-                                    status: {
-                                        name: "Delivered",
-                                    },
-                                },
-                            },
-                        });
-
-                        logger.info(`✅ Delivered notification sent and Notion updated for order ${orderId}`);
-                    } catch (error) {
-                        logger.error(`Failed to send delivered notification for ${orderId}:`, error);
-                    }
-                }
-            }
-
-            logger.info("Order status check completed");
-        } catch (error) {
-            logger.error("Error checking order status updates:", error);
-        }
-    }
-}
-
-// Helper function to extract first name from full name
-function getFirstName(fullName: string): string {
-    return EmailService.getFirstName(fullName);
-}
-
-// Helper function to parse items text into HTML for email templates
-function parseItemsToHtml(itemsText: string): string {
-    return EmailService.parseItemsToHtml(itemsText);
-}
-
-// Helper function to send shipped notification
-async function sendShippedNotification(params: {
-    toEmail: string;
-    customerName: string;
-    orderId: string;
-    itemsHtml: string;
-    shippingAddress: string;
-    trackingCarrier: string;
-    trackingInfo: string;
-    estimatedDelivery?: string;
-}): Promise<void> {
-    return EmailService.sendShippedNotification(params);
-}
-
-// Helper function to send delivered notification
-async function sendDeliveredNotification(params: {
-    toEmail: string;
-    customerName: string;
-    orderId: string;
-    itemsHtml: string;
-    deliveryDate: string;
-}): Promise<void> {
-    return EmailService.sendDeliveredNotification(params);
-}
-
-async function sendOutForDeliveryNotification(params: {
-    toEmail: string;
-    customerName: string;
-    orderId: string;
-    itemsHtml: string;
-    trackingCarrier: string;
-    trackingInfo: string;
-    deliveryDate: string;
-}): Promise<void> {
-    return EmailService.sendOutForDeliveryNotification(params);
 }

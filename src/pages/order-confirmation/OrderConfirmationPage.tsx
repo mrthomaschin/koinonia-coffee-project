@@ -27,6 +27,9 @@ interface SessionData {
 
 interface EmbeddedOrderData {
   paymentIntentId?: string;
+  // The server-assigned order number. When set, the server created the order
+  // and sends the confirmation emails; this page only shows it.
+  orderId?: string | null;
   subscriptionItems?: Array<{ plan: string; itemSku: string; itemName: string; weight: string; shippingWeight?: number; unitAmount: number }>;
   orderItems?: EmbeddedOrderData['items'];
   items: Array<{
@@ -81,6 +84,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     const orderData = state?.orderData;
     if (!state?.fromEmbeddedCheckout || !orderData?.paymentIntentId || !token || subscriptionCreatedRef.current) return;
     if (!orderData.subscriptionItems?.length) return;
+    // The server already set up the subscriptions for this order.
+    if (orderData.orderId) return;
     subscriptionCreatedRef.current = true;
     const orderId = new Date(orderData.timestamp).getTime().toString().slice(-8).toUpperCase();
     accountService.completeSubscriptionCheckout(
@@ -106,6 +111,12 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     if (state?.fromEmbeddedCheckout && state?.orderData) {
       // Handle embedded checkout flow
       setEmbeddedOrderData(state.orderData);
+
+      // Server-created orders: the server sends the emails. Nothing to do here.
+      if (state.orderData.orderId) {
+        setLoading(false);
+        return;
+      }
 
       // Send emails for embedded checkout (only once)
       if (!emailSentRef.current) {
@@ -455,7 +466,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
   // Handle embedded checkout display
   if (embeddedOrderData) {
     const formattedAmount = embeddedOrderData.total.toFixed(2);
-    const orderId = new Date(embeddedOrderData.timestamp).getTime().toString().slice(-8).toUpperCase();
+    const orderId = embeddedOrderData.orderId ||
+      new Date(embeddedOrderData.timestamp).getTime().toString().slice(-8).toUpperCase();
 
     return (
       <div className="order-confirmation-page" style={{ minHeight: availableHeight }}>

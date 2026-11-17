@@ -1,10 +1,11 @@
+import type { AdminOrder } from "../orders/order_model";
+import { itemsFormatted, OrderStore } from "../orders/order_store";
 import { randomBytes, randomUUID } from "crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { getDownloadURL } from "firebase-admin/storage";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
 import { getDatabase, getStorageBucket } from "../integrations/firebase_admin";
-import { getNotionClient } from "../integrations/notion/notion_client";
 import {
   RESEND_TEMPLATES,
   sendResendTemplate,
@@ -106,13 +107,6 @@ interface InventoryLookup {
   imageUrl: string;
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const plainText = (prop: any): string =>
-  (prop?.rich_text || prop?.title || [])
-    .map((part: any) => part.plain_text)
-    .join("")
-    .trim();
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const reviewRequests = () =>
   getDatabase().collection(REVIEW_REQUESTS_COLLECTION);
@@ -261,33 +255,12 @@ export const reviewableItems = (
   return [...items.values()];
 };
 
-/** When an order was placed: its "Order created" date, falling back to when its Notion page was made. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const orderPurchaseDate = (page: any): string =>
-  page.properties?.["Order created"]?.date?.start ||
-  page.created_time ||
-  new Date().toISOString();
+/** The order a review request is for, from Firestore. */
+const findOrder = (request: ReviewRequest): Promise<AdminOrder | null> =>
+  OrderStore.get(request.orderId);
 
-/** The order's Notion page, found by its saved page ID or by Order #. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const findOrderPage = async (request: ReviewRequest): Promise<any | null> => {
-  if (request.notionOrderPageId) {
-    return getNotionClient()
-      .pages.retrieve({ page_id: request.notionOrderPageId })
-      .catch(() => null);
-  }
-  const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-  if (!databaseId) return null;
-  const orders = await getNotionClient().databases.query({
-    database_id: databaseId,
-    filter: { property: "Order #", rich_text: { equals: request.orderId } },
-  });
-  return orders.results[0] || null;
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const isRefunded = (page: any): boolean =>
-  page?.properties?.["Status"]?.status?.name === "Refunded";
+const isRefunded = (order: AdminOrder | null): boolean =>
+  order?.paymentStatus === "refunded";
 
 /** Test-only overrides for one step of the daily review email job. */
 interface StepOptions {
@@ -296,29 +269,29 @@ interface StepOptions {
   siteUrl?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const isOrderChecked = (page: any, property: string): boolean =>
-  page?.properties?.[property]?.checkbox === true;
+// The order's "sent" flags. Setting one by hand (in Notion before, now on the
+// order) stops that email from going out.
+type ReviewFlag = "reviewRequest" | "reviewReminder";
+const FLAG_LABEL: Record<ReviewFlag, string> = {
+  reviewRequest: REQUEST_SENT_PROPERTY,
+  reviewReminder: REMINDER_SENT_PROPERTY,
+};
 
-/** Ticks a sent checkbox on the order. Failure is logged, not thrown: Firestore already records the send. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const checkOrderBox = async (
-  page: any,
-  property: string,
-  orderId: string,
+const isOrderFlagged = (order: AdminOrder | null, flag: ReviewFlag): boolean =>
+  order?.emails?.[flag] === true;
+
+/** Records the send on the order. Failure is logged, not thrown: the request already records it. */
+const flagOrder = async (
+  order: AdminOrder | null,
+  flag: ReviewFlag,
 ): Promise<void> => {
-  if (!page?.id) return;
-  await getNotionClient()
-    .pages.update({
-      page_id: page.id,
-      properties: { [property]: { checkbox: true } },
-    })
-    .catch((error: Error) =>
-      logger.warn(`Unable to check "${property}" in Notion`, {
-        orderId,
-        error: error.message,
-      }),
-    );
+  if (!order) return;
+  await OrderStore.markEmailSent(order, flag).catch((error: Error) =>
+    logger.warn(`Unable to record "${FLAG_LABEL[flag]}" on the order`, {
+      orderId: order.id,
+      error: error.message,
+    }),
+  );
 };
 
 const splitName = (
@@ -441,28 +414,21 @@ export class ReviewService {
     });
   }
 
-  /** Queues a review request from a Notion "Online Orders" page. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private static async queueFromOrderPage(
-    page: any,
+  /** Queues a review request for an order. */
+  private static async queueFromOrder(
+    order: AdminOrder,
     emailCustomer: boolean,
   ): Promise<ReviewRequest | null> {
-    const props = page.properties;
-    const orderId = plainText(props["Order #"]);
     await ReviewService.queueReviewRequest({
-      orderId,
-      email:
-        props["Email"]?.type === "email" &&
-        typeof props["Email"].email === "string"
-          ? props["Email"].email
-          : "",
-      customerFullName: plainText(props["Customer"]),
-      purchaseDate: orderPurchaseDate(page),
-      itemsFormatted: plainText(props["Items ordered formatted"]),
-      notionOrderPageId: page.id,
+      orderId: order.id,
+      email: order.email,
+      customerFullName: order.customerName,
+      purchaseDate: order.createdAt,
+      itemsFormatted: itemsFormatted(order),
+      ...(order.notion?.pageId ? { notionOrderPageId: order.notion.pageId } : {}),
       emailCustomer,
     });
-    const snapshot = await reviewRequests().doc(orderId).get();
+    const snapshot = await reviewRequests().doc(order.id).get();
     return snapshot.exists ? (snapshot.data() as ReviewRequest) : null;
   }
 
@@ -471,14 +437,11 @@ export class ReviewService {
    * account. Uses the order's existing review request, or makes one that never
    * sends emails. Returns null when the order has nothing to review.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  static async reviewPathForOrderPage(page: any): Promise<string | null> {
-    const orderId = plainText(page.properties?.["Order #"]);
-    if (!orderId) return null;
-    const existing = await reviewRequests().doc(orderId).get();
+  static async reviewPathForOrder(order: AdminOrder): Promise<string | null> {
+    const existing = await reviewRequests().doc(order.id).get();
     const request = existing.exists
       ? (existing.data() as ReviewRequest)
-      : await ReviewService.queueFromOrderPage(page, false);
+      : await ReviewService.queueFromOrder(order, false);
     if (!request) return null;
     return `/review?${new URLSearchParams({ order: request.orderId, key: request.key }).toString()}`;
   }
@@ -514,8 +477,8 @@ export class ReviewService {
     );
   }
 
-  /** Admin: builds (or rebuilds) the review request for a real Notion order. */
-  private static async requestForNotionOrder(
+  /** Admin: builds (or rebuilds) the review request for a real order. */
+  private static async requestForOrder(
     orderId: string,
     reset: boolean,
   ): Promise<ReviewRequest | null> {
@@ -523,18 +486,10 @@ export class ReviewService {
       const existing = await reviewRequests().doc(orderId).get();
       if (existing.exists) return existing.data() as ReviewRequest;
     }
-    const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-    if (!databaseId)
-      throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
-    const orders = await getNotionClient().databases.query({
-      database_id: databaseId,
-      filter: { property: "Order #", rich_text: { equals: orderId } },
-    });
-    const page = orders.results[0];
-    if (!page || !("properties" in page))
-      throw new Error(`Order ${orderId} was not found in Notion.`);
+    const order = await OrderStore.get(orderId);
+    if (!order) throw new Error(`Order ${orderId} was not found.`);
     if (reset) await reviewRequests().doc(orderId).delete();
-    return ReviewService.queueFromOrderPage(page, true);
+    return ReviewService.queueFromOrder(order, true);
   }
 
   /**
@@ -548,7 +503,7 @@ export class ReviewService {
     const orderId = String(req.query.order || "");
     const siteUrl = siteUrlFor();
     try {
-      const request = await ReviewService.requestForNotionOrder(
+      const request = await ReviewService.requestForOrder(
         orderId,
         req.query.reset === "true",
       );
@@ -591,7 +546,7 @@ export class ReviewService {
       return;
     }
     try {
-      const request = await ReviewService.requestForNotionOrder(
+      const request = await ReviewService.requestForOrder(
         orderId,
         req.query.reset === "true",
       );
@@ -716,7 +671,7 @@ export class ReviewService {
     )
       return "not due yet";
 
-    const orderPage = await findOrderPage(request);
+    const order = await findOrder(request);
     const skip = async (reason: string): Promise<string> => {
       await ref.update({ status: "skipped" });
       logger.info(`Skipped review request: ${reason}`, {
@@ -724,11 +679,11 @@ export class ReviewService {
       });
       return `skipped: ${reason}`;
     };
-    if (isRefunded(orderPage)) return skip("order was refunded");
+    if (isRefunded(order)) return skip("order was refunded");
     if (await hasOptedOut(request.email))
       return skip("customer unsubscribed from review emails");
-    if (isOrderChecked(orderPage, REQUEST_SENT_PROPERTY))
-      return skip(`"${REQUEST_SENT_PROPERTY}" is already checked`);
+    if (isOrderFlagged(order, "reviewRequest"))
+      return skip(`"${REQUEST_SENT_PROPERTY}" is already marked`);
     if (!options.ignoreTiming) {
       const recent = await reviewRequests()
         .where("email", "==", request.email)
@@ -755,7 +710,7 @@ export class ReviewService {
       throw error;
     }
     await ref.update({ status: "sent", firstSentAt: now });
-    await checkOrderBox(orderPage, REQUEST_SENT_PROPERTY, request.orderId);
+    await flagOrder(order, "reviewRequest");
     logger.info("Sent review request", { orderId: request.orderId });
     return "sent review request";
   }
@@ -775,7 +730,7 @@ export class ReviewService {
     )
       return "reminder not due yet";
 
-    const orderPage = await findOrderPage(request);
+    const order = await findOrder(request);
     const finish = async (reason: string): Promise<string> => {
       await ref.update({ status: "done" });
       logger.info(`No review reminder: ${reason}`, {
@@ -783,11 +738,11 @@ export class ReviewService {
       });
       return `no reminder: ${reason}`;
     };
-    if (isRefunded(orderPage)) return finish("order was refunded");
+    if (isRefunded(order)) return finish("order was refunded");
     if (await hasOptedOut(request.email))
       return finish("customer unsubscribed from review emails");
-    if (isOrderChecked(orderPage, REMINDER_SENT_PROPERTY))
-      return finish(`"${REMINDER_SENT_PROPERTY}" is already checked`);
+    if (isOrderFlagged(order, "reviewReminder"))
+      return finish(`"${REMINDER_SENT_PROPERTY}" is already marked`);
     const reviewed = await ReviewService.reviewedParentSkus(request.orderId);
     const remaining = request.items.filter(
       (item) => !reviewed.has(item.parentSku) && !reviewed.has(item.sku),
@@ -808,7 +763,7 @@ export class ReviewService {
       throw error;
     }
     await ref.update({ status: "reminded", reminderSentAt: now });
-    await checkOrderBox(orderPage, REMINDER_SENT_PROPERTY, request.orderId);
+    await flagOrder(order, "reviewReminder");
     logger.info("Sent review reminder", {
       orderId: request.orderId,
       remaining: remaining.length,
@@ -828,30 +783,15 @@ export class ReviewService {
     const send = req.query.send === "true";
     const limit = Math.max(1, Math.min(25, Number(req.query.limit) || 15));
     try {
-      const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-      if (!databaseId)
-        throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pages: any[] = [];
-      let cursor: string | undefined;
-      do {
-        const response = await getNotionClient().databases.query({
-          database_id: databaseId,
-          start_cursor: cursor,
-          page_size: 100,
-          filter: {
-            or: [
-              { property: "Fulfillment", status: { equals: "Delivered" } },
-              { property: "Fulfillment", status: { equals: "Picked up" } },
-            ],
-          },
-          sorts: [{ property: "Order created", direction: "ascending" }],
-        });
-        pages.push(...response.results);
-        cursor = response.has_more
-          ? response.next_cursor || undefined
-          : undefined;
-      } while (cursor);
+      const fulfilled = await getDatabase()
+        .collection("orders")
+        .where("fulfillmentStatus", "in", ["delivered", "picked_up"])
+        .get();
+      const orders = (
+        await Promise.all(fulfilled.docs.map((doc) => OrderStore.get(doc.id)))
+      )
+        .filter((order): order is AdminOrder => !!order)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
       const lookup = await loadInventoryLookup();
       const reviewedByOrder = new Map<string, Set<string>>();
@@ -865,7 +805,7 @@ export class ReviewService {
       }
 
       const eligible: {
-        page: unknown;
+        order: AdminOrder;
         orderId: string;
         email: string;
         customer: string;
@@ -874,15 +814,10 @@ export class ReviewService {
       }[] = [];
       const skipped: { orderId: string; customer: string; reason: string }[] =
         [];
-      for (const page of pages) {
-        const props = page.properties || {};
-        const orderId = plainText(props["Order #"]);
-        const customer = plainText(props["Customer"]);
-        const email =
-          props["Email"]?.type === "email" &&
-          typeof props["Email"].email === "string"
-            ? props["Email"].email.trim()
-            : "";
+      for (const order of orders) {
+        const orderId = order.id;
+        const customer = order.customerName;
+        const email = order.email.trim();
         const skip = (reason: string) =>
           skipped.push({ orderId: orderId || "(none)", customer, reason });
         if (!orderId) {
@@ -893,22 +828,19 @@ export class ReviewService {
           skip("no email");
           continue;
         }
-        if (isRefunded(page)) {
+        if (isRefunded(order)) {
           skip("refunded");
           continue;
         }
-        if (isOrderChecked(page, REQUEST_SENT_PROPERTY)) {
-          skip(`"${REQUEST_SENT_PROPERTY}" already checked`);
+        if (isOrderFlagged(order, "reviewRequest")) {
+          skip(`"${REQUEST_SENT_PROPERTY}" already marked`);
           continue;
         }
         if ((await reviewRequests().doc(orderId).get()).exists) {
           skip("already has a review request");
           continue;
         }
-        if (
-          (await getDatabase().collection("orders").doc(orderId).get()).data()
-            ?.source === "subscription-renewal"
-        ) {
+        if ((order as AdminOrder & { source?: string }).source === "subscription-renewal") {
           skip("subscription renewal");
           continue;
         }
@@ -917,10 +849,7 @@ export class ReviewService {
           continue;
         }
         const reviewed = reviewedByOrder.get(orderId) || new Set<string>();
-        const items = reviewableItems(
-          plainText(props["Items ordered formatted"]),
-          lookup,
-        ).filter(
+        const items = reviewableItems(itemsFormatted(order), lookup).filter(
           (item) => !reviewed.has(item.parentSku) && !reviewed.has(item.sku),
         );
         if (items.length === 0) {
@@ -928,11 +857,11 @@ export class ReviewService {
           continue;
         }
         eligible.push({
-          page,
+          order,
           orderId,
           email,
           customer,
-          ordered: orderPurchaseDate(page).slice(0, 10),
+          ordered: order.createdAt.slice(0, 10),
           items,
         });
       }
@@ -957,7 +886,7 @@ export class ReviewService {
       const results: { orderId: string; result: string }[] = [];
       for (const entry of eligible.slice(0, limit)) {
         try {
-          await ReviewService.queueFromOrderPage(entry.page, true);
+          await ReviewService.queueFromOrder(entry.order, true);
           const ref = reviewRequests().doc(entry.orderId);
           const request = (await ref.get()).data() as ReviewRequest | undefined;
           if (!request || request.status !== "queued") {
@@ -980,7 +909,7 @@ export class ReviewService {
             firstSentAt: Date.now(),
             backfill: true,
           });
-          await checkOrderBox(entry.page, REQUEST_SENT_PROPERTY, entry.orderId);
+          await flagOrder(entry.order, "reviewRequest");
           results.push({ orderId: entry.orderId, result: "sent" });
         } catch (error) {
           results.push({
@@ -1024,7 +953,7 @@ export class ReviewService {
       return;
     }
     try {
-      const request = await ReviewService.requestForNotionOrder(
+      const request = await ReviewService.requestForOrder(
         orderId,
         req.query.reset === "true",
       );
@@ -1157,8 +1086,9 @@ export class ReviewService {
       };
       // Star-only ratings from a known order count right away; text and photos need approval.
       const isPublic =
-        review.approved ||
-        (!review.text && review.photos.length === 0 && !!requestItem);
+        !review.hidden &&
+        (review.approved ||
+          (!review.text && review.photos.length === 0 && !!requestItem));
       if (isPublic)
         publicReviews.push({ parentSku, review: toPublishedReview(review) });
     }

@@ -19,6 +19,13 @@ import { MonthlyMetricsService } from "./services/monthly_metrics_service";
 import { NewsletterService } from "./services/newsletter_service";
 import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
+import { adminApp } from "./admin/admin_app";
+import { contentSource } from "./content/content_source";
+import { inventoryWithLiveStock, markInventoryJobCurrent, rebuildInventoryCache } from "./content/inventory_publish";
+import { takeOrderFromStock } from "./content/products_store";
+import { syncNotionOrders } from "./orders/notion_order_sync";
+import { fulfillCheckoutOrder, isServerFulfilled } from "./orders/checkout_fulfillment";
+import { sweepPaidCheckouts } from "./orders/checkout_orders";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -104,6 +111,13 @@ const getInventoryWithFallback = async (): Promise<InventoryCache> => {
   const cache = await getInventoryCache();
   const now = Date.now();
 
+  // Products managed in the dashboard: never Notion. Rebuild from what's
+  // published when the cache is missing or stale, and apply live stock.
+  if ((await contentSource("products")) === "firestore") {
+    const current = cache && now - cache.lastSyncedAt < INVENTORY_CACHE_TTL_MS * 3 ? cache : await rebuildInventoryCache();
+    return inventoryWithLiveStock(current);
+  }
+
   if (cache && now - cache.lastSyncedAt < INVENTORY_CACHE_TTL_MS) {
     logger.info("Serving inventory from Firestore cache");
     return cache;
@@ -173,6 +187,7 @@ app.post("/calculate-tax", StripeService.calculateTax);
 
 // Prices the order with shipping and tax and sets the payment's amount before the customer pays
 app.post("/checkout/quote", StripeService.quoteCheckout);
+app.post("/checkout/complete", StripeService.completeCheckout);
 
 app.get("/checkout-session/:sessionId", StripeService.getCheckoutSession);
 
@@ -182,7 +197,9 @@ app.get("/get-inventory", async (req: Request, res: Response) => {
     const bypassCache = req.query.bypass === "true";
     let cache: InventoryCache;
 
-    if (bypassCache) {
+    if (bypassCache && (await contentSource("products")) === "firestore") {
+      cache = await inventoryWithLiveStock(await rebuildInventoryCache());
+    } else if (bypassCache) {
       logger.info("Bypassing cache, fetching fresh from Notion");
       cache = await fetchInventoryFromNotion();
       await writeInventoryCache(cache);
@@ -350,7 +367,16 @@ export const syncAccountOrderToNotion = onDocumentWritten(
   { ...notionMirrorOptions, document: "orders/{orderId}" },
   async (event) => {
     if (!event.data?.after.exists) return;
-    if (event.data.after.data()?.source === "subscription-renewal") return;
+    const after = event.data.after.data();
+    // Renewal, web checkout and dashboard-created orders are mirrored by their own code.
+    if (after?.source === "subscription-renewal" || after?.source === "web-checkout" || after?.source === "manual") return;
+    if (after?.serverFulfilled) return;
+    // Orders that came from Notion, and writes made by the Notion sync or the
+    // admin dashboard, must not be mirrored back (see src/orders/).
+    if (after?.origin === "notion") return;
+    const before = event.data.before.exists ? event.data.before.data() : undefined;
+    if (after?.notion?.syncedAt && after.notion.syncedAt !== before?.notion?.syncedAt) return;
+    if (after?.adminUpdatedAt && after.adminUpdatedAt !== before?.adminUpdatedAt) return;
     if (await hasProcessedEvent("syncAccountOrderToNotion", event.id)) return;
     await AccountService.syncOrderMirrorById(event.params.orderId);
     await markEventProcessed("syncAccountOrderToNotion", event.id, event.params.orderId);
@@ -441,12 +467,17 @@ app.post("/get-shipping-rates", StripeService.getShippingRates);
 // Buy the label for a paid web checkout (the rate saved on the payment)
 app.post("/checkout/purchase-label", StripeService.purchaseCheckoutLabel);
 
-// Test endpoint for order status check (manual trigger)
-app.post("/test-order-status-check", async (req: Request, res: Response) => NotionService.handleTestOrderStatus(req, res));
+// Runs the order status-email job now (admin only). It reads Firestore orders
+// and sends each email at most once, like the hourly schedule.
+app.post("/test-order-status-check", requireAdmin, async (_req: Request, res: Response) => {
+  await EmailService.handleOrderStatusUpdates();
+  res.json({ ok: true });
+});
 
-// Export as a separate function for direct access (matches documentation)
-export const testOrderStatusCheck = onRequest(async (req: Request, res: Response) => {
-  NotionService.handleTestOrderStatus(req, res);
+// Retired: this public URL used to run the old Notion-based status emails.
+// Kept so deploys don't have to delete it; use /test-order-status-check instead.
+export const testOrderStatusCheck = onRequest(async (_req: Request, res: Response) => {
+  res.status(410).json({ error: "Retired. Use POST /test-order-status-check with the admin token." });
 });
 
 // Scheduled function to check for order status updates and send notifications
@@ -509,6 +540,15 @@ export const syncInventoryCache = onSchedule(
   syncInventoryCacheOptions,
   async () => {
     try {
+      // Tells the dashboard this (dashboard-aware) job is live, so publishing
+      // products can't be undone by an older Notion-only version of it.
+      await markInventoryJobCurrent();
+      // Products managed in the dashboard: refresh from what's published
+      // (keeps the next roast date current) instead of reading Notion.
+      if ((await contentSource("products")) === "firestore") {
+        await rebuildInventoryCache();
+        return;
+      }
       logger.info("Starting scheduled inventory cache sync");
       await syncInventoryToCache();
       logger.info("Scheduled inventory cache sync completed");
@@ -522,6 +562,8 @@ export const syncEventsCalendar = onSchedule(
   { schedule: "every day 03:00", timeZone: "America/Los_Angeles", region: "us-central1", secrets: ["NOTION_TOKEN", "NOTION_ALL_EVENTS_DATABASE_ID"] },
   async () => {
     try {
+      // Events published from the dashboard don't need a sync.
+      if ((await contentSource("events")) === "firestore") return;
       logger.info("Starting scheduled events calendar sync");
       await refreshAllEventsCalendar();
       logger.info("Scheduled events calendar sync completed");
@@ -625,4 +667,78 @@ export const shopPageMeta = onRequest(
   // Without that, a direct visit to /shop/<item> returns 403 Forbidden.
   { region: "us-central1", memory: "256MiB" },
   handleShopPageMeta(getInventoryCache),
+);
+
+// Admin dashboard API. dashboard.koinoniacoffeeproject.com rewrites /api/** here; every
+// route checks the caller's Firebase ID token and staff role (see src/admin/). Like
+// shopPageMeta, Hosting needs the invoker IAM check off, set once after the first deploy:
+//   gcloud run services update adminapi --region us-central1 --no-invoker-iam-check
+export const adminApi = onRequest(
+  {
+    region: "us-central1",
+    // A full Notion order import can take a few minutes.
+    timeoutSeconds: 300,
+    // Notion: the import tool and best-effort copies. Resend + EasyPost: the
+    // status email sent right after a fulfillment change.
+    secrets: [
+      "NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY", "STRIPE_SECRET_KEY",
+      // One-time imports of events, discount codes and reviews.
+      "NOTION_ALL_EVENTS_DATABASE_ID", "NOTION_DISCOUNT_CODES_DATABASE_ID", "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
+      "NOTION_INVENTORY_DATABASE_ID",
+    ],
+    // Image uploads are resized in memory.
+    memory: "1GiB",
+  },
+  adminApp,
+);
+
+// Keeps the dashboard's orders in step with Notion while web checkout still
+// writes there. Only pages edited since the last run are read.
+export const syncNotionOrdersToFirestore = onSchedule(
+  {
+    region: "us-central1",
+    schedule: "every 5 minutes",
+    timeZone: "America/Los_Angeles",
+    timeoutSeconds: 300,
+    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID"],
+  },
+  async () => {
+    await syncNotionOrders();
+  },
+);
+
+// Finishes a paid web checkout order: Notion page, label, receipt, emails.
+// Same secrets and retry behavior as renewal fulfillment.
+export const fulfillWebCheckoutOrder = onDocumentCreated(
+  { ...subscriptionRenewalOptions, document: "orders/{orderId}", retry: true },
+  async (event) => {
+    if (!isServerFulfilled(event.data?.data())) return;
+    await fulfillCheckoutOrder(event.params.orderId);
+  },
+);
+
+// Records paid checkouts whose browser closed before calling /checkout/complete.
+// Subscription carts need the roast calendar (Notion) and the shipment (EasyPost) too.
+export const sweepPaidCheckoutsToOrders = onSchedule(
+  {
+    ...subscriptionRenewalOptions,
+    schedule: "every 10 minutes",
+    timeZone: "America/Los_Angeles",
+  },
+  async () => {
+    await sweepPaidCheckouts();
+  },
+);
+
+// Takes each new order's items out of stock for SKUs that track it (once
+// products are managed in the dashboard). Orders imported from Notion were
+// already counted there.
+export const takeNewOrdersFromStock = onDocumentCreated(
+  { region: "us-central1", document: "orders/{orderId}", retry: true },
+  async (event) => {
+    const order = event.data?.data();
+    if (!order || order.origin === "notion") return;
+    if ((await contentSource("products")) !== "firestore") return;
+    await takeOrderFromStock(event.params.orderId, Array.isArray(order.items) ? order.items : []);
+  },
 );

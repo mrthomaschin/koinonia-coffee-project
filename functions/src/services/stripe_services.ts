@@ -1,3 +1,4 @@
+import { parseCheckoutDetails, recordPaidCheckout, saveQuotedCheckout } from "../orders/checkout_orders";
 import Stripe from "stripe";
 import { Request, Response } from "express";
 import { createLogger } from "../logger";
@@ -172,18 +173,26 @@ export class StripeService {
         return;
       }
 
+      // Newer checkouts send the customer's details too, so the server can
+      // create the order itself once payment succeeds.
+      const details = parseCheckoutDetails(req.body, typeof req.body?.email === "string" ? req.body.email : null);
+      const orderId = details
+        ? await saveQuotedCheckout({ paymentIntentId, accountId: account?.id ?? null, details, delivery, quote })
+        : null;
+
       await getStripe().paymentIntents.update(paymentIntentId, {
         amount: quote.total,
         metadata: {
           ...quoteMetadata(quote),
+          ...(orderId ? { orderId } : {}),
           deliveryMethod: delivery.method,
           // The label bought after payment is this quoted rate; an empty value clears it for pickup.
           shipmentId: delivery.method === "shipping" ? delivery.shipmentId : "",
           rateId: delivery.method === "shipping" ? delivery.rateId : "",
         },
       });
-      logger.info("Checkout quoted", { paymentIntentId, total: quote.total, shipping: quote.shipping, tax: quote.tax });
-      res.json({ quote: publicQuote(quote) });
+      logger.info("Checkout quoted", { paymentIntentId, orderId, total: quote.total, shipping: quote.shipping, tax: quote.tax });
+      res.json({ quote: publicQuote(quote), ...(orderId ? { orderId } : {}) });
     } catch (error: unknown) {
       if (error instanceof PricingError) {
         res.status(400).json({
@@ -194,6 +203,30 @@ export class StripeService {
       }
       logger.error("Error quoting checkout", { error: (error as Error).message });
       res.status(500).json({ error: "We couldn't confirm your total. Please try again." });
+    }
+  }
+
+  /**
+   * POST /checkout/complete — body { paymentIntentId }. Called right after a
+   * payment succeeds; creates the order from the saved checkout (idempotent)
+   * and returns its number. Labels, Notion and emails follow on the server.
+   */
+  static async completeCheckout(req: Request, res: Response): Promise<void> {
+    try {
+      const paymentIntentId = String(req.body?.paymentIntentId || "");
+      if (!paymentIntentId.startsWith("pi_")) {
+        res.status(400).json({ error: "Missing payment." });
+        return;
+      }
+      const result = await recordPaidCheckout(paymentIntentId);
+      if (!result) {
+        res.status(409).json({ error: "This payment hasn't completed yet." });
+        return;
+      }
+      res.json({ orderId: result.orderId });
+    } catch (error: unknown) {
+      logger.error("Error completing checkout", { error: (error as Error).message });
+      res.status(500).json({ error: "We couldn't confirm your order. It will still be processed." });
     }
   }
 

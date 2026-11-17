@@ -1,3 +1,4 @@
+import { newPaidOrderStatus } from "../orders/order_model";
 import Stripe from "stripe";
 import {
   DocumentReference,
@@ -609,6 +610,7 @@ export class SubscriptionRenewalUseCase {
     roastDate: string,
   ): RenewalOrder {
     return {
+      ...newPaidOrderStatus(),
       id: quote.orderId,
       accountId: subscription.accountId,
       customerName: customerName(account),
