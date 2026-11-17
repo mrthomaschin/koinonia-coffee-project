@@ -12,6 +12,16 @@ import { OrderRepository } from "../orders/order_repository";
 import { syncNotionOrders } from "../orders/notion_order_sync";
 import { OrderStore } from "../orders/order_store";
 import { EmailService } from "../services/email_service";
+import {
+  decideRefund,
+  hasStripePayment,
+  refundableCents,
+  RefundError,
+  RefundStore,
+  requestRefund,
+  STRIPE_REASONS,
+} from "../orders/refunds";
+import { hasPermission, REFUND_APPROVAL_THRESHOLD_CENTS } from "./permissions";
 
 type Handler = (req: Request, res: Response) => Promise<void>;
 const route = (handler: Handler) => (req: Request, res: Response, next: NextFunction) =>
@@ -122,4 +132,93 @@ ordersRouter.post("/:id/notes", requirePermission("orders.edit"), route(async (r
   });
   await AuditLog.record(staff, { action: "order.note", target: { type: "order", id: order.id }, after: { message } });
   res.status(201).json({ event });
+}));
+
+// ---- Refunds ----
+
+const refundError = (res: Response, error: unknown): boolean => {
+  if (error instanceof RefundError) {
+    fail(res, error.status, error.message);
+    return true;
+  }
+  return false;
+};
+
+ordersRouter.get("/:id/refunds", requirePermission("orders.read"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const list = await RefundStore.forOrder(order.id);
+  let refundable: number | null = null;
+  try {
+    refundable = await refundableCents(order, list);
+  } catch {
+    // Stripe unreachable: the page still shows the history.
+  }
+  res.json({
+    refunds: list,
+    refundableCents: refundable,
+    stripeLinked: hasStripePayment(order),
+    approvalThresholdCents: REFUND_APPROVAL_THRESHOLD_CENTS,
+  });
+}));
+
+ordersRouter.post("/:id/refunds", requirePermission("orders.refund"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const staff = currentStaff(res);
+  const reason = (STRIPE_REASONS as readonly string[]).includes(req.body?.reason) ? req.body.reason : "requested_by_customer";
+  try {
+    const refund = await requestRefund({
+      order,
+      staff,
+      canRefundLarge: hasPermission(staff.role, "orders.refund_large"),
+      amountCents: Math.round(Number(req.body?.amountCents)),
+      reason,
+      note: String(req.body?.note || "").trim().slice(0, 2000),
+      manual: req.body?.manual === true,
+    });
+    await AuditLog.record(staff, {
+      action: refund.status === "pending_approval" ? "order.refund_request" : refund.method === "manual" ? "order.refund_record" : "order.refund",
+      target: { type: "order", id: order.id },
+      after: refund,
+    });
+    res.status(201).json({ refund });
+  } catch (error) {
+    if (!refundError(res, error)) throw error;
+  }
+}));
+
+export const refundsRouter = Router();
+
+refundsRouter.get("/pending", requirePermission("orders.refund_large"), route(async (_req, res) => {
+  const pending = await RefundStore.pendingApproval();
+  const orders = await Promise.all(pending.map((refund) => OrderRepository.get(refund.orderId)));
+  res.json({
+    requests: pending.map((refund, index) => ({
+      refund,
+      order: orders[index] && {
+        id: orders[index]!.id,
+        customerName: orders[index]!.customerName,
+        totalAmount: orders[index]!.totalAmount,
+      },
+    })),
+  });
+}));
+
+refundsRouter.post("/:id/decision", requirePermission("orders.refund_large"), route(async (req, res) => {
+  const refund = await RefundStore.get(req.params.id);
+  if (!refund) return fail(res, 404, "No such refund request.");
+  const staff = currentStaff(res);
+  try {
+    const decided = await decideRefund({ refund, staff, approve: req.body?.approve === true });
+    await AuditLog.record(staff, {
+      action: req.body?.approve === true ? "order.refund_approve" : "order.refund_decline",
+      target: { type: "order", id: refund.orderId },
+      before: refund,
+      after: decided,
+    });
+    res.json({ refund: decided });
+  } catch (error) {
+    if (!refundError(res, error)) throw error;
+  }
 }));

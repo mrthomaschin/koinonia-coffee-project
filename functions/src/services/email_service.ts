@@ -513,7 +513,8 @@ export class EmailService {
    * Called by the hourly job, and right after a dashboard status change.
    */
   static async sendDueStatusEmails(order: AdminOrder): Promise<void> {
-    if (order.paymentStatus !== "paid") return;
+    // Partly refunded orders still ship; fully refunded or unpaid ones don't.
+    if (order.paymentStatus !== "paid" && order.paymentStatus !== "partially_refunded") return;
     const today = () =>
       new Date().toLocaleDateString("en-US", {
         month: "long",

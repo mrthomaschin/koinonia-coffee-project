@@ -66,14 +66,15 @@ export const OrderStore = {
     return [...found.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
 
-  /** Paid orders still waiting on their final delivered or picked-up email. */
+  /** Paid (or partly refunded) orders still waiting on their final delivered or picked-up email. */
   async awaitingStatusEmails(): Promise<AdminOrder[]> {
     const snapshot = await orders()
       .where("emails.delivered", "==", false)
       .where("emails.pickedUp", "==", false)
       .get();
     const list = await Promise.all(snapshot.docs.map((doc) => OrderRepository.get(doc.id)));
-    return list.filter((order): order is AdminOrder => !!order && order.paymentStatus === "paid");
+    return list.filter((order): order is AdminOrder =>
+      !!order && (order.paymentStatus === "paid" || order.paymentStatus === "partially_refunded"));
   },
 
   /**

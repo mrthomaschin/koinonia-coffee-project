@@ -657,7 +657,7 @@ export const adminApi = onRequest(
     timeoutSeconds: 300,
     // Notion: the import tool and best-effort copies. Resend + EasyPost: the
     // status email sent right after a fulfillment change.
-    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY"],
+    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY", "STRIPE_SECRET_KEY"],
   },
   adminApp,
 );

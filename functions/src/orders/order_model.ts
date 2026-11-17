@@ -22,7 +22,7 @@ export const FULFILLMENT_STATUSES = [
 ] as const;
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
 
-export const PAYMENT_STATUSES = ["pending", "paid", "refunded"] as const;
+export const PAYMENT_STATUSES = ["pending", "paid", "partially_refunded", "refunded"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 /** Notion's status names, which the email automation still keys off. */
@@ -40,6 +40,8 @@ export const NOTION_FULFILLMENT: Record<FulfillmentStatus, string> = {
 export const NOTION_PAYMENT: Record<PaymentStatus, string> = {
   pending: "Pending",
   paid: "Paid",
+  // Notion has no partial status; it stays Paid.
+  partially_refunded: "Paid",
   refunded: "Refunded",
 };
 
@@ -59,7 +61,7 @@ export const paymentFromNotion = (name: string | undefined): PaymentStatus => {
 
 /** The legacy `status` the customer account pages read. */
 export const legacyStatus = (payment: PaymentStatus): "pending" | "completed" | "canceled" =>
-  payment === "paid" ? "completed" : payment === "refunded" ? "canceled" : "pending";
+  payment === "refunded" ? "canceled" : payment === "pending" ? "pending" : "completed";
 
 export interface OrderItem {
   name: string;
@@ -114,6 +116,8 @@ export interface AdminOrder {
   paymentStatus: PaymentStatus;
   fulfillmentStatus: FulfillmentStatus;
   totalAmount: number;
+  // Dollars refunded so far (refunds/{id} has each one).
+  refundedAmount?: number;
   // What the label cost us (EasyPost), not what the customer paid for shipping.
   shippingLabelPrice: number | null;
   discountCode: string | null;
@@ -140,7 +144,7 @@ export interface AdminOrder {
 export interface OrderEvent {
   id: string;
   at: string;
-  type: "note" | "fulfillment" | "imported" | "email";
+  type: "note" | "fulfillment" | "imported" | "email" | "refund";
   actor: { email: string; name: string } | null;
   message: string;
   data?: Record<string, unknown>;
