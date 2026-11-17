@@ -1248,9 +1248,18 @@ export class AccountService {
       filter: { property: "Order #", rich_text: { equals: order.id } },
     });
     if (existing.results.length) {
+      // Status and Fulfillment are set once, on create. Re-mirroring must not
+      // move a shipped order back to Pending or a refunded one back to Paid.
+      const {
+        Fulfillment: _fulfillment,
+        Status: _status,
+        ...updateProperties
+      } = properties as Record<string, unknown>;
+      void _fulfillment;
+      void _status;
       await notion.pages.update({
         page_id: existing.results[0].id,
-        properties: properties as any,
+        properties: updateProperties as any,
       });
       logger.info("Order mirror updated in Notion", { orderId });
     } else {

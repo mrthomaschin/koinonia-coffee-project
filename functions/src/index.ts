@@ -20,6 +20,7 @@ import { NewsletterService } from "./services/newsletter_service";
 import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
 import { adminApp } from "./admin/admin_app";
+import { syncNotionOrders } from "./orders/notion_order_sync";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -351,7 +352,14 @@ export const syncAccountOrderToNotion = onDocumentWritten(
   { ...notionMirrorOptions, document: "orders/{orderId}" },
   async (event) => {
     if (!event.data?.after.exists) return;
-    if (event.data.after.data()?.source === "subscription-renewal") return;
+    const after = event.data.after.data();
+    if (after?.source === "subscription-renewal") return;
+    // Orders that came from Notion, and writes made by the Notion sync or the
+    // admin dashboard, must not be mirrored back (see src/orders/).
+    if (after?.origin === "notion") return;
+    const before = event.data.before.exists ? event.data.before.data() : undefined;
+    if (after?.notion?.syncedAt && after.notion.syncedAt !== before?.notion?.syncedAt) return;
+    if (after?.adminUpdatedAt && after.adminUpdatedAt !== before?.adminUpdatedAt) return;
     if (await hasProcessedEvent("syncAccountOrderToNotion", event.id)) return;
     await AccountService.syncOrderMirrorById(event.params.orderId);
     await markEventProcessed("syncAccountOrderToNotion", event.id, event.params.orderId);
@@ -633,6 +641,27 @@ export const shopPageMeta = onRequest(
 // shopPageMeta, Hosting needs the invoker IAM check off, set once after the first deploy:
 //   gcloud run services update adminapi --region us-central1 --no-invoker-iam-check
 export const adminApi = onRequest(
-  { region: "us-central1", memory: "256MiB", timeoutSeconds: 60 },
+  {
+    region: "us-central1",
+    memory: "256MiB",
+    // A full Notion order import can take a few minutes.
+    timeoutSeconds: 300,
+    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID"],
+  },
   adminApp,
+);
+
+// Keeps the dashboard's orders in step with Notion while web checkout still
+// writes there. Only pages edited since the last run are read.
+export const syncNotionOrdersToFirestore = onSchedule(
+  {
+    region: "us-central1",
+    schedule: "every 5 minutes",
+    timeZone: "America/Los_Angeles",
+    timeoutSeconds: 300,
+    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID"],
+  },
+  async () => {
+    await syncNotionOrders();
+  },
 );
