@@ -79,7 +79,7 @@
 
 .about-hero-copy {
   position: relative;
-  max-width: 720px;
+  width: 100%;
   padding: 0 var(--space-gutter) clamp(48px, 6vw, 88px);
   color: var(--color-pearl);
 }
@@ -89,6 +89,7 @@
 }
 
 .about-hero h1 {
+  max-width: none;
   margin: var(--space-3) 0 var(--space-4);
   color: var(--color-pearl);
   font-size: var(--size-page-title);
