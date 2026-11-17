@@ -19,6 +19,7 @@ import { MonthlyMetricsService } from "./services/monthly_metrics_service";
 import { NewsletterService } from "./services/newsletter_service";
 import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
+import { adminApp } from "./admin/admin_app";
 
 // Load .env.local for development (emulator only)
 // Production uses Firebase secrets, not .env files
@@ -625,4 +626,13 @@ export const shopPageMeta = onRequest(
   // Without that, a direct visit to /shop/<item> returns 403 Forbidden.
   { region: "us-central1", memory: "256MiB" },
   handleShopPageMeta(getInventoryCache),
+);
+
+// Admin dashboard API. dashboard.koinoniacoffeeproject.com rewrites /api/** here; every
+// route checks the caller's Firebase ID token and staff role (see src/admin/). Like
+// shopPageMeta, Hosting needs the invoker IAM check off, set once after the first deploy:
+//   gcloud run services update adminapi --region us-central1 --no-invoker-iam-check
+export const adminApi = onRequest(
+  { region: "us-central1", memory: "256MiB", timeoutSeconds: 60 },
+  adminApp,
 );

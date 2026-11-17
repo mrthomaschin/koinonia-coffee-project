@@ -1,6 +1,7 @@
 import { App, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { Auth, getAuth } from "firebase-admin/auth";
 
 const DEFAULT_STORAGE_BUCKET = "koinonia-coffee-project.firebasestorage.app";
 
@@ -8,6 +9,9 @@ const defaultApp = (): App => getApps().find((app) => app.name === "[DEFAULT]") 
 
 /** Returns the default Firestore instance, initializing Admin when needed. */
 export const getDatabase = (): Firestore => getFirestore(defaultApp());
+
+/** Firebase Auth, used for dashboard staff sign-in (customer accounts don't use it). */
+export const getAdminAuth = (): Auth => getAuth(defaultApp());
 
 /** Returns the project's Cloud Storage bucket (the one product images live in). */
 export const getStorageBucket = () =>
