@@ -1,6 +1,8 @@
 import { randomInt } from "crypto";
 import { getDatabase } from "../integrations/firebase_admin";
 import { getStripeClient } from "../integrations/stripe/stripe_client";
+import { getEasyPostClient } from "../integrations/easypost/easypost_client";
+import { AccountAdmin, activateSubscriptionCheckout } from "../services/account_service";
 import { createLogger } from "../logger";
 import { newPaidOrderStatus } from "./order_model";
 import type { CheckoutQuote, DeliveryInput } from "../services/checkout_pricing";
@@ -35,7 +37,8 @@ export interface CheckoutDetails {
 export interface StoredCheckout {
   paymentIntentId: string;
   orderId: string;
-  status: "quoted" | "ordered";
+  // "activating": a subscription cart is being set up (see activateSubscriptionCart).
+  status: "quoted" | "activating" | "ordered";
   accountId: string | null;
   details: CheckoutDetails;
   delivery: DeliveryInput;
@@ -120,6 +123,9 @@ export const saveQuotedCheckout = async (input: {
 
 interface LineDisplay {
   variations: string;
+  weight: string;
+  // Grams, as the inventory stores it; renewals size their parcel from it.
+  shippingWeight: number | null;
   image: string | null;
   internalQuantity: number;
 }
@@ -137,7 +143,14 @@ const describeLines = async (lines: StoredCheckout["quote"]["lines"]): Promise<L
     const pounds = Number.parseFloat(variant?.weight || "");
     const internalQuantity = line.sku.toUpperCase().endsWith("-WS") && item?.itemType === "Coffee" &&
       Number.isFinite(pounds) && pounds > 0 ? pounds * line.quantity : line.quantity;
-    return { variations, image: item?.firebaseImageUrls?.[0] || null, internalQuantity };
+    const shippingWeight = Number(variant?.shippingWeight ?? item?.shippingWeight);
+    return {
+      variations,
+      weight: variant?.weight || "",
+      shippingWeight: Number.isFinite(shippingWeight) && shippingWeight > 0 ? shippingWeight : null,
+      image: item?.firebaseImageUrls?.[0] || null,
+      internalQuantity,
+    };
   });
 };
 
@@ -153,14 +166,14 @@ const cents = (value: number) => Math.round(value) / 100;
 /**
  * Creates the order for a succeeded payment. Safe to call any number of
  * times, from any caller: the first creates it, the rest return the same
- * order number. Null when there's nothing to record yet (not paid, unknown
- * checkout, or a subscription cart, which account_service records).
+ * order number. Null when there's nothing to record yet (not paid, or an
+ * unknown checkout). Subscription carts also set up their subscriptions.
  */
 export const recordPaidCheckout = async (paymentIntentId: string): Promise<{ orderId: string; created: boolean } | null> => {
   const db = getDatabase();
   const checkoutRef = db.collection(CHECKOUTS).doc(paymentIntentId);
   const checkout = (await checkoutRef.get()).data() as StoredCheckout | undefined;
-  if (!checkout || checkout.hasSubscription) return null;
+  if (!checkout) return null;
   if (checkout.status === "ordered") return { orderId: checkout.orderId, created: false };
 
   const paymentIntent = await getStripeClient().paymentIntents.retrieve(paymentIntentId);
@@ -180,7 +193,10 @@ export const recordPaidCheckout = async (paymentIntentId: string): Promise<{ ord
     quantity: line.quantity,
     internalQuantity: display[index].internalQuantity,
     price: line.unitPrice,
-    selections: display[index].variations ? { variations: display[index].variations } : {},
+    // weight is what subscription orders and renewals read; variations is for display.
+    selections: display[index].variations
+      ? { variations: display[index].variations, ...(display[index].weight ? { weight: display[index].weight } : {}) }
+      : {},
     ...(display[index].image ? { image: display[index].image } : {}),
     ...(line.subscriptionPlan ? { subscriptionPlan: line.subscriptionPlan } : {}),
   }));
@@ -228,10 +244,19 @@ export const recordPaidCheckout = async (paymentIntentId: string): Promise<{ ord
     updatedAt: now,
   };
 
+  if (checkout.hasSubscription && checkout.accountId) {
+    return activateSubscriptionCart(checkout, paymentIntent, order, display);
+  }
+  if (checkout.hasSubscription) {
+    // Subscriptions need an account; record the purchase and flag it for staff.
+    logger.error("Subscription cart paid without an account", { paymentIntentId });
+    (order as Record<string, unknown>).fulfillment = { lastError: "Paid for a subscription without an account; no subscription was created. Set it up with the customer." };
+  }
+
   // The checkout's status is the lock: only the first caller creates the order.
   const created = await db.runTransaction(async (transaction) => {
     const fresh = (await transaction.get(checkoutRef)).data() as StoredCheckout | undefined;
-    if (!fresh || fresh.status === "ordered") return false;
+    if (!fresh || fresh.status !== "quoted") return false;
     transaction.create(db.collection("orders").doc(checkout.orderId), order);
     transaction.update(checkoutRef, { status: "ordered", orderedAt: now });
     return true;
@@ -240,11 +265,89 @@ export const recordPaidCheckout = async (paymentIntentId: string): Promise<{ ord
   return { orderId: checkout.orderId, created };
 };
 
+/**
+ * A paid subscription cart: creates the subscriptions, the order and the
+ * saved card and address through account_service, then hands the order to
+ * the same server fulfillment as other web orders (serverFulfilled).
+ */
+const activateSubscriptionCart = async (
+  checkout: StoredCheckout,
+  paymentIntent: Awaited<ReturnType<ReturnType<typeof getStripeClient>["paymentIntents"]["retrieve"]>>,
+  order: Record<string, any>,
+  display: LineDisplay[],
+): Promise<{ orderId: string; created: boolean } | null> => {
+  const db = getDatabase();
+  const checkoutRef = db.collection(CHECKOUTS).doc(checkout.paymentIntentId);
+  // Claim the checkout so the browser and the sweep can't both set it up.
+  const now = new Date().toISOString();
+  const claimed = await db.runTransaction(async (transaction) => {
+    const fresh = (await transaction.get(checkoutRef)).data() as (StoredCheckout & { activatingAt?: string }) | undefined;
+    if (!fresh || fresh.status === "ordered") return false;
+    if (fresh.status === "activating" && Date.now() - Date.parse(fresh.activatingAt || "") < 5 * 60 * 1000) return false;
+    transaction.update(checkoutRef, { status: "activating", activatingAt: now });
+    return true;
+  });
+  if (!claimed) return { orderId: checkout.orderId, created: false };
+
+  try {
+    const account = await AccountAdmin.profile(checkout.accountId!);
+    if (!account) throw new Error("The account for this subscription no longer exists");
+    const { details, quote, delivery } = checkout;
+    let shippingAddressData = null;
+    if (delivery.method === "shipping") {
+      // Renewals ship to this structured address; it's the one the label was quoted for.
+      const shipment: any = await getEasyPostClient().Shipment.retrieve(delivery.shipmentId);
+      const to = shipment.to_address || {};
+      shippingAddressData = to.street1 ? {
+        line1: to.street1, line2: to.street2 || "", city: to.city, state: to.state,
+        postal_code: to.zip, country: to.country || "US",
+      } : null;
+    }
+    const subscribed = quote.lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.subscriptionPlan)
+      .map(({ line, index }) => ({
+        plan: line.subscriptionPlan,
+        itemSku: line.sku,
+        itemName: line.name,
+        weight: display[index].weight || display[index].variations,
+        ...(display[index].shippingWeight ? { shippingWeight: display[index].shippingWeight } : {}),
+      }));
+    const { id: _id, source: _source, accountId: _accountId, status: _status, ...orderFields } = order;
+    void _id; void _source; void _accountId; void _status;
+    const result = await activateSubscriptionCheckout({
+      account,
+      paymentIntent,
+      paymentIntentId: checkout.paymentIntentId,
+      requestedOrderId: checkout.orderId,
+      customerPhone: details.phone || "",
+      items: subscribed,
+      orderItems: order.items,
+      shippingAddress: details.shippingAddress || "",
+      shippingAddressData,
+      isLocalPickup: delivery.method === "pickup",
+      orderPickupId: details.orderPickupId || "",
+      shippingAmount: quote.shipping / 100,
+      submittedShipment: null,
+      // Everything the server fulfillment reads, plus the flag that hands it the order.
+      orderFields: { ...orderFields, serverFulfilled: true },
+    });
+    await checkoutRef.update({ status: "ordered", orderedAt: new Date().toISOString() });
+    if (result.created) logger.info("Subscription checkout activated", { orderId: result.orderId, subscriptions: result.subscriptionIds.length });
+    return { orderId: result.orderId || checkout.orderId, created: result.created };
+  } catch (error) {
+    // Back to quoted, so the next call (or the sweep) tries again.
+    await checkoutRef.update({ status: "quoted", lastError: (error as Error).message });
+    throw error;
+  }
+};
+
 /** Paid checkouts from the last few days that never became orders. */
 export const sweepPaidCheckouts = async (): Promise<number> => {
   const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
   const snapshot = await getDatabase().collection(CHECKOUTS)
-    .where("status", "==", "quoted")
+    // "activating" too: a subscription setup that crashed midway is retried.
+    .where("status", "in", ["quoted", "activating"])
     .where("quotedAt", ">=", since)
     .get();
   let recorded = 0;

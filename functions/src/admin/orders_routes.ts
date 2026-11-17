@@ -23,7 +23,7 @@ import {
 } from "../orders/refunds";
 import { hasPermission, REFUND_APPROVAL_THRESHOLD_CENTS } from "./permissions";
 import { BOXES, buyLabel, getLabelInfo, LabelError, quoteLabel, voidCurrentLabel } from "../orders/labels";
-import { fulfillCheckoutOrder } from "../orders/checkout_fulfillment";
+import { fulfillCheckoutOrder, isServerFulfilled } from "../orders/checkout_fulfillment";
 import type { AdminOrder } from "../orders/order_model";
 import {
   deleteOrder,
@@ -262,7 +262,9 @@ ordersRouter.get("/:id/label", requirePermission("orders.read"), route(async (re
   }
   // Web checkout orders record their server steps; a stuck one can be retried.
   const extra = order as AdminOrder & { source?: string; fulfillment?: { lastError?: string } };
-  const lastError = extra.source === "web-checkout" ? extra.fulfillment?.lastError || null : null;
+  const lastError = isServerFulfilled(extra as { source?: string; serverFulfilled?: boolean }) || extra.source === "web-checkout"
+    ? extra.fulfillment?.lastError || null
+    : null;
   res.json({ info, boxes: BOXES, retryable: !!lastError, lastError });
 }));
 

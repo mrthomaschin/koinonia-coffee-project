@@ -21,7 +21,7 @@ import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
 import { adminApp } from "./admin/admin_app";
 import { syncNotionOrders } from "./orders/notion_order_sync";
-import { fulfillCheckoutOrder } from "./orders/checkout_fulfillment";
+import { fulfillCheckoutOrder, isServerFulfilled } from "./orders/checkout_fulfillment";
 import { sweepPaidCheckouts } from "./orders/checkout_orders";
 
 // Load .env.local for development (emulator only)
@@ -358,6 +358,7 @@ export const syncAccountOrderToNotion = onDocumentWritten(
     const after = event.data.after.data();
     // Renewal, web checkout and dashboard-created orders are mirrored by their own code.
     if (after?.source === "subscription-renewal" || after?.source === "web-checkout" || after?.source === "manual") return;
+    if (after?.serverFulfilled) return;
     // Orders that came from Notion, and writes made by the Notion sync or the
     // admin dashboard, must not be mirrored back (see src/orders/).
     if (after?.origin === "notion") return;
@@ -682,19 +683,18 @@ export const syncNotionOrdersToFirestore = onSchedule(
 export const fulfillWebCheckoutOrder = onDocumentCreated(
   { ...subscriptionRenewalOptions, document: "orders/{orderId}", retry: true },
   async (event) => {
-    if (event.data?.data()?.source !== "web-checkout") return;
+    if (!isServerFulfilled(event.data?.data())) return;
     await fulfillCheckoutOrder(event.params.orderId);
   },
 );
 
 // Records paid checkouts whose browser closed before calling /checkout/complete.
+// Subscription carts need the roast calendar (Notion) and the shipment (EasyPost) too.
 export const sweepPaidCheckoutsToOrders = onSchedule(
   {
-    region: "us-central1",
+    ...subscriptionRenewalOptions,
     schedule: "every 10 minutes",
     timeZone: "America/Los_Angeles",
-    timeoutSeconds: 120,
-    secrets: ["STRIPE_SECRET_KEY"],
   },
   async () => {
     await sweepPaidCheckouts();

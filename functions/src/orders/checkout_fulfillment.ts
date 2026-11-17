@@ -23,6 +23,8 @@ const logger = createLogger("checkout_fulfillment");
 interface CheckoutOrder {
   id: string;
   source: string;
+  // Subscription checkouts set up on the server are fulfilled here too.
+  serverFulfilled?: boolean;
   customerName: string;
   email: string;
   phone: string | null;
@@ -54,10 +56,14 @@ const findNotionPageId = async (orderId: string): Promise<string | null> => {
   return result.results[0]?.id ?? null;
 };
 
+/** Orders this module fulfills: web checkouts, and subscription checkouts set up on the server. */
+export const isServerFulfilled = (order: { source?: string; serverFulfilled?: boolean } | undefined): boolean =>
+  !!order && (order.source === "web-checkout" || (order.source === "subscription-checkout" && order.serverFulfilled === true));
+
 export const fulfillCheckoutOrder = async (orderId: string): Promise<void> => {
   const orderRef = getDatabase().collection("orders").doc(orderId);
   const order = (await orderRef.get()).data() as CheckoutOrder | undefined;
-  if (!order || order.source !== "web-checkout") return;
+  if (!order || !isServerFulfilled(order)) return;
   const done = order.fulfillment || {};
   const mark = (step: string, extra: Record<string, unknown> = {}) =>
     orderRef.update({ [`fulfillment.${step}`]: new Date().toISOString(), ...extra });

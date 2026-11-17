@@ -1405,287 +1405,27 @@ export class AccountService {
         return;
       }
 
-      const checkoutRef = database()
-        .collection("subscription_checkouts")
-        .doc(paymentIntentId);
-      const existing = await checkoutRef.get();
-      if (existing.exists) {
-        res.json({
-          created: false,
-          subscriptionIds: existing.data()?.subscriptionIds || [],
-        });
+      const result = await activateSubscriptionCheckout({
+        account,
+        paymentIntent,
+        paymentIntentId,
+        requestedOrderId,
+        customerPhone,
+        items,
+        orderItems,
+        shippingAddress,
+        shippingAddressData,
+        isLocalPickup,
+        orderPickupId,
+        shippingAmount,
+        submittedShipment,
+      });
+      res.status(result.created ? 201 : 200).json(result);
+    } catch (error: unknown) {
+      if (error instanceof SubscriptionCheckoutError) {
+        res.status(400).json({ error: error.message });
         return;
       }
-      const paymentMethodId =
-        typeof paymentIntent.payment_method === "string"
-          ? paymentIntent.payment_method
-          : null;
-      const customerId =
-        typeof paymentIntent.customer === "string"
-          ? paymentIntent.customer
-          : null;
-      const paymentMethod = paymentMethodId
-        ? await getStripe().paymentMethods.retrieve(paymentMethodId)
-        : null;
-      const stripeCustomer = customerId
-        ? await getStripe().customers.retrieve(customerId)
-        : null;
-      const stripeCustomerPhone =
-        stripeCustomer && !stripeCustomer.deleted ? stripeCustomer.phone : "";
-      const savedPhone = (
-        customerPhone ||
-        paymentIntent.shipping?.phone ||
-        paymentMethod?.billing_details?.phone ||
-        stripeCustomerPhone ||
-        ""
-      )
-        .trim()
-        .slice(0, 40);
-      if (customerId && savedPhone)
-        await getStripe().customers.update(customerId, { phone: savedPhone });
-      // The checkout payment covers this roast; renewals start after it.
-      const checkoutRoastDate = await nextUpcomingRoastSessionDate();
-      const priceOverrides = await partnerPriceOverridesFor(account);
-      const subscriptions: StoredSubscription[] = [];
-      for (const item of items) {
-        const plan = String(item?.plan || "") as SubscriptionPlan;
-        const selectedPlan = subscriptionPlans[plan];
-        const itemSku = String(item?.itemSku || "")
-          .trim()
-          .slice(0, 120);
-        const itemName = String(item?.itemName || "")
-          .trim()
-          .slice(0, 120);
-        const weight = String(item?.weight || "")
-          .trim()
-          .slice(0, 40);
-        const shippingWeight = Number(item?.shippingWeight);
-        // Priced like the cart line was at checkout; renewals charge this amount.
-        const [pricedLine] = await priceCartLines(
-          [{ sku: itemSku.toUpperCase(), quantity: 1, subscriptionPlan: plan }],
-          account,
-        ).catch(() => [undefined]);
-        let unitAmount = pricedLine
-          ? Math.round(pricedLine.unitPrice * 100)
-          : Number.NaN;
-        const itemWeightInPounds = weightInPounds(weight);
-        const resolvedShippingWeight =
-          Number.isFinite(shippingWeight) && shippingWeight > 0
-            ? shippingWeight
-            : itemWeightInPounds > 0
-              ? itemWeightInPounds * 453.592
-              : undefined;
-        if (isPartnerLabel(account.label)) {
-          const minimumWeight = account.label === "wholesale" ? 5 : 1;
-          if (
-            !itemWeightInPounds ||
-            itemWeightInPounds < minimumWeight ||
-            itemWeightInPounds * 2 !== Math.round(itemWeightInPounds * 2)
-          ) {
-            res.status(400).json({
-              error: `Partner subscriptions must be at least ${minimumWeight} lb in half-pound increments.`,
-            });
-            return;
-          }
-          if (!/koin blend|ethiopia/i.test(itemName)) {
-            res.status(400).json({
-              error:
-                "Partner subscriptions are available for Koin Blend and Ethiopian coffee.",
-            });
-            return;
-          }
-          if (!["B-KOIN-WS", "B-ETH-W-WS"].includes(itemSku)) {
-            res.status(400).json({
-              error: "Partner subscriptions must use the partner coffee SKUs.",
-            });
-            return;
-          }
-          const overridePrice = priceOverrides[itemSku];
-          if (overridePrice !== undefined) {
-            unitAmount = partnerPriceForWeight(overridePrice, weight);
-          }
-        }
-        if (
-          !selectedPlan ||
-          !itemSku ||
-          !itemName ||
-          !weight ||
-          !Number.isSafeInteger(unitAmount) ||
-          unitAmount < 50
-        ) {
-          res.status(400).json({ error: "Invalid subscription item." });
-          return;
-        }
-        const firstRenewalRoastDate = await nextRoastSessionDate(
-          checkoutRoastDate,
-          selectedPlan.cadence,
-        );
-        if (!firstRenewalRoastDate)
-          logger.warn(
-            "No roast after the checkout roast in the calendar; skipping the checkout roast so it is not charged twice",
-            { checkoutRoastDate },
-          );
-        subscriptions.push({
-          id: `sub_${randomUUID()}`,
-          accountId: account.id,
-          plan,
-          ...selectedPlan,
-          itemSku,
-          itemName,
-          weight,
-          ...(resolvedShippingWeight !== undefined
-            ? { shippingWeight: resolvedShippingWeight }
-            : {}),
-          unitAmount,
-          discountPercent: account.label === "consumer" ? 5 : 0,
-          freeShipping:
-            account.label === "wholesale" ? false : selectedPlan.freeShipping,
-          status: "active",
-          createdAt: new Date().toISOString(),
-          ...(isLocalPickup ? { isLocalPickup: true, orderPickupId } : {}),
-          ...(firstRenewalRoastDate
-            ? { upcomingRoastDate: firstRenewalRoastDate }
-            : {
-                upcomingRoastDate: checkoutRoastDate,
-                skippedRoastDate:
-                  SubscriptionService.roastDateKey(checkoutRoastDate),
-              }),
-        });
-      }
-      const batch = database().batch();
-      const orderId = /^[A-Z0-9]{8}$/.test(requestedOrderId)
-        ? requestedOrderId
-        : paymentIntentId.slice(-8).toUpperCase();
-      const order: Order & {
-        paymentIntentId: string;
-        subscriptionIds: string[];
-        source: "subscription-checkout";
-      } = {
-        ...newPaidOrderStatus(),
-        id: orderId,
-        accountId: account.id,
-        customerName:
-          `${account.user.firstName} ${account.user.lastName}`.trim(),
-        email: account.user.email,
-        emailNormalized: account.user.email.toLowerCase(),
-        phone: savedPhone || undefined,
-        totalAmount: paymentIntent.amount_received / 100,
-        createdAt: new Date(paymentIntent.created * 1000).toISOString(),
-        status: "completed",
-        paymentIntentId,
-        subscriptionIds: subscriptions.map((item) => item.id),
-        itemsSummary: orderItems.length
-          ? orderItems
-              .map(
-                (item: PurchasedItem) =>
-                  `${item.quantity}x ${item.name}${item.selections?.weight ? ` (${item.selections.weight})` : ""}`,
-              )
-              .join(", ")
-          : subscriptions
-              .map(
-                (item) => `${item.bagCount}x ${item.itemName} (${item.weight})`,
-              )
-              .join(", "),
-        ...(orderItems.length ? { items: orderItems } : {}),
-        isLocalPickup,
-        ...(orderPickupId ? { orderPickupId } : {}),
-        ...(shippingAddress ? { shippingAddress } : {}),
-        ...(Number.isFinite(shippingAmount)
-          ? { shippingCharged: shippingAmount }
-          : {}),
-        ...(submittedShipment
-          ? {
-              ...(Number.isFinite(Number(submittedShipment.shippingPrice))
-                ? {
-                    shippingLabelPrice: Number(submittedShipment.shippingPrice),
-                  }
-                : {}),
-              ...(submittedShipment.boxSize
-                ? {
-                    shippingBox: String(submittedShipment.boxSize).slice(0, 80),
-                  }
-                : {}),
-              ...(submittedShipment.shipmentId
-                ? {
-                    shipmentId: String(submittedShipment.shipmentId).slice(
-                      0,
-                      120,
-                    ),
-                  }
-                : {}),
-              ...(submittedShipment.trackingNumber
-                ? {
-                    trackingNumber: String(
-                      submittedShipment.trackingNumber,
-                    ).slice(0, 120),
-                  }
-                : {}),
-              ...(submittedShipment.labelUrl
-                ? {
-                    trackingLabelUrl: String(submittedShipment.labelUrl).slice(
-                      0,
-                      500,
-                    ),
-                  }
-                : {}),
-              ...(submittedShipment.carrier
-                ? {
-                    shippingCarrier: String(submittedShipment.carrier).slice(
-                      0,
-                      80,
-                    ),
-                  }
-                : {}),
-              ...(submittedShipment.service
-                ? {
-                    shippingService: String(submittedShipment.service).slice(
-                      0,
-                      80,
-                    ),
-                  }
-                : {}),
-            }
-          : {}),
-        source: "subscription-checkout",
-      };
-      batch.set(checkoutRef, {
-        accountId: account.id,
-        paymentIntentId,
-        orderId,
-        subscriptionIds: subscriptions.map((item) => item.id),
-        createdAt: Date.now(),
-      });
-      batch.set(database().collection("orders").doc(order.id), order);
-      batch.delete(
-        database().collection("account_order_cache").doc(account.id),
-      );
-      batch.set(
-        database().collection("accounts").doc(account.id),
-        {
-          billing: {
-            stripeCustomerId: customerId,
-            stripePaymentMethodId: paymentMethodId,
-            paymentMethodSavedAt: Date.now(),
-          },
-          shippingAddress: shippingAddress || null,
-          shippingAddressData,
-          ...(savedPhone ? { phone: savedPhone } : {}),
-          updatedAt: Date.now(),
-        },
-        { merge: true },
-      );
-      subscriptions.forEach((subscription) =>
-        batch.set(
-          database().collection("account_subscriptions").doc(subscription.id),
-          subscription,
-        ),
-      );
-      await batch.commit();
-      res.status(201).json({
-        created: true,
-        subscriptionIds: subscriptions.map((item) => item.id),
-      });
-    } catch (error: unknown) {
       logger.error("Unable to complete subscription checkout", {
         error: (error as Error).message,
       });
@@ -3051,6 +2791,325 @@ export class AccountService {
   }
 }
 
+/** A subscription checkout that can't be activated; the message is safe to show. */
+export class SubscriptionCheckoutError extends Error {}
+
+export interface SubscriptionCheckoutInput {
+  account: AccountProfile;
+  paymentIntent: Stripe.PaymentIntent;
+  paymentIntentId: string;
+  requestedOrderId: string;
+  customerPhone: string;
+  // { plan, itemSku, itemName, weight, shippingWeight } per subscribed line.
+  items: any[];
+  orderItems: PurchasedItem[];
+  shippingAddress: string;
+  shippingAddressData: ShippingAddressData | null;
+  isLocalPickup: boolean;
+  orderPickupId: string;
+  shippingAmount: number;
+  submittedShipment: any | null;
+  // Extra fields for the order, e.g. those the server-side checkout sets.
+  orderFields?: Record<string, unknown>;
+}
+
+/**
+ * Creates a paid checkout's subscriptions and its order, saves the card and
+ * address for renewals. Safe to repeat: a payment that was already activated
+ * returns what it created. Used by the legacy browser endpoint and by the
+ * server-side checkout (orders/checkout_orders.ts).
+ */
+export const activateSubscriptionCheckout = async (
+  input: SubscriptionCheckoutInput,
+): Promise<{ created: boolean; subscriptionIds: string[]; orderId: string }> => {
+  const {
+    account,
+    paymentIntent,
+    paymentIntentId,
+    requestedOrderId,
+    customerPhone,
+    items,
+    orderItems,
+    shippingAddress,
+    shippingAddressData,
+    isLocalPickup,
+    orderPickupId,
+    shippingAmount,
+    submittedShipment,
+  } = input;
+    const checkoutRef = database()
+      .collection("subscription_checkouts")
+      .doc(paymentIntentId);
+    const existing = await checkoutRef.get();
+    if (existing.exists) {
+      return {
+        created: false,
+        subscriptionIds: existing.data()?.subscriptionIds || [],
+        orderId: existing.data()?.orderId || "",
+      };
+    }
+    const paymentMethodId =
+      typeof paymentIntent.payment_method === "string"
+        ? paymentIntent.payment_method
+        : null;
+    const customerId =
+      typeof paymentIntent.customer === "string"
+        ? paymentIntent.customer
+        : null;
+    const paymentMethod = paymentMethodId
+      ? await getStripe().paymentMethods.retrieve(paymentMethodId)
+      : null;
+    const stripeCustomer = customerId
+      ? await getStripe().customers.retrieve(customerId)
+      : null;
+    const stripeCustomerPhone =
+      stripeCustomer && !stripeCustomer.deleted ? stripeCustomer.phone : "";
+    const savedPhone = (
+      customerPhone ||
+      paymentIntent.shipping?.phone ||
+      paymentMethod?.billing_details?.phone ||
+      stripeCustomerPhone ||
+      ""
+    )
+      .trim()
+      .slice(0, 40);
+    if (customerId && savedPhone)
+      await getStripe().customers.update(customerId, { phone: savedPhone });
+    // The checkout payment covers this roast; renewals start after it.
+    const checkoutRoastDate = await nextUpcomingRoastSessionDate();
+    const priceOverrides = await partnerPriceOverridesFor(account);
+    const subscriptions: StoredSubscription[] = [];
+    for (const item of items) {
+      const plan = String(item?.plan || "") as SubscriptionPlan;
+      const selectedPlan = subscriptionPlans[plan];
+      const itemSku = String(item?.itemSku || "")
+        .trim()
+        .slice(0, 120);
+      const itemName = String(item?.itemName || "")
+        .trim()
+        .slice(0, 120);
+      const weight = String(item?.weight || "")
+        .trim()
+        .slice(0, 40);
+      const shippingWeight = Number(item?.shippingWeight);
+      // Priced like the cart line was at checkout; renewals charge this amount.
+      const [pricedLine] = await priceCartLines(
+        [{ sku: itemSku.toUpperCase(), quantity: 1, subscriptionPlan: plan }],
+        account,
+      ).catch(() => [undefined]);
+      let unitAmount = pricedLine
+        ? Math.round(pricedLine.unitPrice * 100)
+        : Number.NaN;
+      const itemWeightInPounds = weightInPounds(weight);
+      const resolvedShippingWeight =
+        Number.isFinite(shippingWeight) && shippingWeight > 0
+          ? shippingWeight
+          : itemWeightInPounds > 0
+            ? itemWeightInPounds * 453.592
+            : undefined;
+      if (isPartnerLabel(account.label)) {
+        const minimumWeight = account.label === "wholesale" ? 5 : 1;
+        if (
+          !itemWeightInPounds ||
+          itemWeightInPounds < minimumWeight ||
+          itemWeightInPounds * 2 !== Math.round(itemWeightInPounds * 2)
+        ) {
+          throw new SubscriptionCheckoutError(`Partner subscriptions must be at least ${minimumWeight} lb in half-pound increments.`);
+        }
+        if (!/koin blend|ethiopia/i.test(itemName)) {
+          throw new SubscriptionCheckoutError("Partner subscriptions are available for Koin Blend and Ethiopian coffee.");
+        }
+        if (!["B-KOIN-WS", "B-ETH-W-WS"].includes(itemSku)) {
+          throw new SubscriptionCheckoutError("Partner subscriptions must use the partner coffee SKUs.");
+        }
+        const overridePrice = priceOverrides[itemSku];
+        if (overridePrice !== undefined) {
+          unitAmount = partnerPriceForWeight(overridePrice, weight);
+        }
+      }
+      if (
+        !selectedPlan ||
+        !itemSku ||
+        !itemName ||
+        !weight ||
+        !Number.isSafeInteger(unitAmount) ||
+        unitAmount < 50
+      ) {
+        throw new SubscriptionCheckoutError("Invalid subscription item.");
+      }
+      const firstRenewalRoastDate = await nextRoastSessionDate(
+        checkoutRoastDate,
+        selectedPlan.cadence,
+      );
+      if (!firstRenewalRoastDate)
+        logger.warn(
+          "No roast after the checkout roast in the calendar; skipping the checkout roast so it is not charged twice",
+          { checkoutRoastDate },
+        );
+      subscriptions.push({
+        id: `sub_${randomUUID()}`,
+        accountId: account.id,
+        plan,
+        ...selectedPlan,
+        itemSku,
+        itemName,
+        weight,
+        ...(resolvedShippingWeight !== undefined
+          ? { shippingWeight: resolvedShippingWeight }
+          : {}),
+        unitAmount,
+        discountPercent: account.label === "consumer" ? 5 : 0,
+        freeShipping:
+          account.label === "wholesale" ? false : selectedPlan.freeShipping,
+        status: "active",
+        createdAt: new Date().toISOString(),
+        ...(isLocalPickup ? { isLocalPickup: true, orderPickupId } : {}),
+        ...(firstRenewalRoastDate
+          ? { upcomingRoastDate: firstRenewalRoastDate }
+          : {
+              upcomingRoastDate: checkoutRoastDate,
+              skippedRoastDate:
+                SubscriptionService.roastDateKey(checkoutRoastDate),
+            }),
+      });
+    }
+    const batch = database().batch();
+    const orderId = /^[A-Z0-9]{8}$/.test(requestedOrderId)
+      ? requestedOrderId
+      : paymentIntentId.slice(-8).toUpperCase();
+    const order: Order & {
+      paymentIntentId: string;
+      subscriptionIds: string[];
+      source: "subscription-checkout";
+    } = {
+      ...newPaidOrderStatus(),
+      id: orderId,
+      accountId: account.id,
+      customerName:
+        `${account.user.firstName} ${account.user.lastName}`.trim(),
+      email: account.user.email,
+      emailNormalized: account.user.email.toLowerCase(),
+      phone: savedPhone || undefined,
+      totalAmount: paymentIntent.amount_received / 100,
+      createdAt: new Date(paymentIntent.created * 1000).toISOString(),
+      status: "completed",
+      paymentIntentId,
+      subscriptionIds: subscriptions.map((item) => item.id),
+      itemsSummary: orderItems.length
+        ? orderItems
+            .map(
+              (item: PurchasedItem) =>
+                `${item.quantity}x ${item.name}${item.selections?.weight ? ` (${item.selections.weight})` : ""}`,
+            )
+            .join(", ")
+        : subscriptions
+            .map(
+              (item) => `${item.bagCount}x ${item.itemName} (${item.weight})`,
+            )
+            .join(", "),
+      ...(orderItems.length ? { items: orderItems } : {}),
+      isLocalPickup,
+      ...(orderPickupId ? { orderPickupId } : {}),
+      ...(shippingAddress ? { shippingAddress } : {}),
+      ...(Number.isFinite(shippingAmount)
+        ? { shippingCharged: shippingAmount }
+        : {}),
+      ...(submittedShipment
+        ? {
+            ...(Number.isFinite(Number(submittedShipment.shippingPrice))
+              ? {
+                  shippingLabelPrice: Number(submittedShipment.shippingPrice),
+                }
+              : {}),
+            ...(submittedShipment.boxSize
+              ? {
+                  shippingBox: String(submittedShipment.boxSize).slice(0, 80),
+                }
+              : {}),
+            ...(submittedShipment.shipmentId
+              ? {
+                  shipmentId: String(submittedShipment.shipmentId).slice(
+                    0,
+                    120,
+                  ),
+                }
+              : {}),
+            ...(submittedShipment.trackingNumber
+              ? {
+                  trackingNumber: String(
+                    submittedShipment.trackingNumber,
+                  ).slice(0, 120),
+                }
+              : {}),
+            ...(submittedShipment.labelUrl
+              ? {
+                  trackingLabelUrl: String(submittedShipment.labelUrl).slice(
+                    0,
+                    500,
+                  ),
+                }
+              : {}),
+            ...(submittedShipment.carrier
+              ? {
+                  shippingCarrier: String(submittedShipment.carrier).slice(
+                    0,
+                    80,
+                  ),
+                }
+              : {}),
+            ...(submittedShipment.service
+              ? {
+                  shippingService: String(submittedShipment.service).slice(
+                    0,
+                    80,
+                  ),
+                }
+              : {}),
+          }
+        : {}),
+      source: "subscription-checkout",
+    ...(input.orderFields || {}),
+    };
+    batch.set(checkoutRef, {
+      accountId: account.id,
+      paymentIntentId,
+      orderId,
+      subscriptionIds: subscriptions.map((item) => item.id),
+      createdAt: Date.now(),
+    });
+    batch.set(database().collection("orders").doc(order.id), order);
+    batch.delete(
+      database().collection("account_order_cache").doc(account.id),
+    );
+    batch.set(
+      database().collection("accounts").doc(account.id),
+      {
+        billing: {
+          stripeCustomerId: customerId,
+          stripePaymentMethodId: paymentMethodId,
+          paymentMethodSavedAt: Date.now(),
+        },
+        shippingAddress: shippingAddress || null,
+        shippingAddressData,
+        ...(savedPhone ? { phone: savedPhone } : {}),
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    );
+    subscriptions.forEach((subscription) =>
+      batch.set(
+        database().collection("account_subscriptions").doc(subscription.id),
+        subscription,
+      ),
+    );
+    await batch.commit();
+    return {
+      created: true,
+      subscriptionIds: subscriptions.map((item) => item.id),
+      orderId,
+    };
+};
+
 /**
  * Read and support actions on customer accounts for the admin dashboard
  * (src/admin/customers.ts). Never exposes password hashes or sessions.
@@ -3117,6 +3176,12 @@ export const AccountAdmin = {
     if (verificationCooldownActive(account)) return false;
     await sendVerificationEmail(account, target.email, target.purpose);
     return { sentTo: target.email };
+  },
+
+  /** The account as its owner sees it (no password or billing details). */
+  async profile(accountId: string): Promise<AccountProfile | null> {
+    const account = await storedAccount(accountId);
+    return account ? publicProfile(account) : null;
   },
 
   async setLabel(accountId: string, label: AccountLabel): Promise<void> {

@@ -84,6 +84,8 @@ const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({ available
     const orderData = state?.orderData;
     if (!state?.fromEmbeddedCheckout || !orderData?.paymentIntentId || !token || subscriptionCreatedRef.current) return;
     if (!orderData.subscriptionItems?.length) return;
+    // The server already set up the subscriptions for this order.
+    if (orderData.orderId) return;
     subscriptionCreatedRef.current = true;
     const orderId = new Date(orderData.timestamp).getTime().toString().slice(-8).toUpperCase();
     accountService.completeSubscriptionCheckout(

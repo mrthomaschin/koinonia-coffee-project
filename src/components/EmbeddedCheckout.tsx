@@ -967,13 +967,10 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           );
         }
 
-        // Regular carts: the server records the order, buys the label and
-        // sends the emails. This only asks it to record the order right away
-        // so the confirmation page can show the order number.
-        const isSubscriptionCart = checkoutLines.some(
-          (line) => !!line.subscriptionPlan,
-        );
-        if (!isSubscriptionCart && finalQuote.orderId && paymentIntent?.id) {
+        // The server records the order (and sets up any subscriptions), buys
+        // the label and sends the emails. This only asks it to record the
+        // order right away so the confirmation page can show the number.
+        if (finalQuote.orderId && paymentIntent?.id) {
           let completedQuote = finalQuote;
           try {
             const orderId = await stripeService.completeCheckout(
@@ -1000,8 +997,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           return;
         }
 
-        // Subscription carts: unchanged. The browser buys the label and the
-        // account service records the order.
+        // Fallback for a quote without an order number (the server didn't get
+        // the customer's details): the browser buys the label and the
+        // confirmation page records the order, as before.
         // Purchase shipment if shipping is selected and rate is available
         logger.log("[shipment] Checking shipment purchase conditions", {
           deliveryMethod,
