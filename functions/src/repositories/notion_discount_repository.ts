@@ -1,5 +1,7 @@
 import { getNotionClient } from "../integrations/notion/notion_client";
 import { pacificCalendarDate } from "../domain/dates/calendar_dates";
+import { contentSource } from "../content/content_source";
+import { DiscountStore, StoredDiscount } from "../content/discount_store";
 
 export interface DiscountCode {
   code: string;
@@ -83,6 +85,8 @@ const discountFromPage = (page: any, code: string): DiscountCodeLookup => {
 export const findDiscountCode = async (
   code: string,
 ): Promise<DiscountCodeLookup> => {
+  // Codes edited in the dashboard, once they've been imported from Notion.
+  if ((await contentSource("discounts")) === "firestore") return DiscountStore.find(code);
   const response = await getNotionClient().databases.query({
     database_id: discountCodesDatabaseId(),
     filter: {
@@ -99,6 +103,7 @@ export const findDiscountCode = async (
  * customer typing a code.
  */
 export const findAutomaticDiscountCodes = async (): Promise<DiscountCode[]> => {
+  if ((await contentSource("discounts")) === "firestore") return DiscountStore.automatic();
   const response = await getNotionClient().databases.query({
     database_id: discountCodesDatabaseId(),
     filter: {
@@ -112,4 +117,36 @@ export const findAutomaticDiscountCodes = async (): Promise<DiscountCode[]> => {
     .map((page) => discountFromPage(page, ""))
     .flatMap((lookup) => (lookup.valid ? [lookup.discount] : []))
     .sort((a, b) => b.percentOff - a.percentOff);
+};
+
+/** Every code in the Notion database, for the one-time import to the dashboard. */
+export const listNotionDiscountCodes = async (): Promise<Array<Omit<StoredDiscount, "createdAt" | "updatedAt" | "updatedBy">>> => {
+  const rows: Array<Omit<StoredDiscount, "createdAt" | "updatedAt" | "updatedBy">> = [];
+  let cursor: string | undefined;
+  do {
+    const response: any = await getNotionClient().databases.query({
+      database_id: discountCodesDatabaseId(),
+      start_cursor: cursor,
+      page_size: 100,
+    });
+    for (const page of response.results) {
+      const p = page.properties || {};
+      const title = (p["Code"]?.title || p["Code"]?.rich_text || []).map((t: any) => t.plain_text).join("").trim();
+      if (!title) continue;
+      rows.push({
+        code: title.toUpperCase(),
+        percentOff: Number(p["% Off"]?.number) || 0,
+        active: p["Active"]?.checkbox === true,
+        startDate: p["Start Date"]?.date?.start || null,
+        expirationDate: p["Expiration Date"]?.date?.start || null,
+        firstOrderOnly: p["First Order Only"]?.checkbox === true,
+        noOtherDiscounts: p["No Other Discounts"]?.checkbox === true,
+        subscriptionsOnly: p["Subscriptions Only"]?.checkbox === true,
+        automatic: p["Automatically Applied"]?.checkbox === true,
+        note: "",
+      });
+    }
+    cursor = response.has_more ? response.next_cursor : undefined;
+  } while (cursor);
+  return rows;
 };

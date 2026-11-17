@@ -29,6 +29,8 @@ export interface ReviewModel {
   approved: boolean;
   // Public reply from Koinonia, shown under the review. Empty when there isn't one.
   response: string;
+  // Taken down from the dashboard; never published, even as a star-only rating.
+  hidden?: boolean;
 }
 
 /** The fields written when creating a review; Notion assigns the ID and review date. */

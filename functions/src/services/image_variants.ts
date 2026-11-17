@@ -112,3 +112,7 @@ export const getImageVariants = (sourceUrl: string, cacheKey: string = sourceUrl
 /** Resolves variants for a list of images, keeping their order. */
 export const getImageVariantsList = (sourceUrls: string[]): Promise<ImageVariants[]> =>
     Promise.all(sourceUrls.map((url) => getImageVariants(url)));
+
+/** Stores an uploaded image (e.g. from the admin dashboard) at web sizes. */
+export const imageVariantsFromBuffer = (key: string, image: Buffer): Promise<ImageVariants> =>
+    enqueue(() => createVariants(createHash("sha1").update(key).digest("hex").slice(0, 24), image));

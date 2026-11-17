@@ -1,3 +1,5 @@
+import { contentSource } from "../content/content_source";
+import { EventStore } from "../content/events_store";
 import { OrderStore } from "../orders/order_store";
 import {
   AdminOrder,
@@ -404,9 +406,21 @@ const inferEventLocation = (body: string): string | null => {
   return match?.[1]?.trim() || null;
 };
 
+/**
+ * The website calendar: the events published from the dashboard once events
+ * have moved off Notion, otherwise Notion's "Website Calendar" events.
+ */
 export const getAllEventsCalendarDetails = async (): Promise<
   WebsiteEvent[]
 > => {
+  if ((await contentSource("events")) === "firestore") {
+    return ((await EventStore.published())?.events || []) as WebsiteEvent[];
+  }
+  return notionEventsDetails();
+};
+
+/** Notion's website events with their content (also used by the one-time import). */
+export const notionEventsDetails = async (): Promise<WebsiteEvent[]> => {
   if (allEventsDetailsCache && allEventsDetailsCache.expiresAt > Date.now())
     return allEventsDetailsCache.events;
   const pages = await allEventsCalendar();
@@ -458,6 +472,13 @@ export const refreshAllEventsCalendar = async (): Promise<void> => {
 };
 
 export const getRoastSessionCalendar = async (): Promise<string[]> => {
+  // Once events are managed in the dashboard, roasts follow what's published there.
+  if ((await contentSource("events")) === "firestore") {
+    const roastDates = (await EventStore.published())?.roastDates || [];
+    if (!roastDates.length)
+      throw new Error("No roast dates are published from the dashboard calendar");
+    return roastDates;
+  }
   if (!allEventsDatabaseId()) return [...FALLBACK_ROAST_SESSION_CALENDAR];
   const events = await allEventsCalendar();
   const dates = events

@@ -20,6 +20,7 @@ import { NewsletterService } from "./services/newsletter_service";
 import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
 import { adminApp } from "./admin/admin_app";
+import { contentSource } from "./content/content_source";
 import { syncNotionOrders } from "./orders/notion_order_sync";
 import { fulfillCheckoutOrder, isServerFulfilled } from "./orders/checkout_fulfillment";
 import { sweepPaidCheckouts } from "./orders/checkout_orders";
@@ -541,6 +542,8 @@ export const syncEventsCalendar = onSchedule(
   { schedule: "every day 03:00", timeZone: "America/Los_Angeles", region: "us-central1", secrets: ["NOTION_TOKEN", "NOTION_ALL_EVENTS_DATABASE_ID"] },
   async () => {
     try {
+      // Events published from the dashboard don't need a sync.
+      if ((await contentSource("events")) === "firestore") return;
       logger.info("Starting scheduled events calendar sync");
       await refreshAllEventsCalendar();
       logger.info("Scheduled events calendar sync completed");
@@ -653,12 +656,17 @@ export const shopPageMeta = onRequest(
 export const adminApi = onRequest(
   {
     region: "us-central1",
-    memory: "256MiB",
     // A full Notion order import can take a few minutes.
     timeoutSeconds: 300,
     // Notion: the import tool and best-effort copies. Resend + EasyPost: the
     // status email sent right after a fulfillment change.
-    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY", "STRIPE_SECRET_KEY"],
+    secrets: [
+      "NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY", "STRIPE_SECRET_KEY",
+      // One-time imports of events, discount codes and reviews.
+      "NOTION_ALL_EVENTS_DATABASE_ID", "NOTION_DISCOUNT_CODES_DATABASE_ID", "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
+    ],
+    // Image uploads are resized in memory.
+    memory: "1GiB",
   },
   adminApp,
 );

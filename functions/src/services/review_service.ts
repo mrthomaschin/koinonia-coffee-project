@@ -1086,8 +1086,9 @@ export class ReviewService {
       };
       // Star-only ratings from a known order count right away; text and photos need approval.
       const isPublic =
-        review.approved ||
-        (!review.text && review.photos.length === 0 && !!requestItem);
+        !review.hidden &&
+        (review.approved ||
+          (!review.text && review.photos.length === 0 && !!requestItem));
       if (isPublic)
         publicReviews.push({ parentSku, review: toPublishedReview(review) });
     }

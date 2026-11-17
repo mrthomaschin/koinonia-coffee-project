@@ -14,6 +14,7 @@ import { normalizeEmail, StaffMember, StaffRepository, StaffStatus } from "./sta
 import { catalogRouter, deletedOrdersRouter, ordersRouter, refundsRouter } from "./orders_routes";
 import { customersRouter } from "./customers_routes";
 import { subscriptionsRouter } from "./subscriptions_routes";
+import { contentRouter } from "./content_routes";
 
 /**
  * The admin dashboard's API. Served at dashboard.koinoniacoffeeproject.com/api/**
@@ -146,10 +147,12 @@ router.use("/catalog", catalogRouter);
 router.use("/deleted-orders", deletedOrdersRouter);
 router.use("/customers", customersRouter);
 router.use("/subscriptions", subscriptionsRouter);
+router.use("/content", contentRouter);
 
 export const adminApp = express();
 adminApp.disable("x-powered-by");
-adminApp.use(express.json({ limit: "1mb" }));
+// 12mb: image uploads arrive base64-encoded in JSON.
+adminApp.use(express.json({ limit: "12mb" }));
 adminApp.use("/api", router);
 adminApp.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found." });
