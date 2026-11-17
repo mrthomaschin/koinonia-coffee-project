@@ -7,18 +7,53 @@ import {
 } from "./account_service";
 import {
   DiscountCode,
+  DiscountCodeLookup,
   findAutomaticDiscountCodes,
   findDiscountCode,
   hasPreviousOrders,
+  hasUsedDiscountCode,
 } from "../repositories/notion_discount_repository";
+import {
+  findWelcomeCode,
+  isWelcomeCodeActive,
+  isWelcomeCodeFormat,
+} from "../repositories/welcome_code_repository";
+import { WELCOME_DISCOUNT } from "../config/newsletters";
 import { normalizeNewsletterEmail } from "./newsletter_service";
 
 const logger = createLogger("discounts");
+
+/**
+ * Finds a code a customer entered: a subscriber's own welcome code in
+ * Firestore, or any other code in the Notion discount codes database.
+ */
+const lookupDiscountCode = async (code: string): Promise<DiscountCodeLookup> => {
+  if (!isWelcomeCodeFormat(code)) return findDiscountCode(code);
+  const welcome = await findWelcomeCode(code);
+  if (!welcome) return { valid: false, message: "Invalid discount code" };
+  if (!isWelcomeCodeActive(welcome)) {
+    return { valid: false, message: "This discount code has expired" };
+  }
+  return {
+    valid: true,
+    discount: {
+      code: welcome.code,
+      percentOff: WELCOME_DISCOUNT.percentOff,
+      firstOrderOnly: true,
+      noOtherDiscounts: true,
+      subscriptionsOnly: false,
+      ownerEmail: welcome.email,
+    },
+  };
+};
 
 /** What a code's rules need to know about the order. */
 interface DiscountContext {
   // Every email the buyer is known by: the checkout email and the account's emails.
   emails: string[];
+  // True once the buyer has entered their checkout email (at payment), when
+  // codes tied to an email are checked.
+  hasCheckoutEmail: boolean;
   hasSubscription: boolean;
   hasPartnerPricing: boolean;
 }
@@ -39,29 +74,53 @@ const contextFor = async (
     ...(email ? [email] : []),
     ...(account ? await emailsForAccount(account) : []),
   ],
+  hasCheckoutEmail: !!email,
   hasSubscription: items.some((item) => !!item.subscriptionPlan),
   hasPartnerPricing:
     items.some((item) => !!item.isPartnerOrder) ||
     PARTNER_LABELS.includes(account?.label || ""),
 });
 
-/** Which rule refused a code. "first-order" means the buyer has ordered before, which won't change. */
+/**
+ * Which rule refused a code. "first-order" and "already-used" won't change for
+ * this buyer; "wrong-email" means the code belongs to another email.
+ */
 type RuleViolationReason =
   | "subscription"
   | "no-subscription"
   | "partner-pricing"
-  | "first-order";
+  | "first-order"
+  | "already-used"
+  | "wrong-email";
 
 interface RuleViolation {
   reason: RuleViolationReason;
   message: string;
 }
 
-/** Why the code can't be used on this order, or null when it can. */
+/**
+ * Why the code can't be used on this order, or null when it can. `entered` is
+ * true for a code the customer typed; automatic promotions skip the
+ * once-per-customer check, since they apply without being asked for.
+ */
 const ruleViolation = async (
   discount: DiscountCode,
   context: DiscountContext,
+  entered = true,
 ): Promise<RuleViolation | null> => {
+  // Checked once the checkout email is known; before that (the cart) the
+  // buyer may not have said which email they're using.
+  if (
+    discount.ownerEmail &&
+    context.hasCheckoutEmail &&
+    !context.emails.includes(discount.ownerEmail)
+  ) {
+    return {
+      reason: "wrong-email",
+      message:
+        "This code only works with the email address it was sent to. Check out with that email to use it.",
+    };
+  }
   if (discount.noOtherDiscounts && context.hasSubscription) {
     return {
       reason: "subscription",
@@ -88,6 +147,12 @@ const ruleViolation = async (
       message: "This code is only valid on your first order.",
     };
   }
+  if (entered && (await hasUsedDiscountCode(context.emails, discount.code))) {
+    return {
+      reason: "already-used",
+      message: "You've already used this code.",
+    };
+  }
   return null;
 };
 
@@ -110,7 +175,7 @@ export class DiscountService {
       return;
     }
     try {
-      const lookup = await findDiscountCode(code);
+      const lookup = await lookupDiscountCode(code);
       if (!lookup.valid) {
         res.json({ valid: false, message: lookup.message });
         return;
@@ -168,7 +233,7 @@ export class DiscountService {
   ): Promise<
     { ok: true; discount: DiscountCode } | { ok: false; message: string }
   > {
-    const lookup = await findDiscountCode(code);
+    const lookup = await lookupDiscountCode(code);
     if (!lookup.valid) return { ok: false, message: lookup.message };
     const violation = await ruleViolation(
       lookup.discount,
@@ -198,7 +263,7 @@ export class DiscountService {
         items,
       );
       for (const discount of discounts) {
-        if (!(await ruleViolation(discount, context))) return discount;
+        if (!(await ruleViolation(discount, context, false))) return discount;
       }
       return null;
     } catch (error: unknown) {

@@ -12,6 +12,7 @@ export const RESEND_TEMPLATES = {
   verifyEmail: "verify-email",
   reviewRequest: "review-request",
   newsletterWelcome: "newsletter-welcome",
+  newsletterDiscountReminder: "newsletter-discount-reminder",
 } as const;
 
 export type ResendTemplate =

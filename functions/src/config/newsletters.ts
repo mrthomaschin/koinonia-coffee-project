@@ -29,12 +29,19 @@ export const isNewsletterId = (value: unknown): value is NewsletterId =>
   Object.prototype.hasOwnProperty.call(NEWSLETTERS, value);
 
 /**
- * The code shown to new subscribers and sent in their welcome email. Its rules
- * (first order only, no other discounts) live on its row in the Notion
- * discount codes database and are checked when it's used; keep the percentage
- * here in step with that row.
+ * The first-order discount for new subscribers. Each subscriber gets their own
+ * code (PREFIX-XXXXXXXX, see welcome_code_repository.ts) that works only with
+ * the email they subscribed with, once, on their first order, without other
+ * discounts, through the end of the `validDays`th day after signing up
+ * (Pacific). A reminder goes out `reminderDaysLeft` days before it expires.
+ *
+ * These codes don't have Notion rows; this is where their percentage and
+ * rules live. The old shared code (NEWSLETTER10) still works from its Notion
+ * row until it's switched off there.
  */
 export const WELCOME_DISCOUNT = {
-  code: "NEWSLETTER10",
+  prefix: "WELCOME",
   percentOff: 10,
+  validDays: 7,
+  reminderDaysLeft: 2,
 } as const;
