@@ -11,7 +11,7 @@ import {
   ROLES,
 } from "./permissions";
 import { normalizeEmail, StaffMember, StaffRepository, StaffStatus } from "./staff_repository";
-import { ordersRouter, refundsRouter } from "./orders_routes";
+import { catalogRouter, ordersRouter, refundsRouter } from "./orders_routes";
 import { customersRouter } from "./customers_routes";
 import { subscriptionsRouter } from "./subscriptions_routes";
 
@@ -142,6 +142,7 @@ router.get("/audit-log", requirePermission("audit.read"), route(async (req, res)
 
 router.use("/orders", ordersRouter);
 router.use("/refunds", refundsRouter);
+router.use("/catalog", catalogRouter);
 router.use("/customers", customersRouter);
 router.use("/subscriptions", subscriptionsRouter);
 

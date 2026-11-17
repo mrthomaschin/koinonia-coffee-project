@@ -134,6 +134,9 @@ export interface AdminOrder {
   shippingService: string | null;
   trackingLabelUrl: string | null;
   paymentIntentId: string | null;
+  // Orders created by hand: how they were paid (cash, venmo, comp, invoice, ...).
+  paymentMethod?: string | null;
+  paymentReference?: string | null;
   receiptUrl: string | null;
   emails: OrderEmailFlags;
   notion: { pageId: string; lastEditedAt: string; syncedAt: string } | null;

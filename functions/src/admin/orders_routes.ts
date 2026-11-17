@@ -25,6 +25,13 @@ import { hasPermission, REFUND_APPROVAL_THRESHOLD_CENTS } from "./permissions";
 import { BOXES, buyLabel, getLabelInfo, LabelError, quoteLabel, voidCurrentLabel } from "../orders/labels";
 import { fulfillCheckoutOrder } from "../orders/checkout_fulfillment";
 import type { AdminOrder } from "../orders/order_model";
+import {
+  catalog,
+  createManualOrder,
+  ManualOrderError,
+  parseManualOrder,
+  PAYMENT_METHODS,
+} from "../orders/manual_orders";
 
 type Handler = (req: Request, res: Response) => Promise<void>;
 const route = (handler: Handler) => (req: Request, res: Response, next: NextFunction) =>
@@ -316,4 +323,53 @@ ordersRouter.post("/:id/fulfillment/retry", requirePermission("orders.fulfill"),
   }
   await AuditLog.record(currentStaff(res), { action: "order.fulfillment_retry", target: { type: "order", id: order.id } });
   res.json({ order: await OrderRepository.get(order.id), events: await OrderRepository.events(order.id) });
+}));
+
+// ---- Orders created by hand ----
+
+ordersRouter.post("/", requirePermission("orders.edit"), route(async (req, res) => {
+  const staff = currentStaff(res);
+  let order;
+  try {
+    order = await createManualOrder(parseManualOrder(req.body), staff);
+  } catch (error) {
+    if (error instanceof ManualOrderError) return fail(res, 400, error.message);
+    throw error;
+  }
+  await AuditLog.record(staff, { action: "order.create", target: { type: "order", id: order.id }, after: order });
+  res.status(201).json({ order });
+}));
+
+// An unpaid order created by hand (an invoice) gets paid later.
+ordersRouter.post("/:id/mark-paid", requirePermission("orders.edit"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  if (order.paymentStatus !== "pending") return fail(res, 400, "This order isn't waiting for payment.");
+  const method = (PAYMENT_METHODS as readonly string[]).includes(req.body?.method) ? req.body.method : order.paymentMethod || "other";
+  const reference = String(req.body?.reference || "").trim().slice(0, 120) || order.paymentReference || null;
+  const staff = currentStaff(res);
+  await OrderRepository.update(order.id, {
+    paymentStatus: "paid",
+    status: "completed",
+    paymentMethod: method,
+    paymentReference: reference,
+  } as Partial<AdminOrder>);
+  await OrderRepository.addEvent(order.id, {
+    type: "note",
+    actor: { email: staff.email, name: staff.name },
+    message: `Marked paid (${method}${reference ? ` · ${reference}` : ""})`,
+  });
+  await AuditLog.record(staff, {
+    action: "order.mark_paid",
+    target: { type: "order", id: order.id },
+    before: { paymentStatus: order.paymentStatus },
+    after: { paymentStatus: "paid", paymentMethod: method, paymentReference: reference },
+  });
+  res.json({ order: await OrderRepository.get(order.id), events: await OrderRepository.events(order.id) });
+}));
+
+export const catalogRouter = Router();
+
+catalogRouter.get("/", requirePermission("orders.edit"), route(async (_req, res) => {
+  res.json({ items: await catalog() });
 }));

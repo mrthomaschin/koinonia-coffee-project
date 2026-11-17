@@ -48,7 +48,7 @@ export interface StoredCheckout {
 // No 0/O, 1/I: order numbers get read aloud and typed from emails.
 const ORDER_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-const newOrderId = async (): Promise<string> => {
+export const newOrderId = async (): Promise<string> => {
   const db = getDatabase();
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const id = Array.from({ length: 8 }, () => ORDER_ALPHABET[randomInt(ORDER_ALPHABET.length)]).join("");

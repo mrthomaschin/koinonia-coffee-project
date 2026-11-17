@@ -356,8 +356,8 @@ export const syncAccountOrderToNotion = onDocumentWritten(
   async (event) => {
     if (!event.data?.after.exists) return;
     const after = event.data.after.data();
-    // Renewal and web checkout orders are mirrored by their own fulfillment steps.
-    if (after?.source === "subscription-renewal" || after?.source === "web-checkout") return;
+    // Renewal, web checkout and dashboard-created orders are mirrored by their own code.
+    if (after?.source === "subscription-renewal" || after?.source === "web-checkout" || after?.source === "manual") return;
     // Orders that came from Notion, and writes made by the Notion sync or the
     // admin dashboard, must not be mirrored back (see src/orders/).
     if (after?.origin === "notion") return;
