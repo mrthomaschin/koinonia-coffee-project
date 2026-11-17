@@ -3122,4 +3122,119 @@ export const AccountAdmin = {
   async setLabel(accountId: string, label: AccountLabel): Promise<void> {
     await database().collection("accounts").doc(accountId).update({ label });
   },
+
+  /** Every subscription with its account's id; renewal claims keyed by subscription. */
+  async allSubscriptions(): Promise<{
+    subscriptions: StoredSubscription[];
+    claims: Map<string, { dueDate: string; status: string; lastError?: string }>;
+  }> {
+    const [subscriptionSnapshot, claimSnapshot] = await Promise.all([
+      database().collection("account_subscriptions").get(),
+      database().collection("subscription_renewal_claims").get(),
+    ]);
+    return {
+      subscriptions: subscriptionSnapshot.docs.map((doc) => ({
+        ...(doc.data() as StoredSubscription),
+        id: doc.id,
+      })),
+      claims: new Map(
+        claimSnapshot.docs.map((doc) => [
+          doc.id,
+          doc.data() as { dueDate: string; status: string; lastError?: string },
+        ]),
+      ),
+    };
+  },
+
+  async subscription(subscriptionId: string): Promise<StoredSubscription | null> {
+    const snapshot = await database()
+      .collection("account_subscriptions")
+      .doc(subscriptionId)
+      .get();
+    return snapshot.exists
+      ? { ...(snapshot.data() as StoredSubscription), id: snapshot.id }
+      : null;
+  },
+
+  /**
+   * Staff changes to a subscription, with the same rules as the customer's
+   * own controls. Returns the updated subscription, or throws an Error whose
+   * message is safe to show.
+   */
+  async changeSubscription(
+    subscriptionId: string,
+    change:
+      | { action: "skip" | "unskip" | "pause" | "resume" | "cancel" }
+      | { action: "frequency"; cadence: SubscriptionCadence },
+  ): Promise<StoredSubscription> {
+    const ref = database()
+      .collection("account_subscriptions")
+      .doc(subscriptionId);
+    const snapshot = await ref.get();
+    if (!snapshot.exists) throw new Error("Subscription not found.");
+    const current = {
+      ...(snapshot.data() as StoredSubscription),
+      id: snapshot.id,
+    };
+    const now = Date.now();
+    let updates: Record<string, unknown>;
+    switch (change.action) {
+      case "skip":
+        if (current.status !== "active")
+          throw new Error("Only active subscriptions can skip a roast.");
+        updates = {
+          skippedRoastDate: SubscriptionService.roastDateKey(
+            current.upcomingRoastDate,
+          ),
+        };
+        break;
+      case "unskip":
+        if (!SubscriptionService.isSkipped(current))
+          throw new Error("The next roast isn't skipped.");
+        updates = { skippedRoastDate: FieldValue.delete() };
+        break;
+      case "pause":
+        if (current.status !== "active")
+          throw new Error("Only active subscriptions can be paused.");
+        updates = { status: "paused" };
+        break;
+      case "resume": {
+        if (current.status !== "paused")
+          throw new Error("Only paused subscriptions can be resumed.");
+        // A roast that has already closed while paused is never charged on
+        // resume: the subscription moves to the next roast still open.
+        const nextOpen = await nextUpcomingRoastSessionDate();
+        const upcoming = SubscriptionService.roastDateKey(
+          current.upcomingRoastDate,
+        );
+        updates = {
+          status: "active",
+          ...(upcoming < SubscriptionService.roastDateKey(nextOpen)
+            ? { upcomingRoastDate: nextOpen, skippedRoastDate: FieldValue.delete() }
+            : {}),
+        };
+        break;
+      }
+      case "cancel":
+        if (current.status === "canceled")
+          throw new Error("This subscription is already canceled.");
+        updates = { status: "canceled" };
+        break;
+      case "frequency": {
+        if (current.status === "canceled")
+          throw new Error("Canceled subscriptions can't be changed.");
+        const plan = planFor(current.bagCount, change.cadence);
+        if (!subscriptionPlans[plan])
+          throw new Error("Choose a valid frequency.");
+        updates = { plan, cadence: change.cadence };
+        break;
+      }
+    }
+    await ref.update({ ...updates, updatedAt: now });
+    logger.info("Subscription changed by staff", {
+      subscriptionId,
+      action: change.action,
+    });
+    return (await AccountAdmin.subscription(subscriptionId))!;
+  },
 };
