@@ -33,3 +33,21 @@ export const inventoryWithLiveStock = async (cache: { items: any[]; lastSyncedAt
   const [published, levels] = await Promise.all([ProductStore.published(), stockLevels()]);
   return { ...cache, items: overlayStock(cache.items, levels, published?.products || []) };
 };
+
+const RUNTIME = "admin_sync/runtime";
+const JOB_VERSION = 2;
+
+/** Recorded by the 15-minute inventory job on every run. */
+export const markInventoryJobCurrent = async (): Promise<void> => {
+  await getDatabase().doc(RUNTIME).set({ inventoryJobVersion: JOB_VERSION, inventoryJobRanAt: new Date().toISOString() }, { merge: true });
+};
+
+/**
+ * Whether the deployed inventory job understands dashboard products. Until it
+ * does, an older Notion-only job would overwrite the published products.
+ */
+export const inventoryJobIsCurrent = async (): Promise<boolean> => {
+  const data = (await getDatabase().doc(RUNTIME).get()).data();
+  return Number(data?.inventoryJobVersion) >= JOB_VERSION && !!data?.inventoryJobRanAt &&
+    Date.now() - Date.parse(data.inventoryJobRanAt) < 2 * 60 * 60 * 1000;
+};

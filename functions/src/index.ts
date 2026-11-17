@@ -21,7 +21,7 @@ import { DiscountService } from "./services/discount_service";
 import { handleShopPageMeta } from "./services/shop_page_meta";
 import { adminApp } from "./admin/admin_app";
 import { contentSource } from "./content/content_source";
-import { inventoryWithLiveStock, rebuildInventoryCache } from "./content/inventory_publish";
+import { inventoryWithLiveStock, markInventoryJobCurrent, rebuildInventoryCache } from "./content/inventory_publish";
 import { takeOrderFromStock } from "./content/products_store";
 import { syncNotionOrders } from "./orders/notion_order_sync";
 import { fulfillCheckoutOrder, isServerFulfilled } from "./orders/checkout_fulfillment";
@@ -540,6 +540,9 @@ export const syncInventoryCache = onSchedule(
   syncInventoryCacheOptions,
   async () => {
     try {
+      // Tells the dashboard this (dashboard-aware) job is live, so publishing
+      // products can't be undone by an older Notion-only version of it.
+      await markInventoryJobCurrent();
       // Products managed in the dashboard: refresh from what's published
       // (keeps the next roast date current) instead of reading Notion.
       if ((await contentSource("products")) === "firestore") {

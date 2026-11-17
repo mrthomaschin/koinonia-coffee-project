@@ -26,7 +26,7 @@ import {
   stockLevels,
   StockStore,
 } from "../content/products_store";
-import { rebuildInventoryCache } from "../content/inventory_publish";
+import { inventoryJobIsCurrent, rebuildInventoryCache } from "../content/inventory_publish";
 import { NotionService } from "../services/notion_services";
 import { AuditLog } from "./audit_log";
 import { currentStaff, requireAnyPermission, requirePermission } from "./admin_auth";
@@ -568,6 +568,10 @@ contentRouter.delete("/products/:sku", requirePermission("products.edit"), route
 }));
 
 contentRouter.post("/products/publish", requirePermission("products.edit"), route(async (_req, res) => {
+  if (!(await inventoryJobIsCurrent())) {
+    return fail(res, 409, "The website's functions need updating before products can be published " +
+      "(run ./deploy.sh functions in the website repo, then wait up to 15 minutes). Otherwise Notion would overwrite them.");
+  }
   const staff = currentStaff(res);
   const pending = await ProductStore.pendingChanges();
   const snapshot = await ProductStore.publish(staff);
