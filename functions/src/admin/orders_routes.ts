@@ -26,6 +26,14 @@ import { BOXES, buyLabel, getLabelInfo, LabelError, quoteLabel, voidCurrentLabel
 import { fulfillCheckoutOrder } from "../orders/checkout_fulfillment";
 import type { AdminOrder } from "../orders/order_model";
 import {
+  deleteOrder,
+  editOrderDetails,
+  listDeleted,
+  OrderAdminError,
+  parseDetailChanges,
+  restoreOrder,
+} from "../orders/order_admin";
+import {
   catalog,
   createManualOrder,
   ManualOrderError,
@@ -372,4 +380,66 @@ export const catalogRouter = Router();
 
 catalogRouter.get("/", requirePermission("orders.edit"), route(async (_req, res) => {
   res.json({ items: await catalog() });
+}));
+
+// ---- Editing details, deleting and restoring ----
+
+const adminError = (res: Response, error: unknown): boolean => {
+  if (error instanceof OrderAdminError) {
+    fail(res, error.status, error.message);
+    return true;
+  }
+  return false;
+};
+
+ordersRouter.patch("/:id/details", requirePermission("orders.edit"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const staff = currentStaff(res);
+  try {
+    const changes = parseDetailChanges(req.body);
+    const updated = await editOrderDetails(order, changes, staff);
+    await AuditLog.record(staff, {
+      action: "order.edit_details",
+      target: { type: "order", id: order.id },
+      before: Object.fromEntries(Object.keys(changes).map((key) => [key, (order as any)[key] ?? null])),
+      after: changes,
+    });
+    res.json({ order: updated, events: await OrderRepository.events(order.id) });
+  } catch (error) {
+    if (!adminError(res, error)) throw error;
+  }
+}));
+
+ordersRouter.delete("/:id", requirePermission("orders.delete"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const staff = currentStaff(res);
+  const reason = String(req.body?.reason || "").trim().slice(0, 500);
+  try {
+    await deleteOrder(order, staff, reason);
+  } catch (error) {
+    if (!adminError(res, error)) throw error;
+    return;
+  }
+  await AuditLog.record(staff, { action: "order.delete", target: { type: "order", id: order.id }, before: order, ...(reason ? { note: reason } : {}) });
+  res.json({ ok: true });
+}));
+
+export const deletedOrdersRouter = Router();
+
+deletedOrdersRouter.get("/", requirePermission("orders.delete"), route(async (_req, res) => {
+  res.json({ orders: await listDeleted() });
+}));
+
+deletedOrdersRouter.post("/:id/restore", requirePermission("orders.delete"), route(async (req, res) => {
+  const staff = currentStaff(res);
+  try {
+    await restoreOrder(req.params.id, staff);
+  } catch (error) {
+    if (!adminError(res, error)) throw error;
+    return;
+  }
+  await AuditLog.record(staff, { action: "order.restore", target: { type: "order", id: req.params.id } });
+  res.json({ ok: true });
 }));

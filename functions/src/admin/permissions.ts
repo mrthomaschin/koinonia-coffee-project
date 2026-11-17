@@ -12,6 +12,8 @@ export const PERMISSIONS = [
   "orders.refund",
   // Refunds above REFUND_APPROVAL_THRESHOLD_CENTS.
   "orders.refund_large",
+  // Moves an order to Deleted orders (restorable). Owner only.
+  "orders.delete",
   "products.read",
   "products.edit",
   "inventory.edit",
@@ -52,13 +54,13 @@ interface RoleDefinition {
 export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
   owner: {
     label: "Owner",
-    description: "Everything, including large refunds and managing other owners and admins.",
+    description: "Everything, including large refunds, deleting orders, and managing other owners and admins.",
     permissions: PERMISSIONS,
   },
   admin: {
     label: "Admin",
-    description: "Everything except refunds over $50 and managing owners or admins.",
-    permissions: PERMISSIONS.filter((permission) => permission !== "orders.refund_large"),
+    description: "Everything except refunds over $50, deleting orders, and managing owners or admins.",
+    permissions: PERMISSIONS.filter((permission) => permission !== "orders.refund_large" && permission !== "orders.delete"),
   },
   operations: {
     label: "Operations",

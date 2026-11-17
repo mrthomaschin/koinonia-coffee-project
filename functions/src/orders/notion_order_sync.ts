@@ -1,6 +1,7 @@
 import { getDatabase } from "../integrations/firebase_admin";
 import { getNotionClient } from "../integrations/notion/notion_client";
 import { createLogger } from "../logger";
+import { deletedIds } from "./order_admin";
 import {
   AdminOrder,
   fulfillmentFromNotion,
@@ -194,6 +195,13 @@ export const syncNotionOrders = async (
       });
     result.scanned += pages.length;
 
+    // Orders deleted in the dashboard stay deleted; the import never brings them back.
+    const deleted = await deletedIds(mapped.map((order: AdminOrder) => order.id));
+    const kept = mapped.filter((order: AdminOrder) => {
+      if (deleted.has(order.id)) result.skipped += 1;
+      return !deleted.has(order.id);
+    });
+    mapped.splice(0, mapped.length, ...kept);
     const refs = mapped.map((order: AdminOrder) => db.collection("orders").doc(order.id));
     const existing = refs.length ? await db.getAll(...refs) : [];
     const batch = db.batch();
