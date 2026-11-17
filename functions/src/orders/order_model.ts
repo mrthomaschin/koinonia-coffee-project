@@ -83,6 +83,23 @@ export interface OrderEmailFlags {
   reviewReminder: boolean;
 }
 
+/**
+ * Status fields every new paid order starts with. The status-email job finds
+ * orders by these flags, so every code path that creates an order adds them.
+ */
+export const newPaidOrderStatus = (): {
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
+  emails: OrderEmailFlags;
+} => ({
+  paymentStatus: "paid",
+  fulfillmentStatus: "pending",
+  emails: {
+    orderConfirmed: false, shipped: false, outForDelivery: false, delivered: false,
+    readyForPickup: false, pickedUp: false, reviewRequest: false, reviewReminder: false,
+  },
+});
+
 export interface AdminOrder {
   id: string;
   origin: "notion" | "firestore";
@@ -123,7 +140,7 @@ export interface AdminOrder {
 export interface OrderEvent {
   id: string;
   at: string;
-  type: "note" | "fulfillment" | "imported";
+  type: "note" | "fulfillment" | "imported" | "email";
   actor: { email: string; name: string } | null;
   message: string;
   data?: Record<string, unknown>;

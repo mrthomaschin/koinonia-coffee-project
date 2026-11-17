@@ -1,3 +1,12 @@
+import { OrderStore } from "../orders/order_store";
+import {
+  AdminOrder,
+  FulfillmentStatus,
+  legacyStatus,
+  newPaidOrderStatus,
+  OrderEmailFlags,
+  PaymentStatus,
+} from "../orders/order_model";
 import {
   randomBytes,
   randomUUID,
@@ -189,6 +198,10 @@ interface Order {
   reviewable?: boolean;
   // True when the customer has reviewed at least one product in the order.
   reviewed?: boolean;
+  // Dashboard and status-email fields (orders/order_model).
+  paymentStatus?: PaymentStatus;
+  fulfillmentStatus?: FulfillmentStatus;
+  emails?: OrderEmailFlags;
 }
 
 type PurchasedItem = NonNullable<Order["items"]>[number];
@@ -626,37 +639,12 @@ const emailPreferences = async (
   return { reviewRequests: !optedOut, newsletters };
 };
 
-const text = (property: any): string => {
-  if (!property) return "";
-  if (property.type === "email") return property.email || "";
-  if (property.type === "title")
-    return property.title?.map((value: any) => value.plain_text).join("") || "";
-  return (
-    property.rich_text?.map((value: any) => value.plain_text).join("") || ""
-  );
-};
-
 /** Delivered or picked up, and not refunded. */
-const isReviewableOrderPage = (page: any): boolean => {
-  const fulfillment = page.properties?.["Fulfillment"]?.status?.name;
-  const payment = page.properties?.["Status"]?.status?.name;
-  return (
-    (fulfillment === "Delivered" || fulfillment === "Picked up") &&
-    payment !== "Refunded"
-  );
-};
+const isReviewableOrder = (order: AdminOrder): boolean =>
+  (order.fulfillmentStatus === "delivered" ||
+    order.fulfillmentStatus === "picked_up") &&
+  order.paymentStatus !== "refunded";
 
-const status = (property: any): Order["status"] => {
-  const value = (
-    property?.status?.name ||
-    property?.select?.name ||
-    ""
-  ).toLowerCase();
-  if (["paid", "completed", "delivered", "shipped"].includes(value))
-    return "completed";
-  if (["cancelled", "canceled", "refunded"].includes(value)) return "canceled";
-  return "pending";
-};
 
 const createPasswordHash = async (password: string): Promise<string> => {
   const salt = randomBytes(16).toString("hex");
@@ -1573,6 +1561,7 @@ export class AccountService {
         subscriptionIds: string[];
         source: "subscription-checkout";
       } = {
+        ...newPaidOrderStatus(),
         id: orderId,
         accountId: account.id,
         customerName:
@@ -1905,36 +1894,25 @@ export class AccountService {
       const firestoreOrders = accountOrderSnapshots.docs.map(
         (document) => document.data() as Order,
       );
-      const notionDatabaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
+      // Orders placed with any of the account's emails, including guest
+      // orders from before the account existed.
       const stored = await storedAccount(account.id);
-      const emailFilters = (
-        stored ? accountEmails(stored) : [account.user.email]
-      ).map((email) => ({ property: "Email", email: { equals: email } }));
-      const notionOrders: Order[] = !notionDatabaseId
-        ? []
-        : (
-            await getNotion().databases.query({
-              database_id: notionDatabaseId,
-              filter:
-                emailFilters.length === 1
-                  ? emailFilters[0]
-                  : { or: emailFilters },
-              sorts: [{ property: "Order created", direction: "descending" }],
-            })
-          ).results.map((page: any) => {
-            const properties = page.properties || {};
-            return {
-              id: text(properties["Order #"]) || page.id,
-              accountId: account.id,
-              totalAmount: properties.Total?.number || 0,
-              createdAt:
-                properties["Order created"]?.date?.start || page.created_time,
-              status: status(properties.Status),
-              paymentIntentId: text(properties["Transaction ID"]) || undefined,
-              itemsSummary: text(properties["Items ordered"]) || undefined,
-              reviewable: isReviewableOrderPage(page),
-            };
-          });
+      const emailOrders: Order[] = (
+        await OrderStore.forEmails(
+          stored ? accountEmails(stored) : [account.user.email],
+        )
+      ).map((order) => ({
+        id: order.id,
+        accountId: account.id,
+        totalAmount: order.totalAmount,
+        createdAt: order.createdAt,
+        status: legacyStatus(order.paymentStatus),
+        paymentIntentId: order.paymentIntentId || undefined,
+        itemsSummary: order.itemsSummary || undefined,
+        reviewable: isReviewableOrder(order),
+      }));
+      // Kept under their old names: these came from Notion before.
+      const notionOrders = emailOrders;
       const notionItemsByOrderId = new Map(
         notionOrders.map((order) => [order.id, order.itemsSummary]),
       );
@@ -2399,37 +2377,26 @@ export class AccountService {
           .json({ error: "Your session has expired. Please log in again." });
         return;
       }
-      const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-      if (!databaseId)
-        throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
       const stored = await storedAccount(account.id);
       const emails = stored
         ? accountEmails(stored)
         : [account.user.email.toLowerCase()];
-      const page: any = (
-        await getNotion().databases.query({
-          database_id: databaseId,
-          filter: {
-            property: "Order #",
-            rich_text: { equals: req.params.orderId },
-          },
-        })
-      ).results[0];
-      const orderEmail = text(page?.properties?.["Email"]).trim().toLowerCase();
-      if (!page || !emails.includes(orderEmail)) {
+      const order = await OrderStore.get(req.params.orderId);
+      const orderEmail = (order?.email || "").trim().toLowerCase();
+      if (!order || !emails.includes(orderEmail)) {
         res
           .status(404)
           .json({ error: "We couldn't find that order on your account." });
         return;
       }
-      if (!isReviewableOrderPage(page)) {
+      if (!isReviewableOrder(order)) {
         res.status(409).json({
           error:
             "You can review this order once it has been delivered or picked up.",
         });
         return;
       }
-      const path = await ReviewService.reviewPathForOrderPage(page);
+      const path = await ReviewService.reviewPathForOrder(order);
       if (!path) {
         res
           .status(422)

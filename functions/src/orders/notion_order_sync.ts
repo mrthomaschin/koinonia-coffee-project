@@ -4,21 +4,18 @@ import { createLogger } from "../logger";
 import {
   AdminOrder,
   fulfillmentFromNotion,
-  FulfillmentStatus,
   legacyStatus,
-  NOTION_FULFILLMENT,
   OrderItem,
   paymentFromNotion,
 } from "./order_model";
 
 /**
- * Keeps orders/{id} in step with the Notion "Online Orders" database while web
- * checkout still writes there. Notion is read, never changed, except for the
- * fulfillment status set from the dashboard (setNotionFulfillment).
+ * Imports orders that exist only in Notion's "Online Orders" database (the
+ * one-time migration, and any order still created there by an old cached
+ * checkout page or by hand) into orders/{id}.
  *
- * Orders that already exist in Firestore from another source (subscription
- * checkouts) keep their own money and item fields; only the fulfillment,
- * shipping and email fields come from Notion.
+ * Firestore is the source of truth: an order that already exists there is
+ * never changed from Notion, apart from linking its Notion page.
  */
 const logger = createLogger("notion_order_sync");
 
@@ -129,7 +126,8 @@ export const orderFromNotionPage = (page: any, now: string): AdminOrder | null =
   };
 };
 
-/** Fields Notion owns even on orders that started in Firestore. */
+
+/** Fields taken from Notion during the one-time cutover reconcile. */
 const OPERATIONAL_FIELDS: (keyof AdminOrder)[] = [
   "seq", "paymentStatus", "fulfillmentStatus", "shippingLabelPrice", "firstTimer", "shipmentId",
   "trackingNumber", "trackingCarrier", "shippingService", "trackingLabelUrl", "receiptUrl",
@@ -152,12 +150,19 @@ export interface SyncResult {
  * `full`). Safe to run repeatedly: unchanged pages are skipped by their
  * last-edited time.
  */
-export const syncNotionOrders = async (options: { full?: boolean } = {}): Promise<SyncResult> => {
+export const syncNotionOrders = async (
+  options: {
+    full?: boolean;
+    // Cutover only: also copy Notion's latest status, tracking and email flags
+    // onto orders that already exist, so Firestore starts from Notion's state.
+    reconcile?: boolean;
+  } = {},
+): Promise<SyncResult> => {
   const db = getDatabase();
   const stateRef = db.doc(STATE_DOC);
   const state = (await stateRef.get()).data() as { lastEditedCursor?: string } | undefined;
   // Notion's last_edited_time is minute-precision; overlap so nothing is missed.
-  const since = options.full || !state?.lastEditedCursor
+  const since = options.full || options.reconcile || !state?.lastEditedCursor
     ? null
     : new Date(Date.parse(state.lastEditedCursor) - 2 * 60 * 1000).toISOString();
 
@@ -202,16 +207,25 @@ export const syncNotionOrders = async (options: { full?: boolean } = {}): Promis
         result.created += 1;
         return;
       }
+      if (options.reconcile) {
+        const current = snapshot.data() as Partial<AdminOrder>;
+        const changes = current.origin === "notion"
+          // accountId is set by account linking, never by Notion.
+          ? { ...order, ...(current.accountId ? { accountId: current.accountId } : {}) }
+          : Object.fromEntries(OPERATIONAL_FIELDS.map((field) => [field, order[field]]));
+        batch.set(refs[index], changes, { merge: true });
+        result.updated += 1;
+        return;
+      }
+      // Firestore is the source of truth: existing orders are never
+      // overwritten from Notion. The only thing taken is the page link, for
+      // orders that were created in Firestore and mirrored there.
       const current = snapshot.data() as Partial<AdminOrder>;
-      if (current.notion?.lastEditedAt === order.notion!.lastEditedAt && !options.full) {
+      if (current.notion?.pageId) {
         result.unchanged += 1;
         return;
       }
-      const changes = current.origin === "notion"
-        // accountId is set by account linking, never by Notion.
-        ? { ...order, ...(current.accountId ? { accountId: current.accountId } : {}) }
-        : Object.fromEntries(OPERATIONAL_FIELDS.map((field) => [field, order[field]]));
-      batch.set(refs[index], changes, { merge: true });
+      batch.set(refs[index], { notion: order.notion }, { merge: true });
       result.updated += 1;
     });
     await batch.commit();
@@ -221,13 +235,4 @@ export const syncNotionOrders = async (options: { full?: boolean } = {}): Promis
   await stateRef.set({ lastEditedCursor: newestEdit || now, lastRunAt: now, lastResult: result }, { merge: true });
   logger.info("Notion orders synced", result);
   return result;
-};
-
-/** Sets the order's Fulfillment status in Notion, which the email automation watches. */
-export const setNotionFulfillment = async (pageId: string, status: FulfillmentStatus): Promise<string> => {
-  const page: any = await getNotionClient().pages.update({
-    page_id: pageId,
-    properties: { Fulfillment: { status: { name: NOTION_FULFILLMENT[status] } } } as any,
-  });
-  return page.last_edited_time;
 };

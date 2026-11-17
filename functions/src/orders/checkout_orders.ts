@@ -2,6 +2,7 @@ import { randomInt } from "crypto";
 import { getDatabase } from "../integrations/firebase_admin";
 import { getStripeClient } from "../integrations/stripe/stripe_client";
 import { createLogger } from "../logger";
+import { newPaidOrderStatus } from "./order_model";
 import type { CheckoutQuote, DeliveryInput } from "../services/checkout_pricing";
 
 /**
@@ -196,8 +197,7 @@ export const recordPaidCheckout = async (paymentIntentId: string): Promise<{ ord
     phone: details.phone,
     createdAt: new Date(paymentIntent.created * 1000).toISOString(),
     status: "completed",
-    paymentStatus: "paid",
-    fulfillmentStatus: "pending",
+    ...newPaidOrderStatus(),
     totalAmount: cents(paymentIntent.amount_received || quote.total),
     subtotal: cents(quote.subtotal),
     discountCode: quote.discount?.code || null,
@@ -223,10 +223,6 @@ export const recordPaidCheckout = async (paymentIntentId: string): Promise<{ ord
     trackingLabelUrl: null,
     paymentIntentId,
     receiptUrl: `https://dashboard.stripe.com/payments/${paymentIntentId}`,
-    emails: {
-      orderConfirmed: false, shipped: false, outForDelivery: false, delivered: false,
-      readyForPickup: false, pickedUp: false, reviewRequest: false, reviewReminder: false,
-    },
     notion: null,
     fulfillment: {},
     updatedAt: now,

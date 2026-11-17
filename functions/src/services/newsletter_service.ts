@@ -27,7 +27,7 @@ import {
   WelcomeCode,
   welcomeCodesNeedingReminder,
 } from "../repositories/welcome_code_repository";
-import { hasPreviousOrders } from "../repositories/notion_discount_repository";
+import { OrderStore } from "../orders/order_store";
 
 const logger = createLogger("newsletter");
 
@@ -246,7 +246,7 @@ export class NewsletterService {
         if (!isWelcomeCodeActive(code)) continue;
         const subscribed = (await NewsletterService.getPreferences(code.email))
           .some((newsletter) => newsletter.subscribed);
-        if (subscribed && !(await hasPreviousOrders([code.email]))) {
+        if (subscribed && !(await OrderStore.hasPreviousOrders([code.email]))) {
           await sendResendTemplate({
             to: code.email,
             template: RESEND_TEMPLATES.newsletterDiscountReminder,

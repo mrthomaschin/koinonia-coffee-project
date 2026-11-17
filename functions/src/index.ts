@@ -454,12 +454,17 @@ app.post("/get-shipping-rates", StripeService.getShippingRates);
 // Buy the label for a paid web checkout (the rate saved on the payment)
 app.post("/checkout/purchase-label", StripeService.purchaseCheckoutLabel);
 
-// Test endpoint for order status check (manual trigger)
-app.post("/test-order-status-check", async (req: Request, res: Response) => NotionService.handleTestOrderStatus(req, res));
+// Runs the order status-email job now (admin only). It reads Firestore orders
+// and sends each email at most once, like the hourly schedule.
+app.post("/test-order-status-check", requireAdmin, async (_req: Request, res: Response) => {
+  await EmailService.handleOrderStatusUpdates();
+  res.json({ ok: true });
+});
 
-// Export as a separate function for direct access (matches documentation)
-export const testOrderStatusCheck = onRequest(async (req: Request, res: Response) => {
-  NotionService.handleTestOrderStatus(req, res);
+// Retired: this public URL used to run the old Notion-based status emails.
+// Kept so deploys don't have to delete it; use /test-order-status-check instead.
+export const testOrderStatusCheck = onRequest(async (_req: Request, res: Response) => {
+  res.status(410).json({ error: "Retired. Use POST /test-order-status-check with the admin token." });
 });
 
 // Scheduled function to check for order status updates and send notifications
@@ -650,7 +655,9 @@ export const adminApi = onRequest(
     memory: "256MiB",
     // A full Notion order import can take a few minutes.
     timeoutSeconds: 300,
-    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID"],
+    // Notion: the import tool and best-effort copies. Resend + EasyPost: the
+    // status email sent right after a fulfillment change.
+    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID", "RESEND_API_KEY", "EASYPOST_API_KEY"],
   },
   adminApp,
 );

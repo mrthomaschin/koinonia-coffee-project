@@ -1,19 +1,17 @@
 import { createLogger } from "../logger";
 import { getShipmentStatus } from "./easypost_service";
-import { getNotionClient } from "../integrations/notion/notion_client";
 import {
   RESEND_TEMPLATES,
   sendResendTemplate,
 } from "../integrations/email/resend_client";
 import { discountRowHtml, itemRowHtml } from "../integrations/email/email_html";
 import { STORE_NOTIFICATION_EMAIL } from "../config/site";
-import { orderPurchaseDate, ReviewService } from "./review_service";
+import { ReviewService } from "./review_service";
+import { carrierName, itemsFormatted, itemsSummary, OrderStore } from "../orders/order_store";
+import { OrderRepository } from "../orders/order_repository";
+import type { AdminOrder, FulfillmentStatus, OrderEmailFlags } from "../orders/order_model";
 
 const logger = createLogger("email");
-
-const getNotion = () => {
-  return getNotionClient();
-};
 
 const STORE_NAME = "Koinonia Coffee Project";
 
@@ -484,414 +482,167 @@ export class EmailService {
     });
   }
 
-  static async handleOrderStatusUpdates(event?: any): Promise<void> {
+  /**
+   * Scheduled: sends each order's shipped, out-for-delivery, delivered,
+   * ready-for-pickup and picked-up emails, once each. Shipping progress comes
+   * from EasyPost tracking, or from the status set in the dashboard. Reads and
+   * records everything on the Firestore order; Notion gets a best-effort copy.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static async handleOrderStatusUpdates(_event?: unknown): Promise<void> {
     try {
-      logger.info("Starting order status check...");
-
-      const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-
-      if (!databaseId) {
-        logger.error("NOTION_ONLINE_ORDERS_DATABASE_ID not configured");
-        return;
-      }
-
       if (!process.env.RESEND_API_KEY) {
         logger.error("RESEND_API_KEY not configured");
         return;
       }
-
-      const notion = getNotion();
-
-      // Every order still waiting on its final (delivered or picked up) email,
-      // read page by page so none are missed once there are more than 100.
-      const openOrders: any[] = [];
-      let cursor: string | undefined;
-      do {
-        const response = await notion.databases.query({
-          database_id: databaseId,
-          start_cursor: cursor,
-          page_size: 100,
-          filter: {
-            and: [
-              { property: "Delivered Email Sent", checkbox: { equals: false } },
-              { property: "Picked Up Email Sent", checkbox: { equals: false } },
-            ],
-          },
-        });
-        openOrders.push(...response.results);
-        cursor = response.has_more
-          ? response.next_cursor || undefined
-          : undefined;
-      } while (cursor);
-
+      const openOrders = await OrderStore.awaitingStatusEmails();
       logger.info(`Found ${openOrders.length} orders awaiting status emails`);
-
-      for (const page of openOrders) {
-        if (!("properties" in page)) continue;
-
-        const properties = page.properties;
-
-        // Extract order data
-        const fulfillmentProp = properties["Fulfillment"];
-        const shippedEmailSentProp = properties["Shipped Email Sent"];
-        const outForDeliveryEmailSentProp =
-          properties["Out For Delivery Email Sent"];
-        const deliveredEmailSentProp = properties["Delivered Email Sent"];
-        const pickedUpEmailSentProp = properties["Picked Up Email Sent"];
-        const readyForPickupEmailSentProp =
-          properties["Ready For Pickup Email Sent"];
-        const emailProp = properties["Email"];
-        const customerProp = properties["Customer"];
-        const orderIdProp = properties["Order #"];
-        const itemsOrderedProp = properties["Items ordered"];
-        const itemsOrderedFormattedProp = properties["Items ordered formatted"];
-        const shippingAddressProp = properties["Shipping address"];
-        const trackingCarrierProp = properties["Tracking Carrier"];
-        const trackingInfoProp = properties["Tracking Info"];
-        const shipmentIdProp = properties["Shipment ID"];
-
-        if (
-          fulfillmentProp?.type !== "status" ||
-          shippedEmailSentProp?.type !== "checkbox" ||
-          outForDeliveryEmailSentProp?.type !== "checkbox" ||
-          deliveredEmailSentProp?.type !== "checkbox" ||
-          emailProp?.type !== "email" ||
-          customerProp?.type !== "title" ||
-          orderIdProp?.type !== "rich_text"
-        ) {
-          continue;
-        }
-
-        const shippedEmailSent = shippedEmailSentProp.checkbox;
-        const outForDeliveryEmailSent = outForDeliveryEmailSentProp.checkbox;
-        const deliveredEmailSent = deliveredEmailSentProp.checkbox;
-        const pickedUpEmailSent =
-          pickedUpEmailSentProp?.type === "checkbox" &&
-          pickedUpEmailSentProp.checkbox;
-        const readyForPickupEmailSent =
-          readyForPickupEmailSentProp?.type === "checkbox" &&
-          readyForPickupEmailSentProp.checkbox;
-        const fulfillmentStatus =
-          fulfillmentProp?.type === "status"
-            ? (fulfillmentProp.status as any)?.name
-            : "";
-        const customerEmail = emailProp.email as string;
-        const customerFullName =
-          (customerProp.title as any)[0]?.plain_text || "Customer";
-        const customerName = EmailService.getFirstName(customerFullName);
-        const orderId = (orderIdProp.rich_text as any)[0]?.plain_text || "N/A";
-        const itemsOrdered = (
-          itemsOrderedProp?.type === "rich_text"
-            ? (itemsOrderedProp.rich_text as any)[0]?.plain_text || ""
-            : ""
-        ) as string;
-        const shippingAddress =
-          shippingAddressProp?.type === "rich_text"
-            ? (shippingAddressProp.rich_text as any)[0]?.plain_text || "N/A"
-            : "N/A";
-        const trackingCarrier =
-          trackingCarrierProp?.type === "select"
-            ? (trackingCarrierProp.select as any)?.name || ""
-            : "";
-        const trackingInfo =
-          trackingInfoProp?.type === "rich_text"
-            ? (trackingInfoProp.rich_text as any)[0]?.plain_text || ""
-            : "";
-        const shipmentId =
-          shipmentIdProp?.type === "rich_text"
-            ? (shipmentIdProp.rich_text as any)[0]?.plain_text || ""
-            : "";
-
-        if (!customerEmail) {
-          logger.warn(`Order ${orderId} has no email address, skipping`);
-          continue;
-        }
-
-        const queueReviewRequest = () =>
-          ReviewService.queueReviewRequest({
-            orderId,
-            email: customerEmail,
-            customerFullName,
-            purchaseDate: orderPurchaseDate(page),
-            itemsFormatted:
-              itemsOrderedFormattedProp?.type === "rich_text"
-                ? (itemsOrderedFormattedProp.rich_text as any)
-                    .map((part: any) => part.plain_text)
-                    .join("")
-                : "",
-            notionOrderPageId: page.id,
-          }).catch((error: Error) =>
-            logger.error(
-              `Failed to queue review request for ${orderId}:`,
-              error,
-            ),
-          );
-
-        // Parse items for HTML rendering
-        const itemsHtml: string = EmailService.parseItemsToHtml(itemsOrdered);
-
-        // Check EasyPost shipment status instead of Notion fulfillment status
-        let easyPostStatus = "unknown";
-        let estimatedDelivery = "";
-        if (shipmentId) {
-          const shipmentStatus = await getShipmentStatus(shipmentId);
-          if (shipmentStatus) {
-            easyPostStatus = shipmentStatus.status;
-            estimatedDelivery = shipmentStatus.estimatedDelivery || "";
-            logger.info(
-              `EasyPost status for order ${orderId}: ${easyPostStatus}, estimated delivery: ${estimatedDelivery}`,
-            );
-          }
-        }
-
-        // Check if we need to send "Shipped" notification based on EasyPost status or Notion fulfillment status
-        if (
-          (easyPostStatus === "in_transit" ||
-            fulfillmentStatus === "Shipped") &&
-          !shippedEmailSent
-        ) {
-          logger.info(
-            `Sending shipped notification for order ${orderId} (EasyPost status: ${easyPostStatus})`,
-          );
-
-          try {
-            await EmailService.sendShippedNotification({
-              toEmail: customerEmail,
-              customerName,
-              orderId,
-              itemsHtml,
-              shippingAddress,
-              trackingCarrier,
-              trackingInfo,
-              estimatedDelivery,
-            });
-
-            // Mark shipped email as sent and update fulfillment status in Notion
-            await notion.pages.update({
-              page_id: page.id,
-              properties: {
-                "Shipped Email Sent": {
-                  checkbox: true,
-                },
-                Fulfillment: {
-                  status: {
-                    name: "Shipped",
-                  },
-                },
-              },
-            });
-
-            logger.info(
-              `✅ Shipped notification sent and Notion updated for order ${orderId}`,
-            );
-          } catch (error) {
-            logger.error(
-              `Failed to send shipped notification for ${orderId}:`,
-              error,
-            );
-          }
-        }
-
-        // Check if we need to send "Out For Delivery" notification based on EasyPost status or Notion fulfillment status
-        if (
-          (easyPostStatus === "out_for_delivery" ||
-            fulfillmentStatus === "Out for delivery") &&
-          !outForDeliveryEmailSent
-        ) {
-          logger.info(
-            `Sending out for delivery notification for order ${orderId} (EasyPost status: ${easyPostStatus})`,
-          );
-
-          try {
-            await EmailService.sendOutForDeliveryNotification({
-              toEmail: customerEmail,
-              customerName,
-              orderId,
-              itemsHtml,
-              trackingCarrier,
-              trackingInfo,
-              deliveryDate: new Date().toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              }),
-            });
-
-            // Mark out for delivery email as sent in Notion
-            await notion.pages.update({
-              page_id: page.id,
-              properties: {
-                "Out For Delivery Email Sent": {
-                  checkbox: true,
-                },
-                Fulfillment: {
-                  status: {
-                    name: "Out for delivery",
-                  },
-                },
-              },
-            });
-
-            logger.info(
-              `✅ Out for delivery notification sent for order ${orderId}`,
-            );
-          } catch (error) {
-            logger.error(
-              `Failed to send out for delivery notification for ${orderId}:`,
-              error,
-            );
-          }
-        }
-
-        // Check if we need to send "Delivered" notification based on EasyPost status or Notion fulfillment status
-        if (
-          (easyPostStatus === "delivered" ||
-            fulfillmentStatus === "Delivered") &&
-          !deliveredEmailSent
-        ) {
-          logger.info(
-            `Sending delivered notification for order ${orderId} (EasyPost status: ${easyPostStatus})`,
-          );
-
-          try {
-            await EmailService.sendDeliveredNotification({
-              toEmail: customerEmail,
-              customerName,
-              orderId,
-              itemsHtml,
-              deliveryDate: new Date().toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              }),
-            });
-
-            // Mark delivered email as sent and update fulfillment status in Notion
-            await notion.pages.update({
-              page_id: page.id,
-              properties: {
-                "Delivered Email Sent": {
-                  checkbox: true,
-                },
-                Fulfillment: {
-                  status: {
-                    name: "Delivered",
-                  },
-                },
-              },
-            });
-
-            logger.info(
-              `✅ Delivered notification sent and Notion updated for order ${orderId}`,
-            );
-            await queueReviewRequest();
-          } catch (error) {
-            logger.error(
-              `Failed to send delivered notification for ${orderId}:`,
-              error,
-            );
-          }
-        }
-
-        // Check if we need to send "Picked up" notification based on the Notion fulfillment status
-        if (
-          fulfillmentStatus === "Picked up" &&
-          pickedUpEmailSentProp?.type === "checkbox" &&
-          !pickedUpEmailSent
-        ) {
-          logger.info(`Sending picked up notification for order ${orderId}`);
-
-          try {
-            await EmailService.sendPickedUpNotification({
-              toEmail: customerEmail,
-              customerName,
-              orderId,
-              itemsHtml,
-              pickupDate: new Date().toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              }),
-            });
-
-            await notion.pages.update({
-              page_id: page.id,
-              properties: {
-                "Picked Up Email Sent": {
-                  checkbox: true,
-                },
-                Fulfillment: {
-                  status: {
-                    name: "Picked up",
-                  },
-                },
-              },
-            });
-
-            logger.info(
-              `✅ Picked up notification sent and Notion updated for order ${orderId}`,
-            );
-            await queueReviewRequest();
-          } catch (error) {
-            logger.error(
-              `Failed to send picked up notification for ${orderId}:`,
-              error,
-            );
-          }
-        }
-
-        // Check if we need to send "Ready for pickup" notification based on the Notion fulfillment status
-        if (
-          fulfillmentStatus === "Ready for pickup" &&
-          readyForPickupEmailSentProp?.type === "checkbox" &&
-          !readyForPickupEmailSent
-        ) {
-          logger.info(
-            `Sending ready for pickup notification for order ${orderId}`,
-          );
-
-          try {
-            await EmailService.sendReadyForPickupNotification({
-              toEmail: customerEmail,
-              customerName,
-              orderId,
-              itemsHtml,
-              readyDate: new Date().toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              }),
-            });
-
-            await notion.pages.update({
-              page_id: page.id,
-              properties: {
-                "Ready For Pickup Email Sent": {
-                  checkbox: true,
-                },
-                Fulfillment: {
-                  status: {
-                    name: "Ready for pickup",
-                  },
-                },
-              },
-            });
-
-            logger.info(
-              `✅ Ready for pickup notification sent and Notion updated for order ${orderId}`,
-            );
-          } catch (error) {
-            logger.error(
-              `Failed to send ready for pickup notification for ${orderId}:`,
-              error,
-            );
-          }
-        }
+      for (const order of openOrders) {
+        await EmailService.sendDueStatusEmails(order);
       }
 
       logger.info("Order status check completed");
     } catch (error) {
       logger.error("Error checking order status updates:", error);
+    }
+  }
+
+  /**
+   * Sends whichever status emails one order is due (shipped, out for
+   * delivery, delivered, ready for pickup, picked up), each at most once.
+   * Called by the hourly job, and right after a dashboard status change.
+   */
+  static async sendDueStatusEmails(order: AdminOrder): Promise<void> {
+    if (order.paymentStatus !== "paid") return;
+    const today = () =>
+      new Date().toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/Los_Angeles",
+      });
+    if (!order.email) {
+      logger.warn(`Order ${order.id} has no email address, skipping`);
+      return;
+    }
+    const customerName = EmailService.getFirstName(order.customerName);
+    const itemsHtml = EmailService.parseItemsToHtml(itemsSummary(order));
+    const trackingCarrier = carrierName(order);
+    const trackingInfo = order.trackingNumber || "";
+    const status = order.fulfillmentStatus;
+    const recordSent = async (
+      flag: keyof OrderEmailFlags,
+      newStatus: FulfillmentStatus,
+      label: string,
+    ) => {
+      await OrderStore.markEmailSent(order, flag, newStatus);
+      await OrderRepository.addEvent(order.id, {
+        type: "email",
+        actor: null,
+        message: `${label} email sent to ${order.email}`,
+      });
+      logger.info(`${label} email sent`, { orderId: order.id });
+    };
+    const queueReviewRequest = () =>
+      ReviewService.queueReviewRequest({
+        orderId: order.id,
+        email: order.email,
+        customerFullName: order.customerName,
+        purchaseDate: order.createdAt,
+        itemsFormatted: itemsFormatted(order),
+        ...(order.notion?.pageId
+          ? { notionOrderPageId: order.notion.pageId }
+          : {}),
+      }).catch((error: Error) =>
+        logger.error(`Failed to queue review request for ${order.id}:`, error),
+      );
+
+    // Shipping progress from EasyPost tracking, when the order has a shipment.
+    let easyPostStatus = "unknown";
+    let estimatedDelivery = "";
+    if (order.shipmentId && !order.isLocalPickup) {
+      const shipmentStatus = await getShipmentStatus(order.shipmentId);
+      if (shipmentStatus) {
+        easyPostStatus = shipmentStatus.status;
+        estimatedDelivery = shipmentStatus.estimatedDelivery || "";
+      }
+    }
+
+    try {
+      if (
+        (easyPostStatus === "in_transit" || status === "shipped") &&
+        !order.emails.shipped
+      ) {
+        await EmailService.sendShippedNotification({
+          toEmail: order.email,
+          customerName,
+          orderId: order.id,
+          itemsHtml,
+          shippingAddress: order.shippingAddress || "N/A",
+          trackingCarrier,
+          trackingInfo,
+          estimatedDelivery,
+        });
+        await recordSent("shipped", "shipped", "Shipped");
+      }
+
+      if (
+        (easyPostStatus === "out_for_delivery" ||
+          status === "out_for_delivery") &&
+        !order.emails.outForDelivery
+      ) {
+        await EmailService.sendOutForDeliveryNotification({
+          toEmail: order.email,
+          customerName,
+          orderId: order.id,
+          itemsHtml,
+          trackingCarrier,
+          trackingInfo,
+          deliveryDate: today(),
+        });
+        await recordSent("outForDelivery", "out_for_delivery", "Out for delivery");
+      }
+
+      if (
+        (easyPostStatus === "delivered" || status === "delivered") &&
+        !order.emails.delivered
+      ) {
+        await EmailService.sendDeliveredNotification({
+          toEmail: order.email,
+          customerName,
+          orderId: order.id,
+          itemsHtml,
+          deliveryDate: today(),
+        });
+        await recordSent("delivered", "delivered", "Delivered");
+        await queueReviewRequest();
+      }
+
+      if (status === "ready_for_pickup" && !order.emails.readyForPickup) {
+        await EmailService.sendReadyForPickupNotification({
+          toEmail: order.email,
+          customerName,
+          orderId: order.id,
+          itemsHtml,
+          readyDate: today(),
+        });
+        await recordSent("readyForPickup", "ready_for_pickup", "Ready for pickup");
+      }
+
+      if (status === "picked_up" && !order.emails.pickedUp) {
+        await EmailService.sendPickedUpNotification({
+          toEmail: order.email,
+          customerName,
+          orderId: order.id,
+          itemsHtml,
+          pickupDate: today(),
+        });
+        await recordSent("pickedUp", "picked_up", "Picked up");
+        await queueReviewRequest();
+      }
+    } catch (error) {
+      // The flag isn't set, so the next run tries this order again.
+      logger.error(`Failed to send a status email for ${order.id}:`, error);
     }
   }
 }

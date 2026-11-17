@@ -9,7 +9,9 @@ import {
   PaymentStatus,
 } from "../orders/order_model";
 import { OrderRepository } from "../orders/order_repository";
-import { setNotionFulfillment, syncNotionOrders } from "../orders/notion_order_sync";
+import { syncNotionOrders } from "../orders/notion_order_sync";
+import { OrderStore } from "../orders/order_store";
+import { EmailService } from "../services/email_service";
 
 type Handler = (req: Request, res: Response) => Promise<void>;
 const route = (handler: Handler) => (req: Request, res: Response, next: NextFunction) =>
@@ -44,13 +46,18 @@ ordersRouter.get("/statuses", requirePermission("orders.read"), route(async (_re
   });
 }));
 
-// Pulls Notion order changes now instead of waiting for the scheduled sync.
+// Imports Notion-only orders now instead of waiting for the scheduled sync.
 // `full: true` re-reads every Notion order (the first import uses this).
+// `reconcile: true` (Owner, once, at cutover) also copies Notion's latest
+// status, tracking and email flags onto existing orders.
 ordersRouter.post("/sync", requirePermission("settings.edit"), route(async (req, res) => {
-  const result = await syncNotionOrders({ full: req.body?.full === true });
-  if (req.body?.full === true) {
+  const full = req.body?.full === true;
+  const reconcile = req.body?.reconcile === true;
+  if (reconcile && currentStaff(res).role !== "owner") return fail(res, 403, "Only an Owner can reconcile from Notion.");
+  const result = await syncNotionOrders({ full, reconcile });
+  if (full || reconcile) {
     await AuditLog.record(currentStaff(res), {
-      action: "orders.import_from_notion",
+      action: reconcile ? "orders.reconcile_from_notion" : "orders.import_from_notion",
       target: { type: "orders", id: "notion" },
       after: result,
     });
@@ -74,27 +81,23 @@ ordersRouter.patch("/:id/fulfillment", requirePermission("orders.fulfill"), rout
     return;
   }
 
-  // Notion first: its email automation sends the shipped/delivered/pickup
-  // emails from this status. If Notion rejects the change, nothing is saved.
+  // Firestore is the record; the status-email job reads it and emails the
+  // customer within a few minutes. Notion gets a best-effort copy.
   const staff = currentStaff(res);
-  let notionLastEditedAt: string | null = null;
-  if (order.notion?.pageId) {
-    try {
-      notionLastEditedAt = await setNotionFulfillment(order.notion.pageId, status);
-    } catch (error) {
-      return fail(res, 502, `Notion didn't accept the change, so nothing was saved: ${(error as Error).message}`);
-    }
-  }
-  await OrderRepository.update(order.id, {
-    fulfillmentStatus: status,
-    ...(order.notion && notionLastEditedAt ? { notion: { ...order.notion, lastEditedAt: notionLastEditedAt } } : {}),
-  });
+  await OrderRepository.update(order.id, { fulfillmentStatus: status });
+  await OrderStore.copyToNotion(order, { Fulfillment: { status: { name: NOTION_FULFILLMENT[status] } } });
   await OrderRepository.addEvent(order.id, {
     type: "fulfillment",
     actor: { email: staff.email, name: staff.name },
     message: `Marked ${NOTION_FULFILLMENT[status]}`,
     data: { from: order.fulfillmentStatus, to: status },
   });
+  // Send the customer's email for the new status now rather than at the next
+  // hourly run. A failure here is retried by that run.
+  const changed = await OrderRepository.get(order.id);
+  if (changed) {
+    await EmailService.sendDueStatusEmails(changed).catch(() => undefined);
+  }
   await AuditLog.record(staff, {
     action: "order.fulfillment",
     target: { type: "order", id: order.id },

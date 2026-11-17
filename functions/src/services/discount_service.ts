@@ -10,9 +10,8 @@ import {
   DiscountCodeLookup,
   findAutomaticDiscountCodes,
   findDiscountCode,
-  hasPreviousOrders,
-  hasUsedDiscountCode,
 } from "../repositories/notion_discount_repository";
+import { OrderStore } from "../orders/order_store";
 import {
   findWelcomeCode,
   isWelcomeCodeActive,
@@ -141,13 +140,13 @@ const ruleViolation = async (
       message: "This code can't be combined with partner pricing.",
     };
   }
-  if (discount.firstOrderOnly && (await hasPreviousOrders(context.emails))) {
+  if (discount.firstOrderOnly && (await OrderStore.hasPreviousOrders(context.emails))) {
     return {
       reason: "first-order",
       message: "This code is only valid on your first order.",
     };
   }
-  if (entered && (await hasUsedDiscountCode(context.emails, discount.code))) {
+  if (entered && (await OrderStore.hasUsedDiscountCode(context.emails, discount.code))) {
     return {
       reason: "already-used",
       message: "You've already used this code.",

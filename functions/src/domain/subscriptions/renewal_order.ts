@@ -1,5 +1,6 @@
 import type { Address } from "../../services/easypost_service";
 import type { SubscriptionParcel } from "../shipping/parcel_rules";
+import type { FulfillmentStatus, OrderEmailFlags, PaymentStatus } from "../../orders/order_model";
 
 /** The EasyPost quote a renewal was priced with; fulfillment buys this exact rate. */
 export interface RenewalShippingQuote {
@@ -65,6 +66,10 @@ export interface RenewalOrder {
     shipping: RenewalShippingQuote | null;
   };
   fulfillment: RenewalFulfillment;
+  // Read by the status-email job and the dashboard (see orders/order_model).
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
+  emails: OrderEmailFlags;
   shipmentId?: string;
   trackingNumber?: string;
   trackingLabelUrl?: string;
