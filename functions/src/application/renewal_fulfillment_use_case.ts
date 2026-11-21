@@ -2,15 +2,13 @@ import { DocumentReference, FieldValue, Firestore } from "firebase-admin/firesto
 import { createLogger } from "../logger";
 import { purchaseShipmentOnce } from "../services/easypost_service";
 import { EmailService } from "../services/email_service";
-import { AccountService } from "../services/account_service";
-import { attachRenewalReceipt } from "../repositories/notion_order_repository";
+import { generateReceipt, storeCurrentLabel } from "../orders/order_documents";
 import { RenewalFulfillment, RenewalOrder } from "../domain/subscriptions/renewal_order";
 
 const logger = createLogger("renewal-fulfillment");
 
 /**
- * Completes a paid renewal order: Notion projection, shipping label, receipt,
- * and emails. Payment has already succeeded, so nothing here can charge the
+ * Completes a paid renewal order: shipping label, stored receipt and label, and emails. Payment has already succeeded, so nothing here can charge the
  * customer. Each step records its completion on the order, and a retried
  * trigger resumes at the first unfinished step.
  */
@@ -24,12 +22,6 @@ export class RenewalFulfillmentUseCase {
     const done = order.fulfillment || {};
 
     try {
-      // Mirror first so operations sees the paid order even if a later step fails.
-      if (!done.notionSyncedAt) {
-        await AccountService.syncOrderMirrorById(orderId);
-        await this.mark(orderRef, { notionSyncedAt: new Date().toISOString() });
-      }
-
       const shipping = order.renewal.shipping;
       if (shipping && !done.labelPurchasedAt) {
         const shipment = await purchaseShipmentOnce(shipping.toAddress, shipping.rateId, shipping.parcel, shipping.easypostShipmentId);
@@ -42,13 +34,10 @@ export class RenewalFulfillmentUseCase {
           shippingLabelPrice: shipment.shippingPrice || shipping.estimatedLabelPrice,
           "fulfillment.labelPurchasedAt": new Date().toISOString(),
         });
-        // Re-mirror so the Notion page carries tracking and the label.
-        await AccountService.syncOrderMirrorById(orderId);
       }
 
-      if (!done.receiptAttachedAt && await attachRenewalReceipt(order)) {
-        await this.mark(orderRef, { receiptAttachedAt: new Date().toISOString() });
-      }
+      await storeCurrentLabel(orderId);
+      await generateReceipt(orderId);
 
       const itemName = order.items.map((item) => `${item.name} (${item.selections.weight})`).join(", ");
       const quantity = order.items.reduce((sum, item) => sum + item.quantity, 0);

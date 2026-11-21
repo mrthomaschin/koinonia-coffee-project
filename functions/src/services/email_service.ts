@@ -515,6 +515,8 @@ export class EmailService {
   static async sendDueStatusEmails(order: AdminOrder): Promise<void> {
     // Partly refunded orders still ship; fully refunded or unpaid ones don't.
     if (order.paymentStatus !== "paid" && order.paymentStatus !== "partially_refunded") return;
+    // Cancelled orders get no shipping or pickup emails.
+    if (order.fulfillmentStatus === "cancelled") return;
     const today = () =>
       new Date().toLocaleDateString("en-US", {
         month: "long",

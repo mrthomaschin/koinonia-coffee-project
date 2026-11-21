@@ -9,8 +9,7 @@ import {
   PaymentStatus,
 } from "../orders/order_model";
 import { OrderRepository } from "../orders/order_repository";
-import { syncNotionOrders } from "../orders/notion_order_sync";
-import { OrderStore } from "../orders/order_store";
+import { DocumentNotFound, generateReceipt, readDocument } from "../orders/order_documents";
 import { EmailService } from "../services/email_service";
 import {
   decideRefund,
@@ -24,6 +23,7 @@ import {
 import { hasPermission, REFUND_APPROVAL_THRESHOLD_CENTS } from "./permissions";
 import { BOXES, buyLabel, getLabelInfo, LabelError, quoteLabel, voidCurrentLabel } from "../orders/labels";
 import { fulfillCheckoutOrder, isServerFulfilled } from "../orders/checkout_fulfillment";
+import { PrintError, printOrderManually } from "../orders/printing";
 import type { AdminOrder } from "../orders/order_model";
 import {
   deleteOrder,
@@ -74,23 +74,36 @@ ordersRouter.get("/statuses", requirePermission("orders.read"), route(async (_re
   });
 }));
 
-// Imports Notion-only orders now instead of waiting for the scheduled sync.
-// `full: true` re-reads every Notion order (the first import uses this).
-// `reconcile: true` (Owner, once, at cutover) also copies Notion's latest
-// status, tracking and email flags onto existing orders.
-ordersRouter.post("/sync", requirePermission("settings.edit"), route(async (req, res) => {
-  const full = req.body?.full === true;
-  const reconcile = req.body?.reconcile === true;
-  if (reconcile && currentStaff(res).role !== "owner") return fail(res, 403, "Only an Owner can reconcile from Notion.");
-  const result = await syncNotionOrders({ full, reconcile });
-  if (full || reconcile) {
-    await AuditLog.record(currentStaff(res), {
-      action: reconcile ? "orders.reconcile_from_notion" : "orders.import_from_notion",
-      target: { type: "orders", id: "notion" },
-      after: result,
+// Receipts and purchased labels are private in Cloud Storage; staff read them here.
+const sendDocument = async (req: Request, res: Response, kind: "receipt" | "label", labelId?: string) => {
+  try {
+    const file = await readDocument(req.params.id as string, kind, labelId);
+    res.set({
+      "Content-Type": file.contentType,
+      "Content-Disposition": `${req.query.download === "1" ? "attachment" : "inline"}; filename="${file.filename.replace(/[^\w .()-]/g, "_")}"`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
     });
+    res.send(file.bytes);
+  } catch (error) {
+    if (error instanceof DocumentNotFound) return fail(res, 404, error.message);
+    throw error;
   }
-  res.json(result);
+};
+
+ordersRouter.get("/:id/documents/receipt", requirePermission("orders.read"), route((req, res) => sendDocument(req, res, "receipt")));
+ordersRouter.get("/:id/documents/labels/:shipmentId", requirePermission("orders.read"), route((req, res) =>
+  sendDocument(req, res, "label", req.params.shipmentId as string)));
+
+// Makes (or remakes) the Pictify receipt, for orders that don't have one.
+ordersRouter.post("/:id/documents/receipt", requirePermission("orders.edit"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id as string);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const ok = await generateReceipt(order.id, { replace: req.body?.replace === true });
+  if (!ok) return fail(res, 502, "Couldn't make the receipt. Try again in a minute.");
+  const staff = currentStaff(res);
+  await AuditLog.record(staff, { action: "order.receipt", target: { type: "order", id: order.id } });
+  res.json({ order: await OrderRepository.get(order.id) });
 }));
 
 ordersRouter.get("/:id", requirePermission("orders.read"), route(async (req, res) => {
@@ -113,7 +126,6 @@ ordersRouter.patch("/:id/fulfillment", requirePermission("orders.fulfill"), rout
   // customer within a few minutes. Notion gets a best-effort copy.
   const staff = currentStaff(res);
   await OrderRepository.update(order.id, { fulfillmentStatus: status });
-  await OrderStore.copyToNotion(order, { Fulfillment: { status: { name: NOTION_FULFILLMENT[status] } } });
   await OrderRepository.addEvent(order.id, {
     type: "fulfillment",
     actor: { email: staff.email, name: staff.name },
@@ -318,6 +330,23 @@ ordersRouter.post("/:id/label/void", requirePermission("orders.fulfill"), route(
     res.json({ status });
   } catch (error) {
     if (!labelError(res, error)) throw error;
+  }
+}));
+
+// Sends stored documents to the shop's printer. Body: { documents: ["receipt", "label:shp_…"] }, printed in that order.
+ordersRouter.post("/:id/print", requirePermission("orders.fulfill"), route(async (req, res) => {
+  const order = await OrderRepository.get(req.params.id);
+  if (!order) return fail(res, 404, "No order with that number.");
+  const documents = Array.isArray(req.body?.documents) ? req.body.documents.filter((d: unknown) => typeof d === "string").slice(0, 10) : [];
+  const staff = currentStaff(res);
+  try {
+    const printing = await printOrderManually(order, documents, staff);
+    await AuditLog.record(staff, { action: "order.print", target: { type: "order", id: order.id }, after: printing });
+    if (printing.status === "failed") return fail(res, 502, `Couldn't print: ${printing.error}`);
+    res.json({ printing, order: await OrderRepository.get(order.id), events: await OrderRepository.events(order.id) });
+  } catch (error) {
+    if (error instanceof PrintError) return fail(res, error.status, error.message);
+    throw error;
   }
 }));
 

@@ -13,6 +13,7 @@ import { StripeService } from "./services/stripe_services";
 import { AccountService, getAllEventsCalendarDetails, refreshAllEventsCalendar } from "./services/account_service";
 import { getDatabase } from "./integrations/firebase_admin";
 import { ALLOWED_ORIGINS } from "./config/site";
+import { generateReceipt, storeCurrentLabel } from "./orders/order_documents";
 import { RenewalFulfillmentUseCase } from "./application/renewal_fulfillment_use_case";
 import { MAX_REVIEW_PHOTO_BYTES, ReviewService } from "./services/review_service";
 import { MonthlyMetricsService } from "./services/monthly_metrics_service";
@@ -23,7 +24,6 @@ import { adminApp } from "./admin/admin_app";
 import { contentSource } from "./content/content_source";
 import { inventoryWithLiveStock, markInventoryJobCurrent, rebuildInventoryCache } from "./content/inventory_publish";
 import { takeOrderFromStock } from "./content/products_store";
-import { syncNotionOrders } from "./orders/notion_order_sync";
 import { fulfillCheckoutOrder, isServerFulfilled } from "./orders/checkout_fulfillment";
 import { sweepPaidCheckouts } from "./orders/checkout_orders";
 
@@ -359,28 +359,17 @@ export const syncSubscriptionToNotion = onDocumentWritten(
   }
 );
 
-// Project durable orders to the operations database. This keeps Notion
-// independent of the customer's redirect/browser state and makes retries safe.
-// Renewal orders are projected by fulfillRenewalOrder, in sequence with their
-// label purchase, so the two triggers never race to create the same page.
+// Placeholders for functions that no longer exist. Keeping the exports means a
+// deploy never stops to ask about deleting them. They are inert: the schedule
+// is yearly and the trigger watches a collection nothing writes to.
+export const syncNotionOrdersToFirestore = onSchedule(
+  { region: "us-central1", schedule: "0 0 1 1 *", timeZone: "America/Los_Angeles" },
+  async () => undefined,
+);
+
 export const syncAccountOrderToNotion = onDocumentWritten(
-  { ...notionMirrorOptions, document: "orders/{orderId}" },
-  async (event) => {
-    if (!event.data?.after.exists) return;
-    const after = event.data.after.data();
-    // Renewal, web checkout and dashboard-created orders are mirrored by their own code.
-    if (after?.source === "subscription-renewal" || after?.source === "web-checkout" || after?.source === "manual") return;
-    if (after?.serverFulfilled) return;
-    // Orders that came from Notion, and writes made by the Notion sync or the
-    // admin dashboard, must not be mirrored back (see src/orders/).
-    if (after?.origin === "notion") return;
-    const before = event.data.before.exists ? event.data.before.data() : undefined;
-    if (after?.notion?.syncedAt && after.notion.syncedAt !== before?.notion?.syncedAt) return;
-    if (after?.adminUpdatedAt && after.adminUpdatedAt !== before?.adminUpdatedAt) return;
-    if (await hasProcessedEvent("syncAccountOrderToNotion", event.id)) return;
-    await AccountService.syncOrderMirrorById(event.params.orderId);
-    await markEventProcessed("syncAccountOrderToNotion", event.id, event.params.orderId);
-  }
+  { region: "us-central1", document: "retired_placeholders/{id}" },
+  async () => undefined,
 );
 
 // When a customer creates an account after placing guest orders, associate
@@ -676,7 +665,7 @@ export const shopPageMeta = onRequest(
 export const adminApi = onRequest(
   {
     region: "us-central1",
-    // A full Notion order import can take a few minutes.
+    // Backfilling order documents can take a few minutes.
     timeoutSeconds: 300,
     // Notion: the import tool and best-effort copies. Resend + EasyPost: the
     // status email sent right after a fulfillment change.
@@ -685,6 +674,10 @@ export const adminApi = onRequest(
       // One-time imports of events, discount codes and reviews.
       "NOTION_ALL_EVENTS_DATABASE_ID", "NOTION_DISCOUNT_CODES_DATABASE_ID", "NOTION_PRODUCT_REVIEWS_DATABASE_ID",
       "NOTION_INVENTORY_DATABASE_ID",
+      // Receipts made on demand.
+      "PICTIFY_API_KEY", "PICTIFY_RECEIPT_TEMPLATE_UID",
+      // PrintNode (optional): when it's set up, create the PRINTNODE_API_KEY secret and add it
+      // here and to fulfillWebCheckoutOrder. Listing a secret that doesn't exist fails the deploy.
     ],
     // Image uploads are resized in memory.
     memory: "1GiB",
@@ -692,27 +685,23 @@ export const adminApi = onRequest(
   adminApp,
 );
 
-// Keeps the dashboard's orders in step with Notion while web checkout still
-// writes there. Only pages edited since the last run are read.
-export const syncNotionOrdersToFirestore = onSchedule(
-  {
-    region: "us-central1",
-    schedule: "every 5 minutes",
-    timeZone: "America/Los_Angeles",
-    timeoutSeconds: 300,
-    secrets: ["NOTION_TOKEN", "NOTION_ONLINE_ORDERS_DATABASE_ID"],
-  },
-  async () => {
-    await syncNotionOrders();
-  },
-);
-
-// Finishes a paid web checkout order: Notion page, label, receipt, emails.
+// Finishes a paid web checkout order: label, emails.
 // Same secrets and retry behavior as renewal fulfillment.
 export const fulfillWebCheckoutOrder = onDocumentCreated(
+  // Auto-print with PrintNode needs "PRINTNODE_API_KEY" added to these secrets (see adminApi).
+  // Until then autoPrintOrder does nothing: auto-print can't be switched on without a key.
   { ...subscriptionRenewalOptions, document: "orders/{orderId}", retry: true },
   async (event) => {
-    if (!isServerFulfilled(event.data?.data())) return;
+    const order = event.data?.data();
+    if (!isServerFulfilled(order)) {
+      // Subscription orders finished by the browser-driven flow have no server
+      // fulfillment, but still get their receipt and label copies for staff.
+      if (order?.source === "subscription-checkout" && Array.isArray(order.items) && order.items.length) {
+        await storeCurrentLabel(event.params.orderId);
+        await generateReceipt(event.params.orderId);
+      }
+      return;
+    }
     await fulfillCheckoutOrder(event.params.orderId);
   },
 );

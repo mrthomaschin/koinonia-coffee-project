@@ -19,6 +19,7 @@ export const FULFILLMENT_STATUSES = [
   "ready_for_pickup",
   "picked_up",
   "delivered",
+  "cancelled",
 ] as const;
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
 
@@ -35,6 +36,7 @@ export const NOTION_FULFILLMENT: Record<FulfillmentStatus, string> = {
   ready_for_pickup: "Ready for pickup",
   picked_up: "Picked up",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 export const NOTION_PAYMENT: Record<PaymentStatus, string> = {
@@ -140,14 +142,52 @@ export interface AdminOrder {
   receiptUrl: string | null;
   emails: OrderEmailFlags;
   notion: { pageId: string; lastEditedAt: string; syncedAt: string } | null;
+  documents?: OrderDocuments;
+  // The last time this order's receipt or label was sent to the printer.
+  printing?: OrderPrinting;
   updatedAt: string;
+}
+
+/** A file kept in Cloud Storage for an order; only adminApi serves it. */
+export interface OrderDocument {
+  path: string;
+  contentType: string;
+  size: number;
+  storedAt: string;
+  source: "generated" | "notion" | "easypost";
+}
+
+export interface LabelDocument extends OrderDocument {
+  shipmentId: string;
+  trackingNumber: string | null;
+  carrier: string | null;
+}
+
+/** Stored at orders/{id}.documents: the receipt, and each purchased label by shipment id. */
+export interface OrderDocuments {
+  receipt?: OrderDocument;
+  labels?: Record<string, LabelDocument>;
+}
+
+/** The last print of an order's documents (orders/printing.ts). */
+export interface OrderPrinting {
+  // "browser": the PDF was opened in the dashboard to print; "printnode": sent straight to the printer.
+  via?: "browser" | "printnode";
+  at: string;
+  status: "sent" | "failed";
+  // "receipt" and "label:<shipment id>", in print order.
+  documents: string[];
+  jobIds: number[];
+  // A staff email, or "auto".
+  by: string;
+  error: string | null;
 }
 
 /** One line on an order's timeline, at orders/{id}/events/{auto id}. */
 export interface OrderEvent {
   id: string;
   at: string;
-  type: "note" | "fulfillment" | "imported" | "email" | "refund" | "label";
+  type: "note" | "fulfillment" | "imported" | "email" | "refund" | "label" | "print";
   actor: { email: string; name: string } | null;
   message: string;
   data?: Record<string, unknown>;

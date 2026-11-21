@@ -38,6 +38,21 @@ export interface Initiative {
     href: string;
     label: string;
   };
+  /** Partner logos shown under the copy. */
+  partners?: Partner[];
+}
+
+export interface Partner {
+  name: string;
+  /** Logo path under /public; transparent PNG or SVG. */
+  logo: string;
+  /**
+   * Rendered logo height in px. Logos differ in shape (a round badge vs. a
+   * wide wordmark), so each one is sized by eye to look balanced in the row.
+   */
+  height: number;
+  /** Partner's site; opens in a new tab. Leave out to show the logo unlinked. */
+  href?: string;
 }
 
 export const initiatives: Initiative[] = [
@@ -51,10 +66,10 @@ export const initiatives: Initiative[] = [
       src: "/assets/images/IMG_2147.jpg",
       alt: "People sharing coffee and conversation together",
     },
-    // link: {
-    //   href: "/church-partnership",
-    //   label: "LEARN ABOUT THE PROGRAM",
-    // },
+    link: {
+      href: "/partners?type=nonprofit",
+      label: "SEE OUR NON-PROFIT PARTNERS",
+    },
   },
   {
     slug: "sustainable-sourcing",
@@ -66,10 +81,22 @@ export const initiatives: Initiative[] = [
       src: "/assets/images/daniella-5.png",
       alt: "People sharing coffee and conversation together",
     },
-    // link: {
-    //   href: "/church-partnership",
-    //   label: "LEARN ABOUT THE PROGRAM",
-    // },
+    partners: [
+      {
+        name: "Cima Café",
+        logo: "/assets/images/cima_cafe_transparent.png",
+        height: 88,
+      },
+      {
+        name: "Unblended",
+        logo: "/assets/images/Logo_UNBLND_2-removebg-preview.png",
+        height: 26,
+      },
+    ],
+    link: {
+      href: "/partners?type=coffee-exporter",
+      label: "MEET OUR COFFEE PARTNERS",
+    },
   },
   {
     slug: "church-partnership",

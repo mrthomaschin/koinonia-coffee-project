@@ -1,22 +1,18 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getDatabase } from "../integrations/firebase_admin";
 import { getEasyPostClient } from "../integrations/easypost/easypost_client";
-import { getNotionClient } from "../integrations/notion/notion_client";
 import { createLogger } from "../logger";
-import { AccountService } from "../services/account_service";
 import { purchaseShipmentOnce } from "../services/easypost_service";
 import { EmailService, PurchaseItem } from "../services/email_service";
-import { attachOrderReceipt } from "../repositories/notion_order_repository";
+import { generateReceipt, storeCurrentLabel } from "./order_documents";
+import { autoPrintOrder } from "./printing";
 
 /**
- * Finishes a paid web checkout order after it's created: Notion page, label,
- * receipt, customer confirmation and store notification. Payment has
+ * Finishes a paid web checkout order after it's created: label, stored receipt and label,
+ * customer confirmation and store notification. Payment has
  * already succeeded, so nothing here charges the customer. Each step records
  * when it finished on the order (`fulfillment.*`), and a retried trigger
  * resumes at the first unfinished one.
- *
- * Notion stays in the loop until its shipping-status emails, reviews and
- * discount checks read Firestore (next migration step).
  */
 const logger = createLogger("checkout_fulfillment");
 
@@ -46,16 +42,6 @@ interface CheckoutOrder {
   fulfillment?: Record<string, string>;
 }
 
-const findNotionPageId = async (orderId: string): Promise<string | null> => {
-  const databaseId = process.env.NOTION_ONLINE_ORDERS_DATABASE_ID;
-  if (!databaseId) throw new Error("NOTION_ONLINE_ORDERS_DATABASE_ID is not configured");
-  const result = await getNotionClient().databases.query({
-    database_id: databaseId,
-    filter: { property: "Order #", rich_text: { equals: orderId } },
-  });
-  return result.results[0]?.id ?? null;
-};
-
 /** Orders this module fulfills: web checkouts, and subscription checkouts set up on the server. */
 export const isServerFulfilled = (order: { source?: string; serverFulfilled?: boolean } | undefined): boolean =>
   !!order && (order.source === "web-checkout" || (order.source === "subscription-checkout" && order.serverFulfilled === true));
@@ -69,16 +55,6 @@ export const fulfillCheckoutOrder = async (orderId: string): Promise<void> => {
     orderRef.update({ [`fulfillment.${step}`]: new Date().toISOString(), ...extra });
 
   try {
-    // Notion first, so the order shows up for packing even if a later step fails.
-    if (!done.notionSyncedAt) {
-      await AccountService.syncOrderMirrorById(orderId, { allowGuest: true });
-      // Link the page now, so a dashboard status change reaches Notion (and its
-      // emails) before the next scheduled sync.
-      const pageId = await findNotionPageId(orderId);
-      const now = new Date().toISOString();
-      await mark("notionSyncedAt", pageId ? { notion: { pageId, lastEditedAt: "", syncedAt: now } } : {});
-    }
-
     if (!order.isLocalPickup && order.shipmentId && order.shippingRateId && !done.labelPurchasedAt) {
       // The shipment and rate quoted at checkout, never ones the browser sends.
       const shipment: any = await getEasyPostClient().Shipment.retrieve(order.shipmentId);
@@ -98,30 +74,14 @@ export const fulfillCheckoutOrder = async (orderId: string): Promise<void> => {
         shippingLabelPrice: label.shippingPrice ?? null,
         shippingBox: length ? `${length}x${width}x${height}` : null,
       });
-      // Re-mirror so the Notion page carries tracking and the label.
-      await AccountService.syncOrderMirrorById(orderId, { allowGuest: true });
     }
 
-    if (!done.receiptAttachedAt) {
-      const attached = await attachOrderReceipt({
-        id: order.id,
-        customerName: order.customerName,
-        email: order.email,
-        billingAddress: order.billingAddress || "N/A",
-        items: order.items.map((item) => ({
-          name: item.name, sku: item.sku, quantity: item.quantity, price: item.price,
-          ...(item.selections?.variations ? { variations: item.selections.variations } : {}),
-        })),
-        subtotal: order.subtotal,
-        shipping: order.shippingCharged,
-        tax: order.taxAmount,
-        totalAmount: order.totalAmount,
-        createdAt: order.createdAt,
-        paymentIntentId: order.paymentIntentId,
-        ...(order.discountCode ? { discountCode: order.discountCode } : {}),
-      });
-      if (attached) await mark("receiptAttachedAt");
-    }
+    // Receipt and label copies for staff (Cloud Storage). Neither can hold up the customer's emails.
+    await storeCurrentLabel(orderId);
+    await generateReceipt(orderId);
+
+    // Receipt, then label, on the shop's printer (when auto-print is on). Never throws.
+    if (!done.printedAt && await autoPrintOrder(orderId)) await mark("printedAt");
 
     const items: PurchaseItem[] = order.items.map((item) => ({
       name: item.name,
@@ -152,14 +112,6 @@ export const fulfillCheckoutOrder = async (orderId: string): Promise<void> => {
         orderId: order.id,
       });
       await mark("customerEmailSentAt", { "emails.orderConfirmed": true });
-      // Keep Notion's checkbox in step while it's still the operations view.
-      const pageId = await findNotionPageId(order.id);
-      if (pageId) {
-        await getNotionClient().pages.update({
-          page_id: pageId,
-          properties: { "Order Confirmed Email Sent": { checkbox: true } } as any,
-        });
-      }
     }
 
     if (!done.purchaseNotificationSentAt) {

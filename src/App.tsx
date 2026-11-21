@@ -36,6 +36,7 @@ import { AccountProvider } from './contexts/AccountContext';
 import SEO from './components/SEO';
 import ChurchPartnership from './pages/church-partnership/ChurchPartnership';
 import Initiatives from './pages/initiatives/Initiatives';
+import Partners from './pages/partners/Partners';
 import ReviewPage from './pages/review/ReviewPage';
 import ReviewUnsubscribePage from './pages/review/ReviewUnsubscribePage';
 import { PrivacyPolicyPage, RefundPolicyPage, TermsOfServicePage } from './pages/legal/LegalPage';
@@ -139,6 +140,7 @@ const MainContent: React.FC = () => {
           ))}
           <Route path={`/${PAGES.CHURCH_PARTNERSHIP}`} element={<ChurchPartnership />} />
           <Route path={`/${PAGES.INITIATIVES}`} element={<Initiatives />} />
+          <Route path={`/${PAGES.PARTNERS}`} element={<Partners />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/calendar/:eventId" element={<EventDetail />} />
           <Route

@@ -119,6 +119,13 @@ const staticRoutes = [
   },
   { path: "/initiatives", source: "src/pages/initiatives" },
   {
+    path: "/partners",
+    source: "src/pages/partners",
+    seoTitle: "Our Partners | Koinonia Coffee Project",
+    description:
+      "The non-profits and coffee exporters Koinonia Coffee Project works with, from the farms our coffee comes from to the organizations we give back to.",
+  },
+  {
     path: "/contact",
     source: "src/pages/contact",
     seoTitle: "Contact Koinonia Coffee Project",

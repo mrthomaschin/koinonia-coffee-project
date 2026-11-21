@@ -6,6 +6,7 @@ export const PAGES = {
   CATERING: 'catering',
   CHURCH_PARTNERSHIP: 'church-partnership',
   INITIATIVES: 'initiatives',
+  PARTNERS: 'partners',
   CALENDAR: 'calendar',
   CONTACT: 'contact',
   CART: 'cart',

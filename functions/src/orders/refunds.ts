@@ -3,9 +3,8 @@ import { getStripeClient } from "../integrations/stripe/stripe_client";
 import { createLogger } from "../logger";
 import { REFUND_APPROVAL_THRESHOLD_CENTS } from "../admin/permissions";
 import type { StaffMember } from "../admin/staff_repository";
-import { AdminOrder, NOTION_PAYMENT } from "./order_model";
+import { AdminOrder } from "./order_model";
 import { OrderRepository } from "./order_repository";
-import { OrderStore } from "./order_store";
 
 /**
  * Refunds, at refunds/{id} (one document per refund, with its orderId).
@@ -95,7 +94,6 @@ const applyToOrder = async (order: AdminOrder): Promise<void> => {
     paymentStatus,
     status: full ? "canceled" : "completed",
   } as Partial<AdminOrder>);
-  if (full) await OrderStore.copyToNotion(order, { Status: { status: { name: NOTION_PAYMENT.refunded } } });
 };
 
 const executeStripeRefund = async (order: AdminOrder, refund: Refund): Promise<Refund> => {

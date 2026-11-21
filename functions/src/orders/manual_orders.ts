@@ -1,10 +1,10 @@
 import { getDatabase } from "../integrations/firebase_admin";
 import { createLogger } from "../logger";
 import type { StaffMember } from "../admin/staff_repository";
-import { AccountService } from "../services/account_service";
 import { EmailService } from "../services/email_service";
 import { newOrderId } from "./checkout_orders";
 import { AdminOrder, newPaidOrderStatus } from "./order_model";
+import { generateReceipt } from "./order_documents";
 import { OrderRepository } from "./order_repository";
 
 /**
@@ -205,11 +205,10 @@ export const createManualOrder = async (input: ManualOrderInput, staff: StaffMem
       (input.note ? `\n${input.note}` : ""),
   });
 
-  // Best-effort: the Notion copy (needs an email) and the confirmation email.
-  if (input.customer.email) {
-    await AccountService.syncOrderMirrorById(id, { allowGuest: true }).catch((error: Error) =>
-      logger.warn("Couldn't copy manual order to Notion", { orderId: id, error: error.message }));
-  }
+  // Receipt for staff (Cloud Storage). Best-effort.
+  if (input.payment.paid) await generateReceipt(id);
+
+  // Best-effort confirmation email.
   if (input.sendConfirmation) {
     try {
       await EmailService.sendCustomerConfirmation({
@@ -227,7 +226,7 @@ export const createManualOrder = async (input: ManualOrderInput, staff: StaffMem
         orderDate: createdAt,
         orderId: id,
       });
-      await OrderRepository.update(id, { "emails.orderConfirmed": true } as Record<string, unknown>);
+      await OrderRepository.update(id, { emails: { orderConfirmed: true } } as Record<string, unknown>);
       await OrderRepository.addEvent(id, { type: "email", actor: null, message: `Order confirmation sent to ${input.customer.email}` });
     } catch (error) {
       logger.warn("Couldn't send manual order confirmation", { orderId: id, error: (error as Error).message });

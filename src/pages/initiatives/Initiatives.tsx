@@ -89,6 +89,39 @@ const Initiatives: React.FC = () => {
               <h3 id={`${initiative.slug}-title`}>{initiative.title}</h3>
               <p>{initiative.summary}</p>
               {initiative.link && <InitiativeLink link={initiative.link} />}
+              {initiative.partners && initiative.partners.length > 0 && (
+                <div className="initiative-partners">
+                  <Eyebrow>IN PARTNERSHIP WITH</Eyebrow>
+                  <ul>
+                    {initiative.partners.map((partner) => {
+                      const logo = (
+                        <img
+                          src={partner.logo}
+                          alt={partner.name}
+                          style={{ height: partner.height }}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      );
+                      return (
+                        <li key={partner.name}>
+                          {partner.href ? (
+                            <a
+                              href={partner.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {logo}
+                            </a>
+                          ) : (
+                            logo
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
           </article>
         ))}

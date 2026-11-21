@@ -4,7 +4,9 @@ import type { StaffMember } from "../admin/staff_repository";
 import { Address, fetchShippingRates, Parcel, ShippingRate } from "../services/easypost_service";
 import { AdminOrder } from "./order_model";
 import { OrderRepository } from "./order_repository";
-import { carrierName, OrderStore } from "./order_store";
+import { storeCurrentLabel } from "./order_documents";
+import { autoPrintLabel } from "./printing";
+import { carrierName } from "./order_store";
 
 /**
  * Shipping labels from the order page: see the current label, get rates for
@@ -167,12 +169,7 @@ export const buyLabel = async (
       bought.to_address?.state, bought.to_address?.zip, bought.to_address?.country].filter(Boolean).join(", ") || order.shippingAddress,
   };
   await OrderRepository.update(order.id, changes as Partial<AdminOrder>);
-  await OrderStore.copyToNotion(order, {
-    "Tracking Info": { rich_text: [{ text: { content: changes.trackingNumber || "" } }] },
-    "Shipment ID": { rich_text: [{ text: { content: changes.shipmentId } }] },
-    "Tracking Label": { url: changes.trackingLabelUrl },
-    "Shipping Price": { number: changes.shippingLabelPrice },
-  });
+  await storeCurrentLabel(order.id);
   await OrderRepository.addEvent(order.id, {
     type: "label",
     actor: { email: staff.email, name: staff.name },
@@ -181,6 +178,8 @@ export const buyLabel = async (
       (previous ? (input.voidPrevious ? ` and voided the previous label${voidStatus?.startsWith("failed") ? ` (void ${voidStatus})` : ""}` : "; the previous label was kept") : ""),
     data: { shipmentId: bought.id, trackingNumber: changes.trackingNumber, previousShipmentId: previous, voidStatus },
   });
+  // A replacement label prints straight away when auto-print is on.
+  if (bought.id !== order.shipmentId) await autoPrintLabel(order.id, bought.id);
   return (await OrderRepository.get(order.id))!;
 };
 

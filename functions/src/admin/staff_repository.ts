@@ -20,6 +20,14 @@ export interface StaffMember {
   createdAt: string;
   updatedAt: string;
   lastSignInAt: string | null;
+  // Profile details the person edits themselves (absent on older records).
+  phone?: string;
+  title?: string;
+  // True once an Owner/Admin has given them an email + password login.
+  passwordSignIn?: boolean;
+  // True while they're still on a temporary password; the API blocks everything
+  // except /me and /me/password until they choose their own.
+  mustChangePassword?: boolean;
 }
 
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();

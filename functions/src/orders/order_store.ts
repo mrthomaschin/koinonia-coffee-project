@@ -1,7 +1,5 @@
 import { getDatabase } from "../integrations/firebase_admin";
-import { getNotionClient } from "../integrations/notion/notion_client";
-import { createLogger } from "../logger";
-import { AdminOrder, NOTION_FULFILLMENT, OrderEmailFlags } from "./order_model";
+import { AdminOrder, OrderEmailFlags } from "./order_model";
 import { OrderRepository } from "./order_repository";
 
 /**
@@ -9,7 +7,6 @@ import { OrderRepository } from "./order_repository";
  * the source of truth. Notion's Online Orders database is kept as a
  * best-effort copy while the team still has it open; nothing reads it back.
  */
-const logger = createLogger("order_store");
 
 const orders = () => getDatabase().collection("orders");
 
@@ -33,17 +30,6 @@ export const itemsFormatted = (order: AdminOrder): string =>
 export const itemsSummary = (order: AdminOrder): string =>
   order.itemsSummary ||
   order.items.map((item) => `${item.quantity}x ${item.name}`).join("\n");
-
-const NOTION_EMAIL_COLUMNS: Record<keyof OrderEmailFlags, string> = {
-  orderConfirmed: "Order Confirmed Email Sent",
-  shipped: "Shipped Email Sent",
-  outForDelivery: "Out For Delivery Email Sent",
-  delivered: "Delivered Email Sent",
-  readyForPickup: "Ready For Pickup Email Sent",
-  pickedUp: "Picked Up Email Sent",
-  reviewRequest: "Review Request Sent",
-  reviewReminder: "Review Reminder Sent",
-};
 
 const emailsOf = (emails: string[]) =>
   [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
@@ -79,31 +65,19 @@ export const OrderStore = {
 
   /**
    * Marks a customer email as sent and, optionally, moves the fulfillment
-   * status. Firestore first; Notion is updated best-effort.
+   * status. Recorded on the Firestore order.
    */
   async markEmailSent(
     order: AdminOrder,
     flag: keyof OrderEmailFlags,
     fulfillmentStatus?: AdminOrder["fulfillmentStatus"],
   ): Promise<void> {
+    // A nested object, not "emails.<flag>": update() uses set({merge: true}),
+    // which stores a dotted key as a literal top-level field name.
     await OrderRepository.update(order.id, {
-      [`emails.${flag}`]: true,
+      emails: { [flag]: true },
       ...(fulfillmentStatus ? { fulfillmentStatus } : {}),
     } as Record<string, unknown>);
-    await OrderStore.copyToNotion(order, {
-      [NOTION_EMAIL_COLUMNS[flag]]: { checkbox: true },
-      ...(fulfillmentStatus ? { Fulfillment: { status: { name: NOTION_FULFILLMENT[fulfillmentStatus] } } } : {}),
-    });
-  },
-
-  /** Best-effort update of the order's Notion page, if it has one. Never throws. */
-  async copyToNotion(order: AdminOrder, properties: Record<string, unknown>): Promise<void> {
-    if (!order.notion?.pageId) return;
-    try {
-      await getNotionClient().pages.update({ page_id: order.notion.pageId, properties: properties as any });
-    } catch (error) {
-      logger.warn("Couldn't copy order change to Notion", { orderId: order.id, error: (error as Error).message });
-    }
   },
 
   /** True when any of these emails has an order that used this code. */

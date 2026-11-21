@@ -26,6 +26,14 @@
 .initiative-copy p:not(.ui-eyebrow) { max-width:440px; margin:0 0 var(--space-5); color:var(--color-text-secondary); font-size:var(--size-body); line-height:var(--lh-body); }
 .initiative-copy p:last-child { margin-bottom:0; }
 
+/* Partner logos under an initiative's copy; each logo's height is set inline from initiativesData. */
+.initiative-partners { margin-top:var(--space-6); padding-top:var(--space-5); border-top:1px solid var(--color-hairline); max-width:440px; }
+.initiative-partners .ui-eyebrow { margin:0 0 var(--space-4); }
+.initiative-partners ul { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-4) var(--space-7); margin:0; padding:0; list-style:none; }
+.initiative-partners img { display:block; width:auto; max-width:100%; }
+.initiative-partners a { display:block; transition:opacity .2s ease; }
+.initiative-partners a:hover { opacity:.6; }
+
 @media (max-width:700px) {
   .initiatives-hero { grid-template-columns:1fr; }
   .initiatives-list>h2 { margin-bottom:var(--space-7); }

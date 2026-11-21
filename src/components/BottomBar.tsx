@@ -25,6 +25,9 @@ const BottomBar: React.FC = () => (
         <Link className="section-link" to={`/${PAGES.ABOUT}`}>
           About
         </Link>
+        <Link className="section-link" to={`/${PAGES.PARTNERS}`}>
+          Our partners
+        </Link>
         <Link className="section-link" to={`/${PAGES.CHURCH_PARTNERSHIP}`}>
           Church partnerships
         </Link>

@@ -3,7 +3,6 @@ import type { StaffMember } from "../admin/staff_repository";
 import { AccountAdmin } from "../services/account_service";
 import { AdminOrder } from "./order_model";
 import { OrderRepository } from "./order_repository";
-import { OrderStore } from "./order_store";
 import { hasStripePayment } from "./refunds";
 
 /**
@@ -77,14 +76,6 @@ export const editOrderDetails = async (order: AdminOrder, changes: DetailChanges
     }
   }
   await OrderRepository.update(order.id, update as Partial<AdminOrder>);
-
-  const notion: Record<string, unknown> = {};
-  if (changed.includes("customerName")) notion.Customer = { title: [{ text: { content: changes.customerName } }] };
-  if (changed.includes("email")) notion.Email = { email: changes.email || null };
-  if (changed.includes("phone")) notion.Phone = { phone_number: changes.phone || null };
-  if (changed.includes("shippingAddress")) notion["Shipping address"] = { rich_text: [{ text: { content: changes.shippingAddress || "" } }] };
-  if (changed.includes("orderPickupId")) notion["Order Pickup ID"] = { rich_text: [{ text: { content: changes.orderPickupId || "" } }] };
-  await OrderStore.copyToNotion(order, notion);
 
   await OrderRepository.addEvent(order.id, {
     type: "note",

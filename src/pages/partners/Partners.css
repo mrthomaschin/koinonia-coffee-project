@@ -1,0 +1,45 @@
+/* Same system as /initiatives: Marina intro band, then a Pearl list of rows. */
+.partners-page { color:var(--color-text); background:var(--color-bg); }
+.partners-page h1,.partners-page h2 { font-family:var(--font-heading); font-weight:400; }
+.partners-page p { font-family:var(--font-body); }
+.partners-page .ui-eyebrow { color:var(--color-text-secondary); }
+.partners-page .ui-text-link { border-bottom-color:currentColor; color:var(--color-text); transition:opacity .2s ease; }
+.partners-page .ui-text-link:hover { color:var(--color-text); opacity:.6; }
+
+.partners-hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--space-6) 8vw; align-items:end; padding:var(--space-section) var(--space-gutter); color:var(--color-pearl); background:var(--color-marina); }
+.partners-hero .ui-eyebrow,.partners-hero-copy p { color:rgba(248,245,235,.75); }
+.partners-hero h1 { margin:0; font-size:var(--size-page-title); line-height:var(--lh-title); letter-spacing:var(--tracking-title); }
+.partners-hero-copy p { max-width:480px; margin:0; font-size:var(--size-body); line-height:var(--lh-body); }
+
+.partners-list { padding:var(--space-section) var(--space-gutter); }
+
+/* Filter pills on the left, search on the right; they stack on phones. */
+.partners-controls { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-4); padding-bottom:var(--space-5); border-bottom:1px solid var(--color-hairline); }
+.partners-filters { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+.partners-filter { padding:var(--space-2) var(--space-4); border:1px solid var(--color-hairline); border-radius:999px; color:var(--color-text); background:transparent; font:var(--size-link)/1.2 var(--font-body); letter-spacing:var(--tracking-link); text-transform:uppercase; cursor:pointer; transition:background-color .2s ease,border-color .2s ease,color .2s ease; }
+.partners-filter:hover { border-color:var(--color-text); }
+.partners-filter[aria-pressed="true"] { border-color:var(--color-marina); color:var(--color-pearl); background:var(--color-marina); }
+.partners-filter:focus-visible,.partners-search input:focus-visible { outline:2px solid var(--color-marina); outline-offset:2px; }
+.partners-search { flex:0 1 280px; }
+.partners-search input { box-sizing:border-box; width:100%; padding:var(--space-2) var(--space-3); border:1px solid var(--color-hairline); border-radius:var(--radius-control); color:var(--color-text); background:transparent; font:var(--size-body) var(--font-body); }
+.partners-search input::placeholder { color:var(--color-text-muted); }
+
+.partners-count { margin:var(--space-4) 0 var(--space-7); color:var(--color-text-muted); font-size:var(--size-body-sm); }
+
+.partners-rows { margin:0; padding:0; list-style:none; }
+.partner-row { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,3fr); gap:6vw; align-items:center; scroll-margin-top:130px; }
+.partner-row+.partner-row { margin-top:var(--space-7); padding-top:var(--space-7); border-top:1px solid var(--color-hairline); }
+.partner-image { aspect-ratio:4/3; overflow:hidden; background:var(--color-bg-alt); }
+.partner-image img { display:block; width:100%; height:100%; object-fit:cover; }
+.partner-image--contain img { box-sizing:border-box; padding:12%; object-fit:contain; }
+.partner-copy h2 { margin:0 0 var(--space-3); font-size:var(--size-item-title); line-height:1.15; }
+.partner-copy p:not(.ui-eyebrow) { max-width:520px; margin:0 0 var(--space-5); color:var(--color-text-secondary); font-size:var(--size-body); line-height:var(--lh-body); }
+.partner-copy p:last-child { margin-bottom:0; }
+
+.partners-empty p { margin:0 0 var(--space-4); color:var(--color-text-secondary); font-size:var(--size-body); }
+
+@media (max-width:700px) {
+  .partners-hero { grid-template-columns:1fr; }
+  .partners-search { flex-basis:100%; }
+  .partner-row { grid-template-columns:1fr; gap:var(--space-5); }
+}
